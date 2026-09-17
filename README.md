@@ -26,9 +26,10 @@ UI و API هر دو روی همان پورت سرو می‌شوند.
 
 ## اشتراک با هم‌تیمی (دائمی)
 
-راهنمای کامل: [docs/DEPLOY.md](./docs/DEPLOY.md)
+- راهنمای خیلی سادهٔ Render (پیشنهادی): [docs/RENDER_FA.md](./docs/RENDER_FA.md)
+- بقیهٔ گزینه‌ها: [docs/DEPLOY.md](./docs/DEPLOY.md)
 
-خلاصه:
+خلاصهٔ Docker:
 
 ```bash
 docker compose up -d --build

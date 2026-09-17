@@ -31,10 +31,13 @@ curl "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
 
 ## گزینه ۲ — Render (رایگان/ارزان)
 
+راهنمای فارسی قدم‌به‌قدم: [RENDER_FA.md](./RENDER_FA.md)
+
+خلاصه:
 1. ریپو را به [Render](https://render.com) وصل کنید
 2. Blueprint از `render.yaml` بسازید
 3. Envها را پر کنید (`AUTH_PUBLIC_URL` = آدرس سرویس Render)
-4. Disk روی `/data` از قبل در blueprint تعریف شده
+4. Disk روی `/data` را فعال نگه دارید (برای ماندن دیتا ضروری است)
 
 ## گزینه ۳ — Fly.io
 
