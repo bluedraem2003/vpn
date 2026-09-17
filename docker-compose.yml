@@ -1,0 +1,23 @@
+services:
+  postyar:
+    build: .
+    image: postyar:local
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: "8080"
+      HOST: 0.0.0.0
+      DATABASE_PATH: /data/postyar.sqlite
+      SHARE_INVITE_LINKS: "1"
+      ALLOW_DEV_LOGIN: "0"
+      # Set AUTH_PUBLIC_URL to your public https URL (e.g. https://postyar.example.com)
+      # AUTH_PUBLIC_URL: https://postyar.example.com
+    volumes:
+      - postyar-data:/data
+    restart: unless-stopped
+
+volumes:
+  postyar-data:

@@ -939,6 +939,25 @@ a {
   margin: 1.5rem 0;
 }
 
+.invite-box {
+  margin: 0.75rem 0;
+  padding: 0.75rem 0.85rem;
+  border-radius: 12px;
+  background: rgba(27, 107, 99, 0.08);
+  border: 1px solid rgba(27, 107, 99, 0.18);
+  text-align: right;
+}
+
+.invite-code {
+  display: block;
+  word-break: break-all;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--ink, #1a1f24);
+  direction: ltr;
+  text-align: left;
+}
+
 @media (max-width: 980px) {
   .ops-shell {
     grid-template-columns: 1fr;

@@ -1,10 +1,10 @@
 # پست‌یار Content Ops
 
-وب‌اپلیکیشن مدیریت تولید محتوا (Instagram-first) با تقویم، گردش وضعیت، دارایی‌ها و لایهٔ Storage تلگرام.
+وب‌اپلیکیشن مدیریت تولید محتوا (Instagram-first) با تقویم، گردش وضعیت، دارایی‌ها، تیم و لایهٔ Storage تلگرام.
 
-استودیوی کپشن قبلی در مسیر `/studio` حفظ شده است.
+استودیوی کپشن در مسیر `/studio` حفظ شده است.
 
-## اجرا
+## اجرای توسعه
 
 ```bash
 cp .env.example .env
@@ -15,28 +15,35 @@ npm run dev
 - وب: `http://localhost:5173`
 - API: `http://127.0.0.1:8787`
 
-جداگانه:
+## اجرای production (یک پورت)
 
 ```bash
-npm run dev:web
-npm run dev:api
+npm run build
+NODE_ENV=production PORT=8080 npm start
 ```
+
+UI و API هر دو روی همان پورت سرو می‌شوند.
+
+## اشتراک با هم‌تیمی (دائمی)
+
+راهنمای کامل: [docs/DEPLOY.md](./docs/DEPLOY.md)
+
+خلاصه:
+
+```bash
+docker compose up -d --build
+```
+
+سپس از صفحهٔ **تیم** همکار را دعوت کنید و لینک ورود را برایش بفرستید.
 
 ## مستندات
 
-- [PRODUCT_AUDIT.md](./docs/PRODUCT_AUDIT.md) — معماری و Plan
+- [DEPLOY.md](./docs/DEPLOY.md) — استقرار دائمی + دعوت تیم
+- [PRODUCT_AUDIT.md](./docs/PRODUCT_AUDIT.md)
 - [ENVIRONMENT.md](./docs/ENVIRONMENT.md)
 - [TELEGRAM_SETUP.md](./docs/TELEGRAM_SETUP.md)
 
-## فاز فعلی
-
-✅ Domain + SQLite + Auth session  
-✅ Content / Calendar / Assets / Telegram webhook  
-✅ Ideas (Convert), Projects, Campaigns, Team, Search  
-✅ Analytics واقعی + Preview دارایی‌ها + Magic Link auth + Team invite  
-⏳ SMTP واقعی / Local Bot API / تقویم drag-drop
-
-## تست سریع API
+## تست API
 
 ```bash
 chmod +x scripts/smoke.sh

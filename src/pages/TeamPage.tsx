@@ -10,6 +10,7 @@ export function TeamPage() {
   const [name, setName] = useState('')
   const [role, setRole] = useState('editor')
   const [inviteLink, setInviteLink] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
 
   async function reload() {
     const res = await api.team()
@@ -23,15 +24,23 @@ export function TeamPage() {
   async function invite() {
     setError(null)
     setInviteLink(null)
+    setCopied(false)
     try {
       const res = await api.inviteMember({ email, name, role })
-      setInviteLink(res.invite.devMagicUrl)
+      const link = res.invite.inviteUrl || res.invite.devMagicUrl
+      setInviteLink(link)
       setEmail('')
       setName('')
       await reload()
     } catch (e) {
       setError((e as Error).message)
     }
+  }
+
+  async function copyInvite() {
+    if (!inviteLink) return
+    await navigator.clipboard.writeText(inviteLink)
+    setCopied(true)
   }
 
   const canInvite = session?.role === 'admin' || session?.role === 'manager'
@@ -41,21 +50,29 @@ export function TeamPage() {
       <header className="ops-page-head">
         <div>
           <h1>تیم</h1>
-          <p>اعضای ورک‌اسپیس، نقش‌ها و دعوت با Magic Link</p>
+          <p>اعضای ورک‌اسپیس را دعوت کنید و لینک ورود را برای هم‌تیمی بفرستید</p>
         </div>
       </header>
 
       <div className="ops-split">
         {canInvite && (
           <section className="panel panel-pad">
-            <h2 className="section-title">دعوت عضو</h2>
+            <h2 className="section-title">دعوت هم‌تیمی</h2>
+            <p className="section-sub">
+              بعد از دعوت، لینک یک‌بارمصرف را کپی کنید و در واتساپ/تلگرام برای همکارتان بفرستید.
+            </p>
             <div className="field">
               <label>ایمیل</label>
-              <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="editor@example.com" />
+              <input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="colleague@example.com"
+                autoComplete="email"
+              />
             </div>
             <div className="field">
               <label>نام</label>
-              <input value={name} onChange={(e) => setName(e.target.value)} />
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="نام همکار" />
             </div>
             <div className="field">
               <label>نقش</label>
@@ -69,12 +86,23 @@ export function TeamPage() {
             </div>
             {error && <p className="section-sub">{error}</p>}
             {inviteLink && (
-              <p className="section-sub">
-                لینک دعوت (dev): <code>{inviteLink}</code>
-              </p>
+              <div className="invite-box">
+                <p className="section-sub" style={{ marginBottom: '0.45rem' }}>
+                  لینک دعوت آماده است (۲۴ ساعت معتبر):
+                </p>
+                <code className="invite-code">{inviteLink}</code>
+                <div className="form-actions" style={{ marginTop: '0.65rem' }}>
+                  <button type="button" className="btn btn-solid btn-sm" onClick={() => void copyInvite()}>
+                    {copied ? 'کپی شد ✓' : 'کپی لینک دعوت'}
+                  </button>
+                  <a className="btn btn-outline btn-sm" href={inviteLink} target="_blank" rel="noreferrer">
+                    باز کردن
+                  </a>
+                </div>
+              </div>
             )}
-            <button type="button" className="btn btn-solid" onClick={() => void invite()}>
-              ارسال دعوت
+            <button type="button" className="btn btn-solid" onClick={() => void invite()} style={{ marginTop: '0.75rem' }}>
+              ساخت دعوت
             </button>
           </section>
         )}

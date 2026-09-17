@@ -8,8 +8,11 @@
     "dev:web": "vite",
     "dev:api": "tsx watch server/src/index.ts",
     "build": "tsc -b && vite build",
+    "start": "NODE_ENV=production tsx server/src/index.ts",
+    "start:prod": "npm run build && npm run start",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "share": "bash scripts/share.sh"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.1",
@@ -22,6 +25,7 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.4",
+    "tsx": "^4.23.13",
     "zod": "^4.6.5"
   },
   "devDependencies": {
@@ -33,7 +37,6 @@
     "drizzle-kit": "^0.31.10",
     "drizzle-orm": "^0.45.2",
     "oxlint": "^1.81.0",
-    "tsx": "^4.23.13",
     "typescript": "~6.0.2",
     "vite": "^8.3.0"
   }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { api } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 
 export function LoginGate({ children }: { children: React.ReactNode }) {
@@ -10,6 +11,17 @@ export function LoginGate({ children }: { children: React.ReactNode }) {
   const [magicUrl, setMagicUrl] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
+  const [allowDevLogin, setAllowDevLogin] = useState(false)
+
+  useEffect(() => {
+    void api
+      .bootstrap()
+      .then((b) => {
+        setAllowDevLogin(Boolean(b.allowDevLogin))
+        if (b.defaultEmail) setEmail(b.defaultEmail)
+      })
+      .catch(() => null)
+  }, [])
 
   useEffect(() => {
     const magic = params.get('magic')
@@ -38,26 +50,45 @@ export function LoginGate({ children }: { children: React.ReactNode }) {
             پ
           </div>
           <h1 className="section-title">ورود به پست‌یار</h1>
-          <p className="section-sub">ورود با Magic Link (رایگان/محلی) یا ورود سریع توسعه</p>
+          <p className="section-sub">
+            با لینک دعوت هم‌تیمی وارد شوید، یا اگر عضو هستید Magic Link بگیرید.
+          </p>
 
           <div className="field" style={{ textAlign: 'right' }}>
             <label>ایمیل</label>
-            <input value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@company.com"
+              autoComplete="email"
+            />
           </div>
 
           {(error || localError) && <p className="section-sub">{error || localError}</p>}
           {magicMsg && <p className="section-sub">{magicMsg}</p>}
           {magicUrl && (
-            <p className="section-sub">
-              لینک توسعه:{' '}
-              <button
-                type="button"
-                className="btn btn-outline btn-sm"
-                onClick={() => void loginWithMagic(new URL(magicUrl).searchParams.get('magic') || '')}
-              >
-                همین الان وارد شو
-              </button>
-            </p>
+            <div className="invite-box">
+              <p className="section-sub" style={{ marginBottom: '0.5rem' }}>
+                لینک ورود شما:
+              </p>
+              <code className="invite-code">{magicUrl}</code>
+              <div className="form-actions" style={{ marginTop: '0.65rem', justifyContent: 'center' }}>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={() => void navigator.clipboard.writeText(magicUrl)}
+                >
+                  کپی لینک
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-solid btn-sm"
+                  onClick={() => void loginWithMagic(new URL(magicUrl).searchParams.get('magic') || '')}
+                >
+                  همین الان وارد شو
+                </button>
+              </div>
+            </div>
           )}
 
           <div className="form-actions" style={{ justifyContent: 'center' }}>
@@ -71,30 +102,32 @@ export function LoginGate({ children }: { children: React.ReactNode }) {
                 void requestMagicLink(email)
                   .then((res) => {
                     setMagicMsg(res.message)
-                    setMagicUrl(res.devMagicUrl || null)
+                    setMagicUrl(res.inviteUrl || res.devMagicUrl || null)
                   })
                   .catch((e) => setLocalError((e as Error).message))
                   .finally(() => setBusy(false))
               }}
             >
-              ارسال Magic Link
+              دریافت لینک ورود
             </button>
-            <button
-              type="button"
-              className="btn btn-outline"
-              disabled={busy}
-              onClick={() => {
-                setBusy(true)
-                void login(email)
-                  .catch((e) => setLocalError((e as Error).message))
-                  .finally(() => setBusy(false))
-              }}
-            >
-              ورود سریع (dev)
-            </button>
+            {allowDevLogin && (
+              <button
+                type="button"
+                className="btn btn-outline"
+                disabled={busy}
+                onClick={() => {
+                  setBusy(true)
+                  void login(email)
+                    .catch((e) => setLocalError((e as Error).message))
+                    .finally(() => setBusy(false))
+                }}
+              >
+                ورود سریع (dev)
+              </button>
+            )}
           </div>
           <p className="section-sub" style={{ marginTop: '0.85rem' }}>
-            بدون SMTP: لینک در حالت توسعه در UI و لاگ سرور نمایش داده می‌شود.
+            عضو نیستید؟ از ادمین بخواهید از صفحه «تیم» دعوت‌تان کند.
           </p>
         </div>
       </div>

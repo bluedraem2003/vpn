@@ -4,18 +4,24 @@ Copy `.env.example` to `.env` and fill values.
 
 | Variable | Purpose |
 |----------|---------|
-| `PORT` | API port (default `8787`) |
-| `DATABASE_PATH` | SQLite file path |
+| `PORT` | Listen port (default `8080` in prod / `8787` in API-only) |
+| `HOST` | Bind address (`0.0.0.0` for containers) |
+| `NODE_ENV` | `production` enables static hosting + stricter defaults |
+| `DATABASE_PATH` | Absolute SQLite path (use `/data/postyar.sqlite` in Docker) |
+| `AUTH_PUBLIC_URL` | Public https base for magic/invite links |
+| `CORS_ORIGINS` | Extra allowed origins (comma-separated) |
+| `SHARE_INVITE_LINKS` | `1` = return invite URLs in API (needed without SMTP) |
+| `ALLOW_DEV_LOGIN` | `1` = enable passwordless `/api/auth/login` |
 | `TELEGRAM_BOT_TOKEN` | Bot token — server only |
-| `TELEGRAM_CHAT_ID` | Allowed private channel/group id |
+| `TELEGRAM_CHAT_ID` | Allowed channel/group id |
 | `TELEGRAM_WEBHOOK_SECRET` | Webhook header secret |
-| `TELEGRAM_API_BASE` | Default Bot API or Local Bot API base |
-| `AUTH_PUBLIC_URL` | Base URL for magic links (e.g. `http://127.0.0.1:5173`) |
-| `VITE_API_URL` | Frontend → API base URL |
+| `TELEGRAM_API_BASE` | Bot API or Local Bot API base |
+| `VITE_API_URL` | Leave empty when UI is same-origin with API |
+| `STATIC_DIR` | Optional override for Vite `dist/` folder |
 
 Never put secrets in the frontend bundle or git.
 
 ## Auth notes
 
-- Magic link works without paid email: in development the link is returned in API response + server logs.
-- For production email delivery, hook your mailer to `POST /api/auth/magic-link` without exposing `devMagicUrl`.
+- Magic / invite links work without SMTP when `SHARE_INVITE_LINKS=1` (default): copy the URL from Team page.
+- Disable open `/api/auth/login` in production with `ALLOW_DEV_LOGIN=0`.

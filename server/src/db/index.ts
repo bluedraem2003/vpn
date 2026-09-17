@@ -7,7 +7,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 export const DATA_DIR = join(__dirname, '../../data')
 export const DB_PATH = process.env.DATABASE_PATH || join(DATA_DIR, 'postyar.sqlite')
 
-mkdirSync(DATA_DIR, { recursive: true })
+mkdirSync(dirname(DB_PATH), { recursive: true })
 
 export const db = new Database(DB_PATH)
 db.pragma('journal_mode = WAL')

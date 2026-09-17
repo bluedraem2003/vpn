@@ -45,14 +45,23 @@ export const api = {
     }>('/api/auth/me'),
   logout: () => request<{ ok: boolean }>('/api/auth/logout', { method: 'POST' }),
   bootstrap: () =>
-    request<{ authenticated: boolean; defaultEmail: string; magicLinkEnabled?: boolean }>(
-      '/api/auth/bootstrap',
-    ),
+    request<{
+      authenticated: boolean
+      defaultEmail: string
+      magicLinkEnabled?: boolean
+      allowDevLogin?: boolean
+      shareInviteLinks?: boolean
+      publicUrl?: string | null
+    }>('/api/auth/bootstrap'),
   requestMagicLink: (email: string) =>
-    request<{ ok: boolean; message: string; devMagicUrl?: string; magicToken?: string; expiresAt: string }>(
-      '/api/auth/magic-link',
-      { method: 'POST', body: JSON.stringify({ email }) },
-    ),
+    request<{
+      ok: boolean
+      message: string
+      inviteUrl?: string
+      devMagicUrl?: string
+      magicToken?: string
+      expiresAt: string
+    }>('/api/auth/magic-link', { method: 'POST', body: JSON.stringify({ email }) }),
   consumeMagicLink: (token: string) =>
     request<{
       token: string
@@ -69,7 +78,7 @@ export const api = {
     request<{
       ok: boolean
       member: { id: string; email: string; name: string; role: string }
-      invite: { expiresAt: string; devMagicUrl: string }
+      invite: { expiresAt: string; inviteUrl: string; devMagicUrl: string }
     }>('/api/team/invite', { method: 'POST', body: JSON.stringify(body) }),
   workspaces: () =>
     request<{ items: Array<{ id: string; name: string; slug: string; role?: string }> }>('/api/workspaces'),
