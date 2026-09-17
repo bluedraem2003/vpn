@@ -1,0 +1,31 @@
+{
+  "name": "پست‌یار — استودیوی محتوای اینستاگرام",
+  "short_name": "پست‌یار",
+  "description": "وب‌اپلیکیشن تولید محتوای حرفه‌ای اینستاگرام",
+  "lang": "fa",
+  "dir": "rtl",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#e9eef2",
+  "theme_color": "#0f2f2c",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/pwa-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/pwa-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
