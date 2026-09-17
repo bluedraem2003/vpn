@@ -1,11 +1,13 @@
 import { Hono } from 'hono'
 import { db, uid } from '../db/index.js'
+import { assertWorkspaceAccess, requireAuth } from '../middleware/auth.js'
 
 export const contentRoutes = new Hono()
+contentRoutes.use('*', requireAuth)
 
 contentRoutes.get('/', (c) => {
-  const workspaceId = c.req.query('workspaceId')
-  if (!workspaceId) return c.json({ error: 'workspaceId الزامی است' }, 400)
+  const workspaceId = c.req.query('workspaceId') || c.get('workspaceId')
+  assertWorkspaceAccess(c, workspaceId)
 
   const status = c.req.query('status')
   const rows = status
@@ -21,13 +23,50 @@ contentRoutes.get('/', (c) => {
   return c.json({ items: rows.map(mapContent) })
 })
 
+contentRoutes.get('/:id/assets', (c) => {
+  const id = c.req.param('id')
+  const content = db.prepare(`SELECT * FROM contents WHERE id = ?`).get(id) as Record<string, unknown> | undefined
+  if (!content) return c.json({ error: 'محتوا پیدا نشد' }, 404)
+  assertWorkspaceAccess(c, String(content.workspace_id))
+
+  const rows = db
+    .prepare(
+      `SELECT a.*, ca.role AS attach_role, ca.sort_order, ca.id AS link_id
+       FROM content_assets ca
+       JOIN assets a ON a.id = ca.asset_id
+       WHERE ca.content_id = ?
+       ORDER BY ca.sort_order ASC, a.created_at DESC`,
+    )
+    .all(id)
+
+  return c.json({
+    items: rows.map((row) => {
+      const r = row as Record<string, unknown>
+      return {
+        linkId: r.link_id,
+        role: r.attach_role,
+        sortOrder: r.sort_order,
+        id: r.id,
+        filename: r.filename,
+        type: r.type,
+        status: r.status,
+        fileSize: r.file_size,
+        width: r.width,
+        height: r.height,
+      }
+    }),
+  })
+})
+
 contentRoutes.post('/', async (c) => {
   const body = await c.req.json()
   const now = new Date().toISOString()
   const id = uid('cnt')
+  const workspaceId = body.workspaceId || c.get('workspaceId')
+  assertWorkspaceAccess(c, workspaceId)
 
-  if (!body.workspaceId || !body.title || !body.contentType) {
-    return c.json({ error: 'workspaceId، title و contentType الزامی هستند' }, 400)
+  if (!body.title || !body.contentType) {
+    return c.json({ error: 'title و contentType الزامی هستند' }, 400)
   }
 
   const status = body.status || 'planned'
@@ -39,7 +78,7 @@ contentRoutes.post('/', async (c) => {
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
-    body.workspaceId,
+    workspaceId,
     body.projectId || null,
     body.campaignId || null,
     body.assigneeId || null,
@@ -59,9 +98,9 @@ contentRoutes.post('/', async (c) => {
   )
 
   db.prepare(
-    `INSERT INTO content_status_history (id, content_id, from_status, to_status, created_at)
-     VALUES (?, ?, ?, ?, ?)`,
-  ).run(uid('csh'), id, null, status, now)
+    `INSERT INTO content_status_history (id, content_id, from_status, to_status, changed_by, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run(uid('csh'), id, null, status, c.get('userId'), now)
 
   const row = db.prepare(`SELECT * FROM contents WHERE id = ?`).get(id)
   return c.json({ item: mapContent(row) }, 201)
@@ -71,6 +110,7 @@ contentRoutes.patch('/:id', async (c) => {
   const id = c.req.param('id')
   const existing = db.prepare(`SELECT * FROM contents WHERE id = ?`).get(id) as Record<string, unknown> | undefined
   if (!existing) return c.json({ error: 'محتوا پیدا نشد' }, 404)
+  assertWorkspaceAccess(c, String(existing.workspace_id))
 
   const body = await c.req.json()
   const now = new Date().toISOString()
@@ -78,9 +118,9 @@ contentRoutes.patch('/:id', async (c) => {
 
   if (body.status && body.status !== existing.status) {
     db.prepare(
-      `INSERT INTO content_status_history (id, content_id, from_status, to_status, note, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-    ).run(uid('csh'), id, existing.status, body.status, body.statusNote || null, now)
+      `INSERT INTO content_status_history (id, content_id, from_status, to_status, changed_by, note, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    ).run(uid('csh'), id, existing.status, body.status, c.get('userId'), body.statusNote || null, now)
   }
 
   db.prepare(
@@ -112,6 +152,9 @@ contentRoutes.patch('/:id', async (c) => {
 
 contentRoutes.delete('/:id', (c) => {
   const id = c.req.param('id')
+  const existing = db.prepare(`SELECT * FROM contents WHERE id = ?`).get(id) as Record<string, unknown> | undefined
+  if (!existing) return c.json({ error: 'محتوا پیدا نشد' }, 404)
+  assertWorkspaceAccess(c, String(existing.workspace_id))
   db.prepare(`DELETE FROM contents WHERE id = ?`).run(id)
   return c.json({ ok: true })
 })

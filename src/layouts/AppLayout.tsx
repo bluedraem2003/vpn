@@ -12,7 +12,9 @@ import {
   BarChart3,
   Settings,
   Sparkles,
+  LogOut,
 } from 'lucide-react'
+import { useAuth } from '../auth/AuthContext'
 
 const links = [
   { to: '/', label: 'داشبورد', icon: LayoutDashboard, end: true },
@@ -30,6 +32,8 @@ const links = [
 ]
 
 export function AppLayout() {
+  const { session, logout } = useAuth()
+
   return (
     <div className="ops-shell">
       <aside className="ops-sidebar" aria-label="ناوبری اصلی">
@@ -50,6 +54,15 @@ export function AppLayout() {
             </NavLink>
           ))}
         </nav>
+        <div className="ops-user">
+          <div>
+            <strong>{session?.user.name}</strong>
+            <span>{session?.role}</span>
+          </div>
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => void logout()} title="خروج">
+            <LogOut size={14} />
+          </button>
+        </div>
       </aside>
       <main className="ops-main">
         <Outlet />

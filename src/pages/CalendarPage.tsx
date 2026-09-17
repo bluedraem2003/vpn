@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { api, type ContentDto } from '../api/client'
+import { useAuth } from '../auth/AuthContext'
 import {
   CONTENT_STATUS_LABELS,
   CONTENT_TYPE_LABELS,
@@ -10,19 +11,18 @@ import {
 type CalView = 'month' | 'week' | 'day' | 'list'
 
 export function CalendarPage() {
+  const { workspaceId } = useAuth()
   const [view, setView] = useState<CalView>('month')
   const [items, setItems] = useState<ContentDto[]>([])
   const [error, setError] = useState<string | null>(null)
   const [cursor, setCursor] = useState(() => new Date())
 
   useEffect(() => {
+    if (!workspaceId) return
     let cancelled = false
     ;(async () => {
       try {
-        const ws = await api.workspaces()
-        const id = ws.items[0]?.id
-        if (!id) throw new Error('ورک‌اسپیس یافت نشد')
-        const res = await api.listContent(id)
+        const res = await api.listContent(workspaceId)
         if (!cancelled) setItems(res.items)
       } catch (e) {
         if (!cancelled) setError((e as Error).message)
@@ -31,7 +31,7 @@ export function CalendarPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [workspaceId])
 
   const dated = useMemo(
     () => items.filter((i) => i.publishDate).sort((a, b) => String(a.publishDate).localeCompare(String(b.publishDate))),

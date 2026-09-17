@@ -806,6 +806,47 @@ a {
   background: rgba(255, 255, 255, 0.55);
 }
 
+.ops-user {
+  margin-top: 1.25rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.ops-user strong {
+  display: block;
+  font-size: 0.88rem;
+}
+
+.ops-user span {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.login-gate {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+}
+
+.login-card {
+  width: min(420px, 100%);
+  text-align: center;
+}
+
+.attach-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.55rem;
+  padding-top: 0.55rem;
+  border-top: 1px dashed var(--line);
+}
+
 @media (max-width: 980px) {
   .ops-shell {
     grid-template-columns: 1fr;

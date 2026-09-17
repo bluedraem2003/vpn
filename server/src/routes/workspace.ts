@@ -1,19 +1,21 @@
 import { Hono } from 'hono'
 import { db } from '../db/index.js'
+import { requireAuth } from '../middleware/auth.js'
 
 export const workspaceRoutes = new Hono()
+workspaceRoutes.use('*', requireAuth)
 
 workspaceRoutes.get('/', (c) => {
+  const userId = c.get('userId')
   const rows = db
     .prepare(
-      `SELECT w.*, m.role, u.email AS owner_email, u.name AS owner_name
+      `SELECT w.*, m.role
        FROM workspaces w
        JOIN memberships m ON m.workspace_id = w.id
-       JOIN users u ON u.id = m.user_id
-       WHERE m.role = 'admin'
+       WHERE m.user_id = ?
        ORDER BY w.created_at ASC`,
     )
-    .all()
+    .all(userId)
 
   return c.json({
     items: rows.map((r) => {
@@ -24,8 +26,6 @@ workspaceRoutes.get('/', (c) => {
         slug: row.slug,
         createdAt: row.created_at,
         role: row.role,
-        ownerEmail: row.owner_email,
-        ownerName: row.owner_name,
       }
     }),
   })
@@ -33,6 +33,9 @@ workspaceRoutes.get('/', (c) => {
 
 workspaceRoutes.get('/:id/dashboard', (c) => {
   const workspaceId = c.req.param('id')
+  if (c.get('workspaceId') !== workspaceId) {
+    return c.json({ error: 'دسترسی به این ورک‌اسپیس مجاز نیست' }, 403)
+  }
   const today = new Date().toISOString().slice(0, 10)
 
   const counts = db

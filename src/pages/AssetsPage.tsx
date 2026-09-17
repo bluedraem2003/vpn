@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { api, type AssetDto } from '../api/client'
+import { useAuth } from '../auth/AuthContext'
 
 export function AssetsPage() {
+  const { workspaceId, session } = useAuth()
   const [items, setItems] = useState<AssetDto[]>([])
   const [q, setQ] = useState('')
   const [type, setType] = useState('all')
@@ -9,13 +11,11 @@ export function AssetsPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (!workspaceId) return
     let cancelled = false
     ;(async () => {
       try {
-        const ws = await api.workspaces()
-        const id = ws.items[0]?.id
-        if (!id) throw new Error('ورک‌اسپیس یافت نشد')
-        const res = await api.listAssets(id, { type, q, sort })
+        const res = await api.listAssets(workspaceId, { type, q, sort })
         if (!cancelled) setItems(res.items)
       } catch (e) {
         if (!cancelled) setError((e as Error).message)
@@ -24,7 +24,7 @@ export function AssetsPage() {
     return () => {
       cancelled = true
     }
-  }, [type, q, sort])
+  }, [workspaceId, type, q, sort])
 
   return (
     <div className="ops-page">
@@ -92,7 +92,31 @@ export function AssetsPage() {
                 ))}
               </div>
               <div className="form-actions">
-                <a className="btn btn-outline btn-sm" href={`/api/assets/${asset.id}/download`}>
+                <a
+                  className="btn btn-outline btn-sm"
+                  href={`/api/assets/${asset.id}/download`}
+                  onClick={(e) => {
+                    // ensure auth header via fetch download is future work; for now token cookie-less
+                    // browsers can't send Authorization on <a href>. Use fetch blob instead.
+                    e.preventDefault()
+                    void (async () => {
+                      const res = await fetch(`/api/assets/${asset.id}/download`, {
+                        headers: session?.token ? { Authorization: `Bearer ${session.token}` } : {},
+                      })
+                      if (!res.ok) {
+                        setError('دانلود ناموفق بود')
+                        return
+                      }
+                      const blob = await res.blob()
+                      const url = URL.createObjectURL(blob)
+                      const a = document.createElement('a')
+                      a.href = url
+                      a.download = asset.filename
+                      a.click()
+                      URL.revokeObjectURL(url)
+                    })()
+                  }}
+                >
                   دانلود
                 </a>
                 <span className="meta-badge">{asset.status}</span>

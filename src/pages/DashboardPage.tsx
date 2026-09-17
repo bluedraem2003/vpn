@@ -1,24 +1,21 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api/client'
+import { useAuth } from '../auth/AuthContext'
 import { CONTENT_STATUS_LABELS, type ContentStatus } from '../domain/types'
 
 export function DashboardPage() {
+  const { workspaceId } = useAuth()
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [workspaceId, setWorkspaceId] = useState<string | null>(null)
   const [data, setData] = useState<Record<string, unknown> | null>(null)
 
   useEffect(() => {
+    if (!workspaceId) return
     let cancelled = false
     ;(async () => {
       try {
-        const ws = await api.workspaces()
-        const id = ws.items[0]?.id
-        if (!id) throw new Error('ورک‌اسپیس پیدا نشد — API را اجرا کنید')
-        if (cancelled) return
-        setWorkspaceId(id)
-        const dash = await api.dashboard(id)
+        const dash = await api.dashboard(workspaceId)
         if (!cancelled) setData(dash)
       } catch (e) {
         if (!cancelled) setError((e as Error).message)
@@ -29,7 +26,7 @@ export function DashboardPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [workspaceId])
 
   if (loading) {
     return (

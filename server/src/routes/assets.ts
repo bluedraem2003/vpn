@@ -1,12 +1,14 @@
 import { Hono } from 'hono'
 import { db, uid } from '../db/index.js'
 import { TelegramStorageProvider } from '../services/storage/telegram.js'
+import { assertWorkspaceAccess, requireAuth } from '../middleware/auth.js'
 
 export const assetRoutes = new Hono()
+assetRoutes.use('*', requireAuth)
 
 assetRoutes.get('/', (c) => {
-  const workspaceId = c.req.query('workspaceId')
-  if (!workspaceId) return c.json({ error: 'workspaceId الزامی است' }, 400)
+  const workspaceId = c.req.query('workspaceId') || c.get('workspaceId')
+  assertWorkspaceAccess(c, workspaceId)
 
   const type = c.req.query('type')
   const q = (c.req.query('q') || '').trim()
@@ -58,8 +60,9 @@ assetRoutes.get('/:id', (c) => {
        LEFT JOIN telegram_sources ts ON ts.asset_id = a.id
        WHERE a.id = ?`,
     )
-    .get(c.req.param('id'))
+    .get(c.req.param('id')) as Record<string, unknown> | undefined
   if (!row) return c.json({ error: 'فایل پیدا نشد' }, 404)
+  assertWorkspaceAccess(c, String(row.workspace_id))
   return c.json({ item: mapAsset(row) })
 })
 
@@ -68,9 +71,16 @@ assetRoutes.post('/:id/attach', async (c) => {
   const body = await c.req.json()
   if (!body.contentId) return c.json({ error: 'contentId الزامی است' }, 400)
 
-  const asset = db.prepare(`SELECT id FROM assets WHERE id = ?`).get(assetId)
-  const content = db.prepare(`SELECT id FROM contents WHERE id = ?`).get(body.contentId)
+  const asset = db.prepare(`SELECT * FROM assets WHERE id = ?`).get(assetId) as Record<string, unknown> | undefined
+  const content = db.prepare(`SELECT * FROM contents WHERE id = ?`).get(body.contentId) as
+    | Record<string, unknown>
+    | undefined
   if (!asset || !content) return c.json({ error: 'محتوا یا فایل نامعتبر است' }, 404)
+  assertWorkspaceAccess(c, String(asset.workspace_id))
+  assertWorkspaceAccess(c, String(content.workspace_id))
+  if (asset.workspace_id !== content.workspace_id) {
+    return c.json({ error: 'فایل و محتوا در یک ورک‌اسپیس نیستند' }, 403)
+  }
 
   const id = uid('ca')
   try {
@@ -99,6 +109,7 @@ assetRoutes.get('/:id/download', async (c) => {
     .get(c.req.param('id')) as Record<string, unknown> | undefined
 
   if (!row) return c.json({ error: 'فایل پیدا نشد' }, 404)
+  assertWorkspaceAccess(c, String(row.workspace_id))
   if (!process.env.TELEGRAM_BOT_TOKEN || !row.telegram_file_id) {
     return c.json(
       {
@@ -126,6 +137,11 @@ assetRoutes.get('/:id/download', async (c) => {
 })
 
 assetRoutes.delete('/:id', (c) => {
+  const row = db.prepare(`SELECT * FROM assets WHERE id = ?`).get(c.req.param('id')) as
+    | Record<string, unknown>
+    | undefined
+  if (!row) return c.json({ error: 'فایل پیدا نشد' }, 404)
+  assertWorkspaceAccess(c, String(row.workspace_id))
   db.prepare(`DELETE FROM assets WHERE id = ?`).run(c.req.param('id'))
   return c.json({ ok: true })
 })

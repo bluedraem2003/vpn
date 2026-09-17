@@ -30,7 +30,16 @@ npm run dev:api
 
 ## فاز فعلی
 
-✅ Domain model + SQLite  
-✅ API: health, workspaces/dashboard, content CRUD, assets, telegram webhook/status  
-✅ UI shell: Dashboard, Calendar, Content, Assets, Telegram, Studio  
-⏳ Projects / Campaigns / Team / full Ideas DB / Auth hardening / tests
+✅ Domain + SQLite + Auth session  
+✅ Content / Calendar / Assets / Telegram webhook  
+✅ Ideas (Convert), Projects, Campaigns, Team, Search  
+✅ Attach Asset به Content  
+✅ Studio کپشن در `/studio`  
+⏳ Analytics عمیق‌تر / Magic-link auth / Local Bot API
+
+## تست سریع API
+
+```bash
+chmod +x scripts/smoke.sh
+./scripts/smoke.sh
+```
