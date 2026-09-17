@@ -22,6 +22,12 @@ export const api = {
   setToken(token: string | null) {
     authToken = token
   },
+  getToken() {
+    return authToken
+  },
+  authHeaders(): Record<string, string> {
+    return authToken ? { Authorization: `Bearer ${authToken}` } : {}
+  },
   health: () => request<{ ok: boolean; telegramConfigured: boolean }>('/api/health'),
   login: (email?: string) =>
     request<{
@@ -151,6 +157,7 @@ export interface AssetDto {
   filename: string
   type: string
   status: string
+  mimeType?: string
   fileSize?: number
   width?: number
   height?: number

@@ -2,6 +2,19 @@ import { useEffect, useState } from 'react'
 import { api, type AssetDto } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { AssetPreviewModal } from '../components/AssetPreviewModal'
+import { AssetThumb } from '../components/AssetThumb'
+
+function resolveDownloadMime(asset: AssetDto, headerType: string | null) {
+  if (headerType && !headerType.includes('octet-stream') && !headerType.includes('application/json')) {
+    return headerType.split(';')[0]!.trim()
+  }
+  if (asset.mimeType && !asset.mimeType.includes('octet-stream')) return asset.mimeType
+  if (asset.type === 'image') return 'image/jpeg'
+  if (asset.type === 'video') return 'video/mp4'
+  if (asset.type === 'audio') return 'audio/mpeg'
+  if (asset.type === 'pdf') return 'application/pdf'
+  return headerType || 'application/octet-stream'
+}
 
 export function AssetsPage() {
   const { workspaceId, session } = useAuth()
@@ -33,6 +46,25 @@ export function AssetsPage() {
       cancelled = true
     }
   }, [workspaceId, type, q, sort])
+
+  async function downloadAsset(asset: AssetDto) {
+    const res = await fetch(`/api/assets/${asset.id}/download`, {
+      headers: api.authHeaders(),
+    })
+    if (!res.ok) {
+      setError('دانلود ناموفق بود')
+      return
+    }
+    const raw = await res.arrayBuffer()
+    const mime = resolveDownloadMime(asset, res.headers.get('content-type'))
+    const blob = new Blob([raw], { type: mime })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = asset.filename
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   return (
     <div className="ops-page">
@@ -83,8 +115,22 @@ export function AssetsPage() {
           </div>
         )}
         {items.map((asset) => (
-          <article key={asset.id} className="panel asset-card">
-            <div className="asset-thumb">{asset.type}</div>
+          <article
+            key={asset.id}
+            className="panel asset-card asset-card-openable"
+            role="button"
+            tabIndex={0}
+            onClick={() => setPreview(asset)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                setPreview(asset)
+              }
+            }}
+          >
+            <div className="asset-thumb">
+              <AssetThumb asset={asset} />
+            </div>
             <div className="asset-body">
               <h3>{asset.filename}</h3>
               <p>
@@ -99,35 +145,13 @@ export function AssetsPage() {
                   </span>
                 ))}
               </div>
-              <div className="form-actions">
-                  <button type="button" className="btn btn-solid btn-sm" onClick={() => setPreview(asset)}>
-                    Preview
-                  </button>
-                  <a
-                  className="btn btn-outline btn-sm"
-                  href={`/api/assets/${asset.id}/download`}
-                  onClick={(e) => {
-                    e.preventDefault()
-                    void (async () => {
-                      const res = await fetch(`/api/assets/${asset.id}/download`, {
-                        headers: session?.token ? { Authorization: `Bearer ${session.token}` } : {},
-                      })
-                      if (!res.ok) {
-                        setError('دانلود ناموفق بود')
-                        return
-                      }
-                      const blob = await res.blob()
-                      const url = URL.createObjectURL(blob)
-                      const a = document.createElement('a')
-                      a.href = url
-                      a.download = asset.filename
-                      a.click()
-                      URL.revokeObjectURL(url)
-                    })()
-                  }}
-                >
+              <div className="form-actions" onClick={(e) => e.stopPropagation()}>
+                <button type="button" className="btn btn-solid btn-sm" onClick={() => setPreview(asset)}>
+                  باز کردن
+                </button>
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => void downloadAsset(asset)}>
                   دانلود
-                </a>
+                </button>
                 <span className="meta-badge">{asset.status}</span>
               </div>
             </div>
@@ -138,7 +162,7 @@ export function AssetsPage() {
       {preview && (
         <AssetPreviewModal
           asset={preview}
-          authToken={session?.token}
+          authToken={session?.token || api.getToken() || undefined}
           onClose={() => {
             setPreview(null)
             void reload().catch(() => null)

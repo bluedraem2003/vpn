@@ -721,14 +721,40 @@ a {
   overflow: hidden;
 }
 
+.asset-card-openable {
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.asset-card-openable:hover {
+  transform: translateY(-2px);
+}
+
+.asset-card-openable:focus-visible {
+  outline: 2px solid var(--accent, #1b6b63);
+  outline-offset: 2px;
+}
+
 .asset-thumb {
-  height: 120px;
+  height: 140px;
   display: grid;
   place-items: center;
   background: linear-gradient(145deg, #0f2f2c, #1b6b63);
   color: #f4ede4;
   font-weight: 600;
   text-transform: uppercase;
+  overflow: hidden;
+}
+
+.asset-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.asset-thumb-label {
+  letter-spacing: 0.04em;
 }
 
 .asset-body {
@@ -902,7 +928,8 @@ a {
 .preview-stage video,
 .preview-stage iframe {
   width: 100%;
-  max-height: 420px;
+  max-height: min(60vh, 520px);
+  object-fit: contain;
   display: block;
   background: #111;
 }
