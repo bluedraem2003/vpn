@@ -1,200 +1,58 @@
-import { useEffect, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
-import type { GenerateInput, GeneratedContent, InstagramPage, ViewId } from './types'
-import { generateContent } from './lib/generator'
-import {
-  loadActivePageId,
-  loadHistory,
-  loadPages,
-  saveActivePageId,
-  saveHistory,
-  savePages,
-} from './lib/storage'
-import { Hero } from './components/Hero'
-import { GeneratorForm } from './components/GeneratorForm'
-import { ResultPanel } from './components/ResultPanel'
-import { PagesView } from './components/PagesView'
-import { HistoryView } from './components/HistoryView'
-import { IdeasView } from './components/IdeasView'
-
-const defaultInput: GenerateInput = {
-  topic: '',
-  format: 'feed',
-  tone: 'friendly',
-  language: 'fa',
-  goal: '',
-  includeEmoji: true,
-  includeCta: true,
-}
-
-const nav: { id: ViewId; label: string }[] = [
-  { id: 'studio', label: 'استودیو' },
-  { id: 'pages', label: 'پیج‌ها' },
-  { id: 'ideas', label: 'ایده‌ها' },
-  { id: 'history', label: 'تاریخچه' },
-]
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { AppLayout } from './layouts/AppLayout'
+import { DashboardPage } from './pages/DashboardPage'
+import { CalendarPage } from './pages/CalendarPage'
+import { ContentPage } from './pages/ContentPage'
+import { AssetsPage } from './pages/AssetsPage'
+import { TelegramPage } from './pages/TelegramPage'
+import { StudioPage } from './pages/StudioPage'
+import { PlaceholderPage } from './pages/PlaceholderPage'
 
 export default function App() {
-  const [view, setView] = useState<ViewId>('studio')
-  const [showHero, setShowHero] = useState(true)
-  const [input, setInput] = useState<GenerateInput>(defaultInput)
-  const [result, setResult] = useState<GeneratedContent | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [pages, setPages] = useState<InstagramPage[]>([])
-  const [activePageId, setActivePageId] = useState<string | null>(null)
-  const [history, setHistory] = useState<GeneratedContent[]>([])
-  const [toast, setToast] = useState<string | null>(null)
-
-  useEffect(() => {
-    setPages(loadPages())
-    setActivePageId(loadActivePageId())
-    setHistory(loadHistory())
-  }, [])
-
-  function notify(message: string) {
-    setToast(message)
-    window.setTimeout(() => setToast(null), 1800)
-  }
-
-  function persistPages(next: InstagramPage[], activeId: string | null) {
-    setPages(next)
-    setActivePageId(activeId)
-    savePages(next)
-    saveActivePageId(activeId)
-  }
-
-  function handleGenerate() {
-    if (!input.topic.trim()) {
-      notify('لطفاً موضوع محتوا را بنویس')
-      return
-    }
-    setBusy(true)
-    window.setTimeout(() => {
-      const page = pages.find((p) => p.id === activePageId)
-      const generated = generateContent(input, {
-        pageName: page?.name,
-        niche: page?.niche || input.topic,
-        voice: page?.voice,
-      })
-      setResult(generated)
-      const nextHistory = [generated, ...history].slice(0, 40)
-      setHistory(nextHistory)
-      saveHistory(nextHistory)
-      setBusy(false)
-      setShowHero(false)
-      notify('محتوا آماده شد')
-    }, 420)
-  }
-
   return (
-    <div className="app-shell">
-      <header className="topbar">
-        <div className="brand">
-          <div className="brand-mark" aria-hidden>
-            پ
-          </div>
-          <div className="brand-text">
-            <h1>پست‌یار</h1>
-            <p>استودیوی محتوای اینستاگرام</p>
-          </div>
-        </div>
-        <nav className="nav-pills" aria-label="منوی اصلی">
-          {nav.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={view === item.id ? 'active' : ''}
-              onClick={() => {
-                setView(item.id)
-                if (item.id === 'studio') setShowHero(false)
-              }}
-            >
-              {item.label}
-            </button>
-          ))}
-        </nav>
-      </header>
-
-      {view === 'studio' && showHero && (
-        <motion.div
-          key="hero"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.35 }}
-        >
-          <Hero
-            onStart={() => setShowHero(false)}
-            onIdeas={() => {
-              setShowHero(false)
-              setView('ideas')
-            }}
+    <BrowserRouter>
+      <Routes>
+        <Route element={<AppLayout />}>
+          <Route index element={<DashboardPage />} />
+          <Route path="calendar" element={<CalendarPage />} />
+          <Route path="content" element={<ContentPage />} />
+          <Route
+            path="ideas"
+            element={
+              <PlaceholderPage
+                title="ایده‌ها"
+                description="بانک ایده با قابلیت Convert to Content — فاز بعد"
+              />
+            }
           />
-        </motion.div>
-      )}
-
-      {view === 'studio' && !showHero && (
-        <motion.div
-          className="studio-grid"
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.45 }}
-        >
-          <GeneratorForm
-            pages={pages}
-            activePageId={activePageId}
-            value={input}
-            busy={busy}
-            onChange={setInput}
-            onGenerate={handleGenerate}
+          <Route path="assets" element={<AssetsPage />} />
+          <Route path="telegram" element={<TelegramPage />} />
+          <Route
+            path="projects"
+            element={<PlaceholderPage title="پروژه‌ها" description="ساختار کلاینت / پروژه — فاز بعد" />}
           />
-          <ResultPanel result={result} />
-        </motion.div>
-      )}
-
-      {view === 'pages' && (
-        <PagesView pages={pages} activePageId={activePageId} onSave={persistPages} />
-      )}
-
-      {view === 'history' && (
-        <HistoryView
-          items={history}
-          onClear={() => {
-            setHistory([])
-            saveHistory([])
-          }}
-          onReuse={(item) => {
-            setInput(item.input)
-            setResult(item)
-            setView('studio')
-            setShowHero(false)
-          }}
-        />
-      )}
-
-      {view === 'ideas' && (
-        <IdeasView
-          onUseIdea={(topic, format) => {
-            setInput({ ...input, topic, format })
-            setView('studio')
-            setShowHero(false)
-            notify('ایده به استودیو منتقل شد')
-          }}
-        />
-      )}
-
-      <AnimatePresence>
-        {toast && (
-          <motion.div
-            className="toast"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
-          >
-            {toast}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+          <Route
+            path="campaigns"
+            element={<PlaceholderPage title="کمپین‌ها" description="کمپین و بازه زمانی — فاز بعد" />}
+          />
+          <Route path="studio" element={<StudioPage />} />
+          <Route
+            path="team"
+            element={<PlaceholderPage title="تیم" description="نقش‌ها و عضویت ورک‌اسپیس — فاز بعد" />}
+          />
+          <Route
+            path="analytics"
+            element={<PlaceholderPage title="آنالیتیکس" description="آرشیو و عملکرد — فاز بعد" />}
+          />
+          <Route
+            path="settings"
+            element={
+              <PlaceholderPage title="تنظیمات" description="Workspace، تلگرام، و محیط اجرا — فاز بعد" />
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
   )
 }

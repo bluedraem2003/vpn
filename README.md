@@ -1,30 +1,36 @@
-# پست‌یار (PostYar)
+# پست‌یار Content Ops
 
-**وب‌اپلیکیشن** مینیمال تولید محتوای اینستاگرام — کپشن، هوک، هشتگ، اسکریپت ریلز و ایده کاروسل.
+وب‌اپلیکیشن مدیریت تولید محتوا (Instagram-first) با تقویم، گردش وضعیت، دارایی‌ها و لایهٔ Storage تلگرام.
 
-در مرورگر اجرا می‌شود (Vite + React) و به‌صورت PWA قابل نصب روی موبایل/دسکتاپ است.
+استودیوی کپشن قبلی در مسیر `/studio` حفظ شده است.
 
 ## اجرا
 
 ```bash
+cp .env.example .env
 npm install
 npm run dev
 ```
 
-سپس آدرس `http://localhost:5173` را در مرورگر باز کنید.
+- وب: `http://localhost:5173`
+- API: `http://127.0.0.1:8787`
 
-ساخت نسخهٔ production:
+جداگانه:
 
 ```bash
-npm run build
-npm run preview
+npm run dev:web
+npm run dev:api
 ```
 
-## امکانات
+## مستندات
 
-- وب‌اپ فارسی RTL با پشتیبانی PWA
-- تولید محتوا برای پست فید، ریلز، استوری و کاروسل
-- مدیریت چند پیج با لحن و نیچ اختصاصی
-- تقویم ایده هفتگی
-- تاریخچه و کپی سریع خروجی‌ها
-- رابط مدرن و مینیمال
+- [PRODUCT_AUDIT.md](./docs/PRODUCT_AUDIT.md) — معماری و Plan
+- [ENVIRONMENT.md](./docs/ENVIRONMENT.md)
+- [TELEGRAM_SETUP.md](./docs/TELEGRAM_SETUP.md)
+
+## فاز فعلی
+
+✅ Domain model + SQLite  
+✅ API: health, workspaces/dashboard, content CRUD, assets, telegram webhook/status  
+✅ UI shell: Dashboard, Calendar, Content, Assets, Telegram, Studio  
+⏳ Projects / Campaigns / Team / full Ideas DB / Auth hardening / tests

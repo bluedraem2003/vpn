@@ -557,3 +557,275 @@ a {
     padding: 1.25rem;
   }
 }
+
+/* —— Content Ops shell —— */
+.ops-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 240px 1fr;
+}
+
+.ops-sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  padding: 1.1rem 0.85rem;
+  border-left: 1px solid var(--line);
+  background: rgba(255, 252, 248, 0.82);
+  backdrop-filter: blur(16px);
+  overflow-y: auto;
+}
+
+.ops-brand {
+  display: flex;
+  gap: 0.7rem;
+  align-items: center;
+  margin-bottom: 1.25rem;
+  padding: 0 0.35rem;
+}
+
+.ops-brand strong {
+  display: block;
+  font-size: 1rem;
+}
+
+.ops-brand span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.ops-nav {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.ops-nav a {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  text-decoration: none;
+  color: var(--ink-soft);
+  padding: 0.55rem 0.7rem;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.ops-nav a:hover {
+  background: rgba(27, 107, 99, 0.08);
+  color: var(--ink);
+}
+
+.ops-nav a.active {
+  background: var(--ink);
+  color: #f7f4ef;
+}
+
+.ops-main {
+  padding: 1.25rem 1.4rem 2.5rem;
+  width: min(1100px, 100%);
+}
+
+.ops-page-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1.1rem;
+}
+
+.ops-page-head h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.55rem;
+}
+
+.ops-page-head p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.ops-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.ops-stat span {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.ops-stat strong {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 1.6rem;
+}
+
+.ops-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.85rem;
+}
+
+.ops-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.ops-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 1px dashed var(--line);
+}
+
+.ops-list span {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.ops-steps {
+  margin: 0;
+  padding-right: 1.1rem;
+  line-height: 1.85;
+  color: var(--ink-soft);
+}
+
+.ops-filters {
+  display: grid;
+  grid-template-columns: 1.4fr 0.8fr 0.8fr;
+  gap: 0.6rem;
+}
+
+.ops-filters input,
+.ops-filters select {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 12px;
+  padding: 0.7rem 0.85rem;
+}
+
+.asset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 0.85rem;
+}
+
+.asset-card {
+  overflow: hidden;
+}
+
+.asset-thumb {
+  height: 120px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, #0f2f2c, #1b6b63);
+  color: #f4ede4;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.asset-body {
+  padding: 0.9rem 1rem 1rem;
+}
+
+.asset-body h3 {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+  word-break: break-word;
+}
+
+.asset-body p {
+  margin: 0 0 0.55rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.cal-month {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.35rem;
+}
+
+.cal-dow {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--muted);
+  padding: 0.35rem;
+}
+
+.cal-cell {
+  min-height: 88px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.35rem;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.cal-cell.empty {
+  opacity: 0.35;
+}
+
+.cal-daynum {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-bottom: 0.25rem;
+}
+
+.cal-pill {
+  font-size: 0.72rem;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 8px;
+  padding: 0.2rem 0.35rem;
+  margin-bottom: 0.2rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cal-week,
+.cal-day {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.cal-week {
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.cal-daycol {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+@media (max-width: 980px) {
+  .ops-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .ops-sidebar {
+    position: relative;
+    height: auto;
+    border-left: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .ops-nav {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .ops-stat-grid,
+  .ops-split,
+  .cal-week,
+  .ops-filters {
+    grid-template-columns: 1fr;
+  }
+}
