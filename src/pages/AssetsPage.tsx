@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api, type AssetDto } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { AssetPreviewModal } from '../components/AssetPreviewModal'
 
 export function AssetsPage() {
   const { workspaceId, session } = useAuth()
@@ -9,6 +10,13 @@ export function AssetsPage() {
   const [type, setType] = useState('all')
   const [sort, setSort] = useState('newest')
   const [error, setError] = useState<string | null>(null)
+  const [preview, setPreview] = useState<AssetDto | null>(null)
+
+  async function reload() {
+    if (!workspaceId) return
+    const res = await api.listAssets(workspaceId, { type, q, sort })
+    setItems(res.items)
+  }
 
   useEffect(() => {
     if (!workspaceId) return
@@ -92,12 +100,13 @@ export function AssetsPage() {
                 ))}
               </div>
               <div className="form-actions">
-                <a
+                  <button type="button" className="btn btn-solid btn-sm" onClick={() => setPreview(asset)}>
+                    Preview
+                  </button>
+                  <a
                   className="btn btn-outline btn-sm"
                   href={`/api/assets/${asset.id}/download`}
                   onClick={(e) => {
-                    // ensure auth header via fetch download is future work; for now token cookie-less
-                    // browsers can't send Authorization on <a href>. Use fetch blob instead.
                     e.preventDefault()
                     void (async () => {
                       const res = await fetch(`/api/assets/${asset.id}/download`, {
@@ -125,6 +134,17 @@ export function AssetsPage() {
           </article>
         ))}
       </div>
+
+      {preview && (
+        <AssetPreviewModal
+          asset={preview}
+          authToken={session?.token}
+          onClose={() => {
+            setPreview(null)
+            void reload().catch(() => null)
+          }}
+        />
+      )}
     </div>
   )
 }

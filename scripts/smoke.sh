@@ -50,4 +50,15 @@ curl -sfG "$API/api/search" -H "$AUTH" --data-urlencode "workspaceId=$WID" --dat
 curl -sf "$API/api/team" -H "$AUTH" >/dev/null
 curl -sf "$API/api/content/$CONTENT_ID/assets" -H "$AUTH" >/dev/null
 
+echo "== analytics + magic + preview =="
+curl -sf "$API/api/analytics?workspaceId=$WID" -H "$AUTH" >/dev/null
+MAGIC=$(curl -sf -X POST "$API/api/auth/magic-link" -H 'Content-Type: application/json' \
+  -d '{"email":"owner@postyar.local"}')
+MTOKEN=$(python3 -c "import json,sys; print(json.loads(sys.argv[1]).get('magicToken') or '')" "$MAGIC")
+test -n "$MTOKEN"
+curl -sf -X POST "$API/api/auth/magic-link/consume" -H 'Content-Type: application/json' \
+  -d "{\"token\":\"$MTOKEN\"}" >/dev/null
+curl -sf "$API/api/assets/$AID/preview" -H "$AUTH" -o /tmp/py-preview.bin
+file /tmp/py-preview.bin | grep -qi 'svg\|image\|json\|empty\|data' 
+
 echo "SMOKE OK"

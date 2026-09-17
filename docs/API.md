@@ -30,7 +30,12 @@ Auth: `Authorization: Bearer <token>` for protected routes.
 | GET/POST/DELETE | `/api/ideas` | yes |
 | POST | `/api/ideas/:id/convert` | yes |
 | GET | `/api/team` | yes |
-| GET | `/api/search?q=` | yes |
+| GET | `/api/analytics` | yes |
+| GET | `/api/assets/:id/preview` | yes |
+| PATCH | `/api/assets/:id` | yes (tags/status/folder) |
+| POST | `/api/auth/magic-link` | no |
+| POST | `/api/auth/magic-link/consume` | no |
+| POST | `/api/team/invite` | yes (admin/manager) |
 
 ## Telegram
 

@@ -33,9 +33,8 @@ npm run dev:api
 ✅ Domain + SQLite + Auth session  
 ✅ Content / Calendar / Assets / Telegram webhook  
 ✅ Ideas (Convert), Projects, Campaigns, Team, Search  
-✅ Attach Asset به Content  
-✅ Studio کپشن در `/studio`  
-⏳ Analytics عمیق‌تر / Magic-link auth / Local Bot API
+✅ Analytics واقعی + Preview دارایی‌ها + Magic Link auth + Team invite  
+⏳ SMTP واقعی / Local Bot API / تقویم drag-drop
 
 ## تست سریع API
 

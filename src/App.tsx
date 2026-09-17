@@ -12,8 +12,8 @@ import { IdeasPage } from './pages/IdeasPage'
 import { ProjectsPage } from './pages/ProjectsPage'
 import { CampaignsPage } from './pages/CampaignsPage'
 import { TeamPage } from './pages/TeamPage'
+import { AnalyticsPage } from './pages/AnalyticsPage'
 import { SettingsPage } from './pages/SettingsPage'
-import { PlaceholderPage } from './pages/PlaceholderPage'
 
 export default function App() {
   return (
@@ -32,12 +32,7 @@ export default function App() {
               <Route path="campaigns" element={<CampaignsPage />} />
               <Route path="studio" element={<StudioPage />} />
               <Route path="team" element={<TeamPage />} />
-              <Route
-                path="analytics"
-                element={
-                  <PlaceholderPage title="آنالیتیکس" description="آرشیو و عملکرد انتشار — فاز بعدی" />
-                }
-              />
+              <Route path="analytics" element={<AnalyticsPage />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Route>

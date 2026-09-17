@@ -38,7 +38,33 @@ export const api = {
       role: string
     }>('/api/auth/me'),
   logout: () => request<{ ok: boolean }>('/api/auth/logout', { method: 'POST' }),
-  bootstrap: () => request<{ authenticated: boolean; defaultEmail: string }>('/api/auth/bootstrap'),
+  bootstrap: () =>
+    request<{ authenticated: boolean; defaultEmail: string; magicLinkEnabled?: boolean }>(
+      '/api/auth/bootstrap',
+    ),
+  requestMagicLink: (email: string) =>
+    request<{ ok: boolean; message: string; devMagicUrl?: string; magicToken?: string; expiresAt: string }>(
+      '/api/auth/magic-link',
+      { method: 'POST', body: JSON.stringify({ email }) },
+    ),
+  consumeMagicLink: (token: string) =>
+    request<{
+      token: string
+      expiresAt: string
+      user: { id: string; email: string; name: string }
+      workspaceId: string
+      role: string
+    }>('/api/auth/magic-link/consume', { method: 'POST', body: JSON.stringify({ token }) }),
+  analytics: (workspaceId: string) =>
+    request<Record<string, unknown>>(`/api/analytics?workspaceId=${workspaceId}`),
+  updateAsset: (id: string, body: { tags?: string[]; status?: string; virtualFolder?: string }) =>
+    request<{ item: AssetDto }>(`/api/assets/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  inviteMember: (body: { email: string; name?: string; role?: string }) =>
+    request<{
+      ok: boolean
+      member: { id: string; email: string; name: string; role: string }
+      invite: { expiresAt: string; devMagicUrl: string }
+    }>('/api/team/invite', { method: 'POST', body: JSON.stringify(body) }),
   workspaces: () =>
     request<{ items: Array<{ id: string; name: string; slug: string; role?: string }> }>('/api/workspaces'),
   dashboard: (workspaceId: string) => request<Record<string, unknown>>(`/api/workspaces/${workspaceId}/dashboard`),

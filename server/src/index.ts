@@ -13,6 +13,7 @@ import { campaignRoutes } from './routes/campaigns.js'
 import { ideaRoutes } from './routes/ideas.js'
 import { searchRoutes } from './routes/search.js'
 import { teamRoutes } from './routes/team.js'
+import { analyticsRoutes } from './routes/analytics.js'
 
 migrate()
 seedIfEmpty()
@@ -50,6 +51,7 @@ app.route('/api/campaigns', campaignRoutes)
 app.route('/api/ideas', ideaRoutes)
 app.route('/api/search', searchRoutes)
 app.route('/api/team', teamRoutes)
+app.route('/api/analytics', analyticsRoutes)
 
 app.onError((err, c) => {
   console.error('[API]', err.message)

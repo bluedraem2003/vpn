@@ -15,8 +15,16 @@ type AuthContextValue = {
   loading: boolean
   error: string | null
   login: (email?: string) => Promise<void>
+  loginWithMagic: (token: string) => Promise<void>
+  requestMagicLink: (email: string) => Promise<{ message: string; devMagicUrl?: string }>
   logout: () => Promise<void>
   workspaceId: string | null
+  applySession: (res: {
+    token: string
+    user: { id: string; email: string; name: string }
+    workspaceId: string
+    role: string
+  }) => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -25,6 +33,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const applySession = useCallback(
+    (res: {
+      token: string
+      user: { id: string; email: string; name: string }
+      workspaceId: string
+      role: string
+    }) => {
+      localStorage.setItem(TOKEN_KEY, res.token)
+      api.setToken(res.token)
+      setSession({
+        token: res.token,
+        user: res.user,
+        workspaceId: res.workspaceId,
+        role: res.role,
+      })
+      setError(null)
+    },
+    [],
+  )
 
   const hydrate = useCallback(async () => {
     const token = localStorage.getItem(TOKEN_KEY)
@@ -54,18 +82,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void hydrate()
   }, [hydrate])
 
-  const login = useCallback(async (email?: string) => {
+  const login = useCallback(
+    async (email?: string) => {
+      setError(null)
+      const res = await api.login(email)
+      applySession(res)
+    },
+    [applySession],
+  )
+
+  const requestMagicLink = useCallback(async (email: string) => {
     setError(null)
-    const res = await api.login(email)
-    localStorage.setItem(TOKEN_KEY, res.token)
-    api.setToken(res.token)
-    setSession({
-      token: res.token,
-      user: res.user,
-      workspaceId: res.workspaceId,
-      role: res.role,
-    })
+    return api.requestMagicLink(email)
   }, [])
+
+  const loginWithMagic = useCallback(
+    async (token: string) => {
+      setError(null)
+      const res = await api.consumeMagicLink(token)
+      applySession(res)
+      // clean URL
+      if (typeof window !== 'undefined') {
+        const url = new URL(window.location.href)
+        url.searchParams.delete('magic')
+        window.history.replaceState({}, '', url.pathname + url.search)
+      }
+    },
+    [applySession],
+  )
 
   const logout = useCallback(async () => {
     try {
@@ -84,10 +128,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       error,
       login,
+      loginWithMagic,
+      requestMagicLink,
       logout,
       workspaceId: session?.workspaceId ?? null,
+      applySession,
     }),
-    [session, loading, error, login, logout],
+    [session, loading, error, login, loginWithMagic, requestMagicLink, logout, applySession],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

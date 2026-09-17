@@ -167,10 +167,28 @@ export function migrate() {
       expires_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS magic_links (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL,
+      token TEXT NOT NULL UNIQUE,
+      workspace_id TEXT REFERENCES workspaces(id) ON DELETE CASCADE,
+      role TEXT DEFAULT 'viewer',
+      created_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      consumed_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS rate_limits (
+      key TEXT PRIMARY KEY,
+      count INTEGER NOT NULL DEFAULT 0,
+      window_start TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_contents_workspace_status ON contents(workspace_id, status);
     CREATE INDEX IF NOT EXISTS idx_contents_publish ON contents(publish_date, publish_time);
     CREATE INDEX IF NOT EXISTS idx_assets_workspace_type ON assets(workspace_id, type);
     CREATE INDEX IF NOT EXISTS idx_telegram_chat ON telegram_sources(telegram_chat_id);
+    CREATE INDEX IF NOT EXISTS idx_magic_token ON magic_links(token);
   `)
 }
 
