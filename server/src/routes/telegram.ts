@@ -53,12 +53,12 @@ telegramRoutes.post('/webhook', async (c) => {
   })
 
   const existing = db
-    .prepare(`SELECT id FROM telegram_sources WHERE telegram_file_unique_id = ?`)
-    .get(file.fileUniqueId)
+    .prepare(`SELECT id, asset_id FROM telegram_sources WHERE telegram_file_unique_id = ?`)
+    .get(file.fileUniqueId) as { id: string; asset_id: string } | undefined
 
   if (existing) {
     console.log('[Telegram] Duplicate ignored', file.fileUniqueId)
-    return c.json({ ok: true, duplicate: true })
+    return c.json({ ok: true, duplicate: true, assetId: existing.asset_id })
   }
 
   const workspace =

@@ -33,19 +33,20 @@ CONV=$(curl -sf -X POST "$API/api/ideas/$IID/convert" -H "$AUTH")
 CONTENT_ID=$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['contentId'])" "$CONV")
 
 echo "== webhook + attach =="
+UNIQ="uniq_smoke_$(date +%s)_$RANDOM"
 ASSET=$(curl -sf -X POST "$API/api/telegram/webhook" -H 'Content-Type: application/json' \
-  -d '{"channel_post":{"message_id":99,"chat":{"id":-1001},"photo":[{"file_id":"F","file_unique_id":"uniq_smoke_attach","width":10,"height":10,"file_size":10}]}}')
+  -d "{\"channel_post\":{\"message_id\":99,\"chat\":{\"id\":-1001},\"photo\":[{\"file_id\":\"F\",\"file_unique_id\":\"$UNIQ\",\"width\":10,\"height\":10,\"file_size\":10}]}}")
 AID=$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['assetId'])" "$ASSET")
 curl -sf -X POST "$API/api/assets/$AID/attach" -H "$AUTH" -H 'Content-Type: application/json' \
   -d "{\"contentId\":\"$CONTENT_ID\",\"role\":\"cover\"}" >/dev/null
 
 echo "== duplicate ignored =="
 DUP=$(curl -sf -X POST "$API/api/telegram/webhook" -H 'Content-Type: application/json' \
-  -d '{"channel_post":{"message_id":100,"chat":{"id":-1001},"photo":[{"file_id":"F","file_unique_id":"uniq_smoke_attach","width":10,"height":10}]}}')
-python3 -c "import json,sys; assert json.loads(sys.argv[1]).get('duplicate') is True" "$DUP"
+  -d "{\"channel_post\":{\"message_id\":100,\"chat\":{\"id\":-1001},\"photo\":[{\"file_id\":\"F\",\"file_unique_id\":\"$UNIQ\",\"width\":10,\"height\":10}]}}")
+python3 -c "import json,sys; d=json.loads(sys.argv[1]); assert d.get('duplicate') is True and d.get('assetId')" "$DUP"
 
 echo "== search + team =="
-curl -sf "$API/api/search?workspaceId=$WID&q=ایده" -H "$AUTH" >/dev/null
+curl -sfG "$API/api/search" -H "$AUTH" --data-urlencode "workspaceId=$WID" --data-urlencode "q=test" >/dev/null
 curl -sf "$API/api/team" -H "$AUTH" >/dev/null
 curl -sf "$API/api/content/$CONTENT_ID/assets" -H "$AUTH" >/dev/null
 
