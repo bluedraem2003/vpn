@@ -115,27 +115,25 @@ export default function App() {
         </nav>
       </header>
 
-      <AnimatePresence mode="wait">
-        {view === 'studio' && showHero && (
-          <motion.div
-            key="hero"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.35 }}
-          >
-            <Hero
-              onStart={() => setShowHero(false)}
-              onIdeas={() => {
-                setShowHero(false)
-                setView('ideas')
-              }}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {view === 'studio' && showHero && (
+        <motion.div
+          key="hero"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.35 }}
+        >
+          <Hero
+            onStart={() => setShowHero(false)}
+            onIdeas={() => {
+              setShowHero(false)
+              setView('ideas')
+            }}
+          />
+        </motion.div>
+      )}
 
-      {view === 'studio' && (
+      {view === 'studio' && !showHero && (
         <motion.div
           className="studio-grid"
           initial={{ opacity: 0, y: 16 }}
