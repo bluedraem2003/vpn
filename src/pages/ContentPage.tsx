@@ -187,6 +187,9 @@ export function ContentPage() {
           <button type="button" className="btn btn-solid" disabled={busy} onClick={() => void createItem()}>
             ذخیره اسکجول
           </button>
+          <p className="section-sub" style={{ marginTop: '0.5rem' }}>
+            پیج نداری؟ اول از منوی <strong>پیج‌ها</strong> پیجت را بساز.
+          </p>
         </section>
 
         <section className="panel panel-pad">

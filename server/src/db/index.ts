@@ -230,6 +230,10 @@ export function migrate() {
   ensureColumn('contents', 'window_end', 'TEXT')
   ensureColumn('contents', 'occasion_id', 'TEXT')
   ensureColumn('contents', 'reminded_at', 'TEXT')
+  ensureColumn('projects', 'niche', 'TEXT')
+  ensureColumn('projects', 'audience', 'TEXT')
+  ensureColumn('projects', 'voice', 'TEXT')
+  ensureColumn('projects', 'handle', 'TEXT')
 }
 
 function ensureColumn(table: string, column: string, typeSql: string) {

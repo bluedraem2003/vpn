@@ -1,44 +1,55 @@
 import type { InstagramPage } from '../types'
 import { Trash2, Check } from 'lucide-react'
 import { useState } from 'react'
-import { uid } from '../lib/storage'
+
+export type PageFormInput = {
+  name: string
+  niche: string
+  audience: string
+  voice: string
+}
 
 interface PagesViewProps {
   pages: InstagramPage[]
   activePageId: string | null
-  onSave: (pages: InstagramPage[], activeId: string | null) => void
+  busy?: boolean
+  error?: string | null
+  onCreate: (form: PageFormInput) => Promise<void> | void
+  onRemove: (id: string) => Promise<void> | void
+  onSelect: (id: string) => void
 }
 
-const emptyForm = { name: '', niche: '', audience: '', voice: '' }
+const emptyForm: PageFormInput = { name: '', niche: '', audience: '', voice: '' }
 
-export function PagesView({ pages, activePageId, onSave }: PagesViewProps) {
+export function PagesView({
+  pages,
+  activePageId,
+  busy = false,
+  error = null,
+  onCreate,
+  onRemove,
+  onSelect,
+}: PagesViewProps) {
   const [form, setForm] = useState(emptyForm)
 
-  function addPage() {
-    if (!form.name.trim()) return
-    const page: InstagramPage = {
-      id: uid('page'),
+  async function addPage() {
+    if (!form.name.trim() || busy) return
+    await onCreate({
       name: form.name.trim(),
       niche: form.niche.trim(),
       audience: form.audience.trim(),
       voice: form.voice.trim(),
-      createdAt: Date.now(),
-    }
-    const next = [page, ...pages]
-    onSave(next, page.id)
+    })
     setForm(emptyForm)
-  }
-
-  function removePage(id: string) {
-    const next = pages.filter((p) => p.id !== id)
-    onSave(next, activePageId === id ? next[0]?.id ?? null : activePageId)
   }
 
   return (
     <div className="pages-layout">
       <div className="panel panel-pad">
         <h2 className="section-title">افزودن پیج</h2>
-        <p className="section-sub">هویت هر پیج را ذخیره کن تا محتوا با لحن برند هماهنگ شود.</p>
+        <p className="section-sub">هویت هر پیج روی سرور ذخیره می‌شود و در محتوا/مناسبت‌ها هم قابل انتخاب است.</p>
+
+        {error && <p className="section-sub">{error}</p>}
 
         <div className="field">
           <label htmlFor="page-name">نام پیج</label>
@@ -46,7 +57,8 @@ export function PagesView({ pages, activePageId, onSave }: PagesViewProps) {
             id="page-name"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="مثلاً فروشگاه نور"
+            placeholder="نام پیج اینستاگرام"
+            disabled={busy}
           />
         </div>
         <div className="field">
@@ -56,6 +68,7 @@ export function PagesView({ pages, activePageId, onSave }: PagesViewProps) {
             value={form.niche}
             onChange={(e) => setForm({ ...form, niche: e.target.value })}
             placeholder="زیبایی، فیتنس، آموزش، کافه..."
+            disabled={busy}
           />
         </div>
         <div className="field">
@@ -65,6 +78,7 @@ export function PagesView({ pages, activePageId, onSave }: PagesViewProps) {
             value={form.audience}
             onChange={(e) => setForm({ ...form, audience: e.target.value })}
             placeholder="بانوان ۲۵–۴۰، صاحبان کسب‌وکار..."
+            disabled={busy}
           />
         </div>
         <div className="field">
@@ -74,10 +88,11 @@ export function PagesView({ pages, activePageId, onSave }: PagesViewProps) {
             value={form.voice}
             onChange={(e) => setForm({ ...form, voice: e.target.value })}
             placeholder="صمیمی اما دقیق، بدون اغراق، تمرکز روی آموزش کوتاه"
+            disabled={busy}
           />
         </div>
-        <button type="button" className="btn btn-solid" onClick={addPage}>
-          ذخیره پیج
+        <button type="button" className="btn btn-solid" disabled={busy} onClick={() => void addPage()}>
+          {busy ? 'در حال ذخیره...' : 'ذخیره پیج'}
         </button>
       </div>
 
@@ -108,7 +123,8 @@ export function PagesView({ pages, activePageId, onSave }: PagesViewProps) {
                   <button
                     type="button"
                     className="btn btn-outline btn-sm"
-                    onClick={() => onSave(pages, page.id)}
+                    disabled={busy}
+                    onClick={() => onSelect(page.id)}
                   >
                     <Check size={14} />
                     انتخاب
@@ -116,7 +132,8 @@ export function PagesView({ pages, activePageId, onSave }: PagesViewProps) {
                   <button
                     type="button"
                     className="btn btn-outline btn-sm"
-                    onClick={() => removePage(page.id)}
+                    disabled={busy}
+                    onClick={() => void onRemove(page.id)}
                   >
                     <Trash2 size={14} />
                     حذف

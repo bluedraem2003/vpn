@@ -25,7 +25,7 @@ const links = [
   { to: '/ideas', label: 'ایده‌ها', icon: Lightbulb },
   { to: '/assets', label: 'دارایی‌ها', icon: FolderOpen },
   { to: '/telegram', label: 'تلگرام', icon: Send },
-  { to: '/projects', label: 'پروژه‌ها', icon: FolderKanban },
+  { to: '/projects', label: 'پیج‌ها', icon: FolderKanban },
   { to: '/campaigns', label: 'کمپین‌ها', icon: Megaphone },
   { to: '/studio', label: 'استودیو', icon: Sparkles },
   { to: '/team', label: 'تیم', icon: Users },

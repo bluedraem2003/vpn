@@ -109,8 +109,28 @@ export const api = {
     ),
   listProjects: (workspaceId: string) =>
     request<{ items: ProjectDto[] }>(`/api/projects?workspaceId=${workspaceId}`),
-  createProject: (body: { workspaceId: string; name: string; clientName?: string; description?: string }) =>
-    request<{ item: ProjectDto }>('/api/projects', { method: 'POST', body: JSON.stringify(body) }),
+  createProject: (body: {
+    workspaceId: string
+    name: string
+    clientName?: string
+    handle?: string
+    description?: string
+    niche?: string
+    audience?: string
+    voice?: string
+  }) => request<{ item: ProjectDto }>('/api/projects', { method: 'POST', body: JSON.stringify(body) }),
+  updateProject: (
+    id: string,
+    body: Partial<{
+      name: string
+      clientName: string
+      handle: string
+      description: string
+      niche: string
+      audience: string
+      voice: string
+    }>,
+  ) => request<{ item: ProjectDto }>(`/api/projects/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   deleteProject: (id: string) => request<{ ok: boolean }>(`/api/projects/${id}`, { method: 'DELETE' }),
   listCampaigns: (workspaceId: string) =>
     request<{ items: CampaignDto[] }>(`/api/campaigns?workspaceId=${workspaceId}`),
@@ -225,7 +245,11 @@ export interface ProjectDto {
   workspaceId: string
   name: string
   clientName?: string
+  handle?: string
   description?: string
+  niche?: string
+  audience?: string
+  voice?: string
   createdAt: string
 }
 

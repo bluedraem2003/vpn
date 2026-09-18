@@ -85,37 +85,69 @@ contentRoutes.post('/', async (c) => {
     return c.json({ error: 'title و contentType الزامی هستند' }, 400)
   }
 
+  const projectId = body.projectId || null
+  if (projectId) {
+    const project = db.prepare(`SELECT id, workspace_id FROM projects WHERE id = ?`).get(projectId) as
+      | { id: string; workspace_id: string }
+      | undefined
+    if (!project || project.workspace_id !== workspaceId) {
+      return c.json({ error: 'پروژه/پیج نامعتبر است — دوباره از لیست انتخاب کنید' }, 400)
+    }
+  }
+
+  const campaignId = body.campaignId || null
+  if (campaignId) {
+    const campaign = db.prepare(`SELECT id, workspace_id FROM campaigns WHERE id = ?`).get(campaignId) as
+      | { id: string; workspace_id: string }
+      | undefined
+    if (!campaign || campaign.workspace_id !== workspaceId) {
+      return c.json({ error: 'کمپین نامعتبر است' }, 400)
+    }
+  }
+
+  // occasion_id is soft reference (no FK) — ignore unknown ids
+  const occasionId =
+    body.occasionId &&
+    db.prepare(`SELECT id FROM occasions WHERE id = ?`).get(body.occasionId)
+      ? body.occasionId
+      : null
+
   const status = body.status || (body.publishDate ? 'scheduled' : 'planned')
-  db.prepare(
-    `INSERT INTO contents (
+  try {
+    db.prepare(
+      `INSERT INTO contents (
       id, workspace_id, project_id, campaign_id, assignee_id, title, description,
       platforms, content_type, status, publish_date, publish_time, caption, hashtags,
       notes, ai_meta, window_start, window_end, occasion_id, reminded_at, created_at, updated_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    id,
-    workspaceId,
-    body.projectId || null,
-    body.campaignId || null,
-    body.assigneeId || null,
-    body.title,
-    body.description || null,
-    JSON.stringify(body.platforms || ['instagram']),
-    body.contentType,
-    status,
-    body.publishDate || null,
-    body.publishTime || body.windowStart || null,
-    body.caption || null,
-    JSON.stringify(body.hashtags || []),
-    body.notes || null,
-    JSON.stringify(body.aiMeta || {}),
-    body.windowStart || null,
-    body.windowEnd || null,
-    body.occasionId || null,
-    null,
-    now,
-    now,
-  )
+    ).run(
+      id,
+      workspaceId,
+      projectId,
+      campaignId,
+      body.assigneeId || null,
+      body.title,
+      body.description || null,
+      JSON.stringify(body.platforms || ['instagram']),
+      body.contentType,
+      status,
+      body.publishDate || null,
+      body.publishTime || body.windowStart || null,
+      body.caption || null,
+      JSON.stringify(body.hashtags || []),
+      body.notes || null,
+      JSON.stringify(body.aiMeta || {}),
+      body.windowStart || null,
+      body.windowEnd || null,
+      occasionId,
+      null,
+      now,
+      now,
+    )
+  } catch (err) {
+    console.error('[Content] create failed', (err as Error).message)
+    return c.json({ error: 'ذخیره محتوا ناموفق بود. پیج/کمپین را دوباره انتخاب کنید.' }, 400)
+  }
 
   db.prepare(
     `INSERT INTO content_status_history (id, content_id, from_status, to_status, changed_by, created_at)
