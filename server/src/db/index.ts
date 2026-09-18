@@ -2,6 +2,7 @@ import { mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Database from 'better-sqlite3'
+import { OCCASION_SEEDS } from '../data/occasions-seed.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 export const DATA_DIR = join(__dirname, '../../data')
@@ -184,12 +185,57 @@ export function migrate() {
       window_start TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS occasions (
+      id TEXT PRIMARY KEY,
+      slug TEXT NOT NULL UNIQUE,
+      name_fa TEXT NOT NULL,
+      name_en TEXT,
+      region TEXT NOT NULL,
+      calendar TEXT NOT NULL,
+      month INTEGER NOT NULL,
+      day INTEGER NOT NULL,
+      kind TEXT NOT NULL DEFAULT 'occasion',
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS project_occasions (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      occasion_id TEXT NOT NULL REFERENCES occasions(id) ON DELETE CASCADE,
+      UNIQUE(project_id, occasion_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS telegram_notifications (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+      content_id TEXT REFERENCES contents(id) ON DELETE SET NULL,
+      asset_id TEXT REFERENCES assets(id) ON DELETE SET NULL,
+      kind TEXT NOT NULL,
+      message TEXT NOT NULL,
+      status TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_contents_workspace_status ON contents(workspace_id, status);
     CREATE INDEX IF NOT EXISTS idx_contents_publish ON contents(publish_date, publish_time);
     CREATE INDEX IF NOT EXISTS idx_assets_workspace_type ON assets(workspace_id, type);
     CREATE INDEX IF NOT EXISTS idx_telegram_chat ON telegram_sources(telegram_chat_id);
     CREATE INDEX IF NOT EXISTS idx_magic_token ON magic_links(token);
+    CREATE INDEX IF NOT EXISTS idx_occasions_region ON occasions(region);
+    CREATE INDEX IF NOT EXISTS idx_project_occasions ON project_occasions(project_id);
+    CREATE INDEX IF NOT EXISTS idx_tg_notify_ws ON telegram_notifications(workspace_id, created_at);
   `)
+
+  ensureColumn('contents', 'window_start', 'TEXT')
+  ensureColumn('contents', 'window_end', 'TEXT')
+  ensureColumn('contents', 'occasion_id', 'TEXT')
+  ensureColumn('contents', 'reminded_at', 'TEXT')
+}
+
+function ensureColumn(table: string, column: string, typeSql: string) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>
+  if (cols.some((c) => c.name === column)) return
+  db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${typeSql}`)
 }
 
 export function uid(prefix: string) {
@@ -198,22 +244,50 @@ export function uid(prefix: string) {
 
 export function seedIfEmpty() {
   const row = db.prepare('SELECT COUNT(*) AS c FROM workspaces').get() as { c: number }
-  if (row.c > 0) return
+  if (row.c === 0) {
+    const now = new Date().toISOString()
+    const userId = uid('user')
+    const workspaceId = uid('ws')
+    const membershipId = uid('mem')
 
+    db.prepare(
+      `INSERT INTO users (id, email, name, created_at) VALUES (?, ?, ?, ?)`,
+    ).run(userId, 'owner@postyar.local', 'مدیر محتوا', now)
+
+    db.prepare(
+      `INSERT INTO workspaces (id, name, slug, created_at) VALUES (?, ?, ?, ?)`,
+    ).run(workspaceId, 'ورک‌اسپیس اصلی', 'main', now)
+
+    db.prepare(
+      `INSERT INTO memberships (id, workspace_id, user_id, role) VALUES (?, ?, ?, ?)`,
+    ).run(membershipId, workspaceId, userId, 'admin')
+  }
+
+  seedOccasions()
+}
+
+export function seedOccasions() {
   const now = new Date().toISOString()
-  const userId = uid('user')
-  const workspaceId = uid('ws')
-  const membershipId = uid('mem')
-
-  db.prepare(
-    `INSERT INTO users (id, email, name, created_at) VALUES (?, ?, ?, ?)`,
-  ).run(userId, 'owner@postyar.local', 'مدیر محتوا', now)
-
-  db.prepare(
-    `INSERT INTO workspaces (id, name, slug, created_at) VALUES (?, ?, ?, ?)`,
-  ).run(workspaceId, 'ورک‌اسپیس اصلی', 'main', now)
-
-  db.prepare(
-    `INSERT INTO memberships (id, workspace_id, user_id, role) VALUES (?, ?, ?, ?)`,
-  ).run(membershipId, workspaceId, userId, 'admin')
+  const insert = db.prepare(
+    `INSERT OR IGNORE INTO occasions
+      (id, slug, name_fa, name_en, region, calendar, month, day, kind, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  )
+  const tx = db.transaction(() => {
+    for (const o of OCCASION_SEEDS) {
+      insert.run(
+        uid('occ'),
+        o.slug,
+        o.nameFa,
+        o.nameEn,
+        o.region,
+        o.calendar,
+        o.month,
+        o.day,
+        o.kind,
+        now,
+      )
+    }
+  })
+  tx()
 }

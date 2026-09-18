@@ -10,7 +10,7 @@ import {
 } from '../domain/types'
 
 export function ContentPage() {
-  const { workspaceId } = useAuth()
+  const { workspaceId, session } = useAuth()
   const [items, setItems] = useState<ContentDto[]>([])
   const [assets, setAssets] = useState<AssetDto[]>([])
   const [projects, setProjects] = useState<ProjectDto[]>([])
@@ -18,12 +18,15 @@ export function ContentPage() {
   const [attached, setAttached] = useState<Record<string, Array<AssetDto & { linkId: string }>>>({})
   const [error, setError] = useState<string | null>(null)
   const [title, setTitle] = useState('')
-  const [contentType, setContentType] = useState<ContentType>('reel')
+  const [contentType, setContentType] = useState<ContentType>('story')
   const [publishDate, setPublishDate] = useState('')
+  const [windowStart, setWindowStart] = useState('10:00')
+  const [windowEnd, setWindowEnd] = useState('12:00')
   const [projectId, setProjectId] = useState('')
   const [campaignId, setCampaignId] = useState('')
   const [busy, setBusy] = useState(false)
   const [attachFor, setAttachFor] = useState<string | null>(null)
+  const [remindMsg, setRemindMsg] = useState<string | null>(null)
 
   async function reload(id: string) {
     const [contentRes, assetRes, projectRes, campaignRes] = await Promise.all([
@@ -62,8 +65,11 @@ export function ContentPage() {
         title: title.trim(),
         contentType,
         platforms: ['instagram'],
-        status: 'planned',
+        status: publishDate ? 'scheduled' : 'planned',
         publishDate: publishDate || undefined,
+        publishTime: windowStart || undefined,
+        windowStart: windowStart || undefined,
+        windowEnd: windowEnd || undefined,
         projectId: projectId || undefined,
         campaignId: campaignId || undefined,
         hashtags: [],
@@ -90,21 +96,43 @@ export function ContentPage() {
     await reload(workspaceId)
   }
 
+  async function runReminders() {
+    setRemindMsg(null)
+    try {
+      const res = await api.runMissedReminders()
+      setRemindMsg(`یادآوری‌ها: بررسی ${res.checked} · ارسال ${res.sent}`)
+    } catch (e) {
+      setRemindMsg((e as Error).message)
+    }
+  }
+
+  const canRemind = session?.role === 'admin' || session?.role === 'manager'
+
   return (
     <div className="ops-page">
       <header className="ops-page-head">
         <div>
           <h1>محتوا</h1>
-          <p>مدیریت آیتم‌ها، گردش وضعیت و اتصال Asset</p>
+          <p>اسکجول استوری/ریلز با بازه زمانی — اگر نگذارید، بات تلگرام یادآوری می‌کند</p>
         </div>
+        {canRemind && (
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => void runReminders()}>
+            چک یادآوری‌ها الان
+          </button>
+        )}
       </header>
+      {remindMsg && (
+        <div className="panel panel-pad" style={{ marginBottom: '1rem' }}>
+          <p className="section-sub">{remindMsg}</p>
+        </div>
+      )}
 
       <div className="ops-split" style={{ gridTemplateColumns: '0.9fr 1.1fr' }}>
         <section className="panel panel-pad">
-          <h2 className="section-title">ایجاد محتوا</h2>
+          <h2 className="section-title">ایجاد / اسکجول</h2>
           <div className="field">
             <label>عنوان</label>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="معرفی پروژه جدید" />
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="استوری صبحگاهی محصول" />
           </div>
           <div className="field">
             <label>نوع</label>
@@ -117,7 +145,7 @@ export function ContentPage() {
             </select>
           </div>
           <div className="field">
-            <label>پروژه</label>
+            <label>پروژه / پیج</label>
             <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
               <option value="">—</option>
               {projects.map((p) => (
@@ -142,9 +170,22 @@ export function ContentPage() {
             <label>تاریخ انتشار</label>
             <input type="date" value={publishDate} onChange={(e) => setPublishDate(e.target.value)} />
           </div>
+          <div className="ops-filters" style={{ gridTemplateColumns: '1fr 1fr' }}>
+            <div className="field" style={{ margin: 0 }}>
+              <label>از ساعت</label>
+              <input type="time" value={windowStart} onChange={(e) => setWindowStart(e.target.value)} />
+            </div>
+            <div className="field" style={{ margin: 0 }}>
+              <label>تا ساعت</label>
+              <input type="time" value={windowEnd} onChange={(e) => setWindowEnd(e.target.value)} />
+            </div>
+          </div>
+          <p className="section-sub">
+            اگر تا پایان این بازه وضعیت «منتشر شده» نشود، پیام «اوستا اینو نذاشتی» به تلگرام می‌رود.
+          </p>
           {error && <p className="section-sub">{error}</p>}
           <button type="button" className="btn btn-solid" disabled={busy} onClick={() => void createItem()}>
-            ذخیره
+            ذخیره اسکجول
           </button>
         </section>
 
@@ -163,7 +204,12 @@ export function ContentPage() {
                 <p>
                   {CONTENT_TYPE_LABELS[item.contentType as ContentType] || item.contentType}
                   {item.publishDate ? ` · ${item.publishDate}` : ''}
-                  {item.platforms?.length ? ` · ${item.platforms.join(', ')}` : ''}
+                  {item.windowStart || item.windowEnd
+                    ? ` · ${item.windowStart || '—'} تا ${item.windowEnd || '—'}`
+                    : item.publishTime
+                      ? ` · ${item.publishTime}`
+                      : ''}
+                  {item.remindedAt ? ' · یادآوری ارسال شد' : ''}
                 </p>
                 <div className="chip-row">
                   {(attached[item.id] || []).map((a) => (
@@ -171,7 +217,6 @@ export function ContentPage() {
                       {a.type}: {a.filename}
                     </span>
                   ))}
-                  <span className="meta-badge">Assets: {(attached[item.id] || []).length}</span>
                 </div>
                 <div className="chip-row">
                   {CONTENT_STATUS_FLOW.map((s) => (
@@ -185,6 +230,7 @@ export function ContentPage() {
                     </button>
                   ))}
                 </div>
+                <p className="section-sub">با زدن «منتشر شده» به گروه تلگرام خبر آپلود می‌رود.</p>
                 <div className="form-actions">
                   <button
                     type="button"

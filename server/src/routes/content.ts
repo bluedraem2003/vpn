@@ -1,9 +1,25 @@
 import { Hono } from 'hono'
 import { db, uid } from '../db/index.js'
 import { assertWorkspaceAccess, requireAuth } from '../middleware/auth.js'
+import { notifyContentPublished } from '../jobs/reminders.js'
+import { hitRateLimit } from '../middleware/rateLimit.js'
+import { runMissedScheduleReminders } from '../jobs/reminders.js'
 
 export const contentRoutes = new Hono()
 contentRoutes.use('*', requireAuth)
+
+/** Manual / cron trigger for missed-schedule reminders */
+contentRoutes.post('/jobs/remind-missed', async (c) => {
+  const role = c.get('role')
+  if (!['admin', 'manager'].includes(role)) {
+    return c.json({ error: 'فقط ادمین/مدیر' }, 403)
+  }
+  if (hitRateLimit(`remind:${c.get('userId')}`, 10, 60_000)) {
+    return c.json({ error: 'محدودیت درخواست' }, 429)
+  }
+  const result = await runMissedScheduleReminders()
+  return c.json({ ok: true, ...result })
+})
 
 contentRoutes.get('/', (c) => {
   const workspaceId = c.req.query('workspaceId') || c.get('workspaceId')
@@ -69,13 +85,13 @@ contentRoutes.post('/', async (c) => {
     return c.json({ error: 'title و contentType الزامی هستند' }, 400)
   }
 
-  const status = body.status || 'planned'
+  const status = body.status || (body.publishDate ? 'scheduled' : 'planned')
   db.prepare(
     `INSERT INTO contents (
       id, workspace_id, project_id, campaign_id, assignee_id, title, description,
       platforms, content_type, status, publish_date, publish_time, caption, hashtags,
-      notes, ai_meta, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      notes, ai_meta, window_start, window_end, occasion_id, reminded_at, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     workspaceId,
@@ -88,11 +104,15 @@ contentRoutes.post('/', async (c) => {
     body.contentType,
     status,
     body.publishDate || null,
-    body.publishTime || null,
+    body.publishTime || body.windowStart || null,
     body.caption || null,
     JSON.stringify(body.hashtags || []),
     body.notes || null,
     JSON.stringify(body.aiMeta || {}),
+    body.windowStart || null,
+    body.windowEnd || null,
+    body.occasionId || null,
+    null,
     now,
     now,
   )
@@ -127,7 +147,8 @@ contentRoutes.patch('/:id', async (c) => {
     `UPDATE contents SET
       title = ?, description = ?, platforms = ?, content_type = ?, status = ?,
       publish_date = ?, publish_time = ?, caption = ?, hashtags = ?, notes = ?,
-      project_id = ?, campaign_id = ?, updated_at = ?
+      project_id = ?, campaign_id = ?, window_start = ?, window_end = ?, occasion_id = ?,
+      updated_at = ?
      WHERE id = ?`,
   ).run(
     body.title ?? existing.title,
@@ -142,11 +163,22 @@ contentRoutes.patch('/:id', async (c) => {
     body.notes ?? existing.notes,
     body.projectId ?? existing.project_id,
     body.campaignId ?? existing.campaign_id,
+    body.windowStart !== undefined ? body.windowStart || null : existing.window_start,
+    body.windowEnd !== undefined ? body.windowEnd || null : existing.window_end,
+    body.occasionId !== undefined ? body.occasionId || null : existing.occasion_id,
     now,
     id,
   )
 
-  const row = db.prepare(`SELECT * FROM contents WHERE id = ?`).get(id)
+  const row = db.prepare(`SELECT * FROM contents WHERE id = ?`).get(id) as Record<string, unknown>
+
+  // When marked published → notify Telegram group/bot
+  if (body.status === 'published' && existing.status !== 'published') {
+    void notifyContentPublished(row).catch((err) =>
+      console.error('[Notify] published', (err as Error).message),
+    )
+  }
+
   return c.json({ item: mapContent(row) })
 })
 
@@ -174,6 +206,10 @@ function mapContent(row: unknown) {
     status: r.status,
     publishDate: r.publish_date,
     publishTime: r.publish_time,
+    windowStart: r.window_start,
+    windowEnd: r.window_end,
+    occasionId: r.occasion_id,
+    remindedAt: r.reminded_at,
     caption: r.caption,
     hashtags: JSON.parse(String(r.hashtags || '[]')),
     notes: r.notes,

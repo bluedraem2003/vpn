@@ -140,6 +140,34 @@ export const api = {
     request<{ items: Array<{ id: string; email: string; name: string; role: string }> }>('/api/team'),
   search: (workspaceId: string, q: string) =>
     request<Record<string, unknown[]>>(`/api/search?workspaceId=${workspaceId}&q=${encodeURIComponent(q)}`),
+  listOccasions: (workspaceId: string, params?: { region?: string; projectId?: string; year?: number }) => {
+    const sp = new URLSearchParams({ workspaceId })
+    if (params?.region) sp.set('region', params.region)
+    if (params?.projectId) sp.set('projectId', params.projectId)
+    if (params?.year) sp.set('year', String(params.year))
+    return request<{ items: OccasionDto[]; year: number }>(`/api/occasions?${sp}`)
+  },
+  occasionsCalendar: (workspaceId: string, params?: { year?: number; month?: number; projectId?: string }) => {
+    const sp = new URLSearchParams({ workspaceId })
+    if (params?.year) sp.set('year', String(params.year))
+    if (params?.month) sp.set('month', String(params.month))
+    if (params?.projectId) sp.set('projectId', params.projectId)
+    return request<{ items: OccasionDto[]; year: number }>(`/api/occasions/calendar?${sp}`)
+  },
+  linkOccasionToProject: (projectId: string, occasionId: string) =>
+    request<{ ok: boolean }>('/api/occasions/project-link', {
+      method: 'POST',
+      body: JSON.stringify({ projectId, occasionId }),
+    }),
+  unlinkOccasionFromProject: (projectId: string, occasionId: string) =>
+    request<{ ok: boolean }>('/api/occasions/project-link', {
+      method: 'DELETE',
+      body: JSON.stringify({ projectId, occasionId }),
+    }),
+  runMissedReminders: () =>
+    request<{ ok: boolean; checked: number; sent: number }>('/api/content/jobs/remind-missed', {
+      method: 'POST',
+    }),
 }
 
 export interface ContentDto {
@@ -152,6 +180,10 @@ export interface ContentDto {
   status: string
   publishDate?: string
   publishTime?: string
+  windowStart?: string
+  windowEnd?: string
+  occasionId?: string
+  remindedAt?: string
   caption?: string
   hashtags: string[]
   notes?: string
@@ -159,6 +191,20 @@ export interface ContentDto {
   campaignId?: string
   createdAt: string
   updatedAt: string
+}
+
+export interface OccasionDto {
+  id: string
+  slug: string
+  nameFa: string
+  nameEn?: string
+  region: 'ir' | 'global' | string
+  calendar: 'jalali' | 'gregorian' | string
+  month: number
+  day: number
+  kind: string
+  dateInYear?: string | null
+  createdAt: string
 }
 
 export interface AssetDto {

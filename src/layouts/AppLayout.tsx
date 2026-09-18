@@ -13,12 +13,14 @@ import {
   Settings,
   Sparkles,
   LogOut,
+  PartyPopper,
 } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 
 const links = [
   { to: '/', label: 'داشبورد', icon: LayoutDashboard, end: true },
   { to: '/calendar', label: 'تقویم محتوا', icon: CalendarDays },
+  { to: '/occasions', label: 'مناسبت‌ها', icon: PartyPopper },
   { to: '/content', label: 'محتوا', icon: FileText },
   { to: '/ideas', label: 'ایده‌ها', icon: Lightbulb },
   { to: '/assets', label: 'دارایی‌ها', icon: FolderOpen },

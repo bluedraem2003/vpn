@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { api, type ContentDto } from '../api/client'
+import { api, type ContentDto, type OccasionDto } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import {
   CONTENT_STATUS_LABELS,
@@ -14,6 +14,7 @@ export function CalendarPage() {
   const { workspaceId } = useAuth()
   const [view, setView] = useState<CalView>('month')
   const [items, setItems] = useState<ContentDto[]>([])
+  const [occasions, setOccasions] = useState<OccasionDto[]>([])
   const [error, setError] = useState<string | null>(null)
   const [cursor, setCursor] = useState(() => new Date())
 
@@ -22,8 +23,16 @@ export function CalendarPage() {
     let cancelled = false
     ;(async () => {
       try {
-        const res = await api.listContent(workspaceId)
-        if (!cancelled) setItems(res.items)
+        const year = cursor.getFullYear()
+        const month = cursor.getMonth() + 1
+        const [contentRes, occRes] = await Promise.all([
+          api.listContent(workspaceId),
+          api.occasionsCalendar(workspaceId, { year, month }),
+        ])
+        if (!cancelled) {
+          setItems(contentRes.items)
+          setOccasions(occRes.items)
+        }
       } catch (e) {
         if (!cancelled) setError((e as Error).message)
       }
@@ -31,25 +40,43 @@ export function CalendarPage() {
     return () => {
       cancelled = true
     }
-  }, [workspaceId])
+  }, [workspaceId, cursor])
 
   const dated = useMemo(
-    () => items.filter((i) => i.publishDate).sort((a, b) => String(a.publishDate).localeCompare(String(b.publishDate))),
+    () =>
+      items
+        .filter((i) => i.publishDate)
+        .sort((a, b) => String(a.publishDate).localeCompare(String(b.publishDate))),
     [items],
   )
 
   const monthCells = useMemo(() => buildMonthGrid(cursor), [cursor])
+  const occByDate = useMemo(() => {
+    const map = new Map<string, OccasionDto[]>()
+    for (const o of occasions) {
+      if (!o.dateInYear) continue
+      const list = map.get(o.dateInYear) || []
+      list.push(o)
+      map.set(o.dateInYear, list)
+    }
+    return map
+  }, [occasions])
 
   return (
     <div className="ops-page">
       <header className="ops-page-head">
         <div>
           <h1>تقویم محتوا</h1>
-          <p>هستهٔ زمان‌بندی انتشار — Month / Week / Day / List</p>
+          <p>زمان‌بندی انتشار + مناسبت‌های ایرانی و جهانی</p>
         </div>
         <div className="chip-row">
           {(['month', 'week', 'day', 'list'] as CalView[]).map((v) => (
-            <button key={v} type="button" className={`chip ${view === v ? 'active' : ''}`} onClick={() => setView(v)}>
+            <button
+              key={v}
+              type="button"
+              className={`chip ${view === v ? 'active' : ''}`}
+              onClick={() => setView(v)}
+            >
               {v === 'month' ? 'ماه' : v === 'week' ? 'هفته' : v === 'day' ? 'روز' : 'لیست'}
             </button>
           ))}
@@ -82,14 +109,25 @@ export function CalendarPage() {
 
         {view === 'list' && (
           <ul className="ops-list">
-            {dated.length === 0 && <li className="section-sub">محتوای زمان‌بندی‌شده نیست</li>}
+            {dated.length === 0 && occasions.length === 0 && (
+              <li className="section-sub">محتوا یا مناسبتی در این بازه نیست</li>
+            )}
             {dated.map((item) => (
               <li key={item.id}>
                 <strong>{item.title}</strong>
                 <span>
-                  {item.publishDate} {item.publishTime || ''} ·{' '}
+                  {item.publishDate} {item.windowStart || item.publishTime || ''}
+                  {item.windowEnd ? `–${item.windowEnd}` : ''} ·{' '}
                   {CONTENT_TYPE_LABELS[item.contentType as ContentType] || item.contentType} ·{' '}
                   {CONTENT_STATUS_LABELS[item.status as ContentStatus] || item.status}
+                </span>
+              </li>
+            ))}
+            {occasions.map((o) => (
+              <li key={o.id}>
+                <strong>🎉 {o.nameFa}</strong>
+                <span>
+                  {o.dateInYear} · {o.region === 'ir' ? 'ایرانی' : 'جهانی'}
                 </span>
               </li>
             ))}
@@ -103,12 +141,18 @@ export function CalendarPage() {
                 {d}
               </div>
             ))}
-            {monthCells.map((cell) => {
-              const key = cell ? formatDate(cell) : ''
+            {monthCells.map((cell, idx) => {
+              const key = cell ? formatDate(cell) : `e-${idx}`
               const dayItems = cell ? dated.filter((i) => i.publishDate === key) : []
+              const dayOcc = cell ? occByDate.get(key) || [] : []
               return (
-                <div key={key || Math.random()} className={`cal-cell ${cell ? '' : 'empty'}`}>
+                <div key={key} className={`cal-cell ${cell ? '' : 'empty'}`}>
                   {cell && <div className="cal-daynum">{cell.getDate()}</div>}
+                  {dayOcc.slice(0, 2).map((o) => (
+                    <div key={o.id} className="cal-pill cal-pill-occasion" title={o.nameEn || o.nameFa}>
+                      {o.nameFa}
+                    </div>
+                  ))}
                   {dayItems.slice(0, 3).map((i) => (
                     <div key={i.id} className="cal-pill" title={i.title}>
                       {i.title}
@@ -121,7 +165,7 @@ export function CalendarPage() {
         )}
 
         {(view === 'week' || view === 'day') && (
-          <WeekDayView cursor={cursor} view={view} items={dated} />
+          <WeekDayView cursor={cursor} view={view} items={dated} occasions={occByDate} />
         )}
       </div>
     </div>
@@ -132,10 +176,12 @@ function WeekDayView({
   cursor,
   view,
   items,
+  occasions,
 }: {
   cursor: Date
   view: 'week' | 'day'
   items: ContentDto[]
+  occasions: Map<string, OccasionDto[]>
 }) {
   const days =
     view === 'day'
@@ -152,13 +198,19 @@ function WeekDayView({
       {days.map((d) => {
         const key = formatDate(d)
         const dayItems = items.filter((i) => i.publishDate === key)
+        const dayOcc = occasions.get(key) || []
         return (
           <div key={key} className="cal-daycol panel-pad">
             <strong>{d.toLocaleDateString('fa-IR', { weekday: 'short', day: 'numeric' })}</strong>
-            {dayItems.length === 0 && <p className="section-sub">خالی</p>}
+            {dayOcc.map((o) => (
+              <div key={o.id} className="cal-pill cal-pill-occasion">
+                {o.nameFa}
+              </div>
+            ))}
+            {dayItems.length === 0 && dayOcc.length === 0 && <p className="section-sub">خالی</p>}
             {dayItems.map((i) => (
               <div key={i.id} className="cal-pill">
-                {i.publishTime ? `${i.publishTime} · ` : ''}
+                {i.windowStart || i.publishTime ? `${i.windowStart || i.publishTime} · ` : ''}
                 {i.title}
               </div>
             ))}
@@ -170,7 +222,10 @@ function WeekDayView({
 }
 
 function formatDate(d: Date) {
-  return d.toISOString().slice(0, 10)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
 function addMonths(d: Date, n: number) {
@@ -181,7 +236,7 @@ function addMonths(d: Date, n: number) {
 
 function startOfWeek(d: Date) {
   const x = new Date(d)
-  const day = (x.getDay() + 1) % 7 // Saturday-start-ish for FA feel
+  const day = (x.getDay() + 1) % 7
   x.setDate(x.getDate() - day)
   x.setHours(0, 0, 0, 0)
   return x

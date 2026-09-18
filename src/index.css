@@ -816,6 +816,11 @@ a {
   text-overflow: ellipsis;
 }
 
+.cal-pill-occasion {
+  background: rgba(224, 122, 95, 0.16);
+  color: #b85a40;
+}
+
 .cal-week,
 .cal-day {
   display: grid;

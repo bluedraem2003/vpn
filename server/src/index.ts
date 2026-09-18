@@ -18,6 +18,8 @@ import { ideaRoutes } from './routes/ideas.js'
 import { searchRoutes } from './routes/search.js'
 import { teamRoutes } from './routes/team.js'
 import { analyticsRoutes } from './routes/analytics.js'
+import { occasionRoutes } from './routes/occasions.js'
+import { runMissedScheduleReminders } from './jobs/reminders.js'
 
 migrate()
 seedIfEmpty()
@@ -87,6 +89,7 @@ app.route('/api/ideas', ideaRoutes)
 app.route('/api/search', searchRoutes)
 app.route('/api/team', teamRoutes)
 app.route('/api/analytics', analyticsRoutes)
+app.route('/api/occasions', occasionRoutes)
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const distCandidates = [
@@ -127,6 +130,17 @@ const hostname = process.env.HOST || '0.0.0.0'
 
 serve({ fetch: app.fetch, port, hostname }, () => {
   console.log(`[PostYar] listening on http://${hostname}:${port}`)
+
+  // In-process scheduler: check missed story/reel windows every minute
+  const tickMs = Number(process.env.REMINDER_INTERVAL_MS || 60_000)
+  setInterval(() => {
+    void runMissedScheduleReminders()
+      .then((r) => {
+        if (r.sent > 0) console.log('[Reminders] sent', r.sent)
+      })
+      .catch((err) => console.error('[Reminders]', (err as Error).message))
+  }, tickMs)
+  console.log(`[Reminders] interval ${tickMs}ms`)
 })
 
 export default app

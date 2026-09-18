@@ -16,6 +16,8 @@ Copy `.env.example` to `.env` and fill values.
 | `TELEGRAM_CHAT_ID` | Allowed channel/group id |
 | `TELEGRAM_WEBHOOK_SECRET` | Webhook header secret |
 | `TELEGRAM_API_BASE` | Bot API or Local Bot API base |
+| `TELEGRAM_NOTIFY_CHAT_ID` | Optional chat for ops alerts (defaults to `TELEGRAM_CHAT_ID`) |
+| `REMINDER_INTERVAL_MS` | Missed-schedule reminder poll interval (default 60000) |
 | `VITE_API_URL` | Leave empty when UI is same-origin with API |
 | `STATIC_DIR` | Optional override for Vite `dist/` folder |
 

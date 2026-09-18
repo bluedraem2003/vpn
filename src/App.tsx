@@ -14,6 +14,7 @@ import { CampaignsPage } from './pages/CampaignsPage'
 import { TeamPage } from './pages/TeamPage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { OccasionsPage } from './pages/OccasionsPage'
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
             <Route element={<AppLayout />}>
               <Route index element={<DashboardPage />} />
               <Route path="calendar" element={<CalendarPage />} />
+              <Route path="occasions" element={<OccasionsPage />} />
               <Route path="content" element={<ContentPage />} />
               <Route path="ideas" element={<IdeasPage />} />
               <Route path="assets" element={<AssetsPage />} />
