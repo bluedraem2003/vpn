@@ -12,11 +12,13 @@ export function IdeasPage() {
   const [description, setDescription] = useState('')
   const [contentType, setContentType] = useState<ContentType>('reel')
   const [error, setError] = useState<string | null>(null)
+  const [msg, setMsg] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
 
   async function reload() {
     if (!workspaceId) return
     const res = await api.listIdeas(workspaceId)
-    setItems(res.items)
+    setItems(res.items || [])
   }
 
   useEffect(() => {
@@ -24,25 +26,54 @@ export function IdeasPage() {
   }, [workspaceId])
 
   async function create() {
-    if (!workspaceId || !title.trim()) return
-    await api.createIdea({
-      workspaceId,
-      title: title.trim(),
-      description,
-      contentType,
-      platforms: ['instagram'],
-      priority: 'medium',
-    })
-    setTitle('')
-    setDescription('')
-    await reload()
+    if (!workspaceId) return
+    if (!title.trim()) {
+      setError('عنوان ایده را بنویس')
+      return
+    }
+    setBusy(true)
+    setError(null)
+    setMsg(null)
+    try {
+      const res = await api.createIdea({
+        workspaceId,
+        title: title.trim(),
+        description: description.trim() || undefined,
+        contentType,
+        platforms: ['instagram'],
+        priority: 'medium',
+      })
+      setItems((prev) => [res.item, ...prev.filter((i) => i.id !== res.item.id)])
+      setTitle('')
+      setDescription('')
+      setMsg('ایده ذخیره شد')
+      await reload()
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
   }
 
   async function convert(id: string) {
-    const res = await api.convertIdea(id)
-    await reload()
-    navigate('/content')
-    return res
+    setError(null)
+    try {
+      await api.convertIdea(id)
+      await reload()
+      navigate('/content')
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+  async function remove(id: string) {
+    if (!window.confirm('این ایده حذف شود؟')) return
+    try {
+      await api.deleteIdea(id)
+      setItems((prev) => prev.filter((i) => i.id !== id))
+    } catch (e) {
+      setError((e as Error).message)
+    }
   }
 
   return (
@@ -50,16 +81,23 @@ export function IdeasPage() {
       <header className="ops-page-head">
         <div>
           <h1>ایده‌ها</h1>
-          <p>بانک ایده با تبدیل مستقیم به Content Item</p>
+          <p>بانک ایده با تبدیل مستقیم به محتوا</p>
         </div>
       </header>
-      {error && <p className="section-sub">{error}</p>}
+      {error && <div className="form-banner error">{error}</div>}
+      {msg && <div className="form-banner ok">{msg}</div>}
       <div className="ops-split" style={{ gridTemplateColumns: '0.9fr 1.1fr' }}>
-        <section className="panel panel-pad">
+        <form
+          className="panel panel-pad"
+          onSubmit={(e) => {
+            e.preventDefault()
+            void create()
+          }}
+        >
           <h2 className="section-title">ایده جدید</h2>
           <div className="field">
             <label>عنوان</label>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} />
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="عنوان ایده" />
           </div>
           <div className="field">
             <label>توضیح</label>
@@ -75,13 +113,14 @@ export function IdeasPage() {
               ))}
             </select>
           </div>
-          <button type="button" className="btn btn-solid" onClick={() => void create()}>
-            ذخیره ایده
+          <button type="submit" className="btn btn-solid" disabled={busy}>
+            {busy ? 'در حال ذخیره...' : 'ذخیره ایده'}
           </button>
-        </section>
+        </form>
         <section className="panel panel-pad">
           <h2 className="section-title">لیست</h2>
           <div className="page-list">
+            {items.length === 0 && <p className="section-sub">ایده‌ای نیست</p>}
             {items.map((idea) => (
               <article key={idea.id} className="list-item">
                 <div className="list-meta">
@@ -94,14 +133,10 @@ export function IdeasPage() {
                     <span className="meta-badge">تبدیل‌شده</span>
                   ) : (
                     <button type="button" className="btn btn-solid btn-sm" onClick={() => void convert(idea.id)}>
-                      Convert to Content
+                      تبدیل به محتوا
                     </button>
                   )}
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm"
-                    onClick={() => void api.deleteIdea(idea.id).then(reload)}
-                  >
+                  <button type="button" className="btn btn-outline btn-sm" onClick={() => void remove(idea.id)}>
                     حذف
                   </button>
                 </div>

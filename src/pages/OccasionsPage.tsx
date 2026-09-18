@@ -19,11 +19,11 @@ export function OccasionsPage() {
       api.listOccasions(workspaceId, { region: region === 'all' ? undefined : region, year }),
       api.listProjects(workspaceId),
     ])
-    setItems(all.items)
-    setProjects(proj.items)
+    setItems(all.items || [])
+    setProjects(proj.items || [])
     if (projectId) {
       const linkedRes = await api.listOccasions(workspaceId, { projectId, year })
-      setLinkedIds(new Set(linkedRes.items.map((i) => i.id)))
+      setLinkedIds(new Set((linkedRes.items || []).map((i) => i.id)))
     } else {
       setLinkedIds(new Set())
     }
@@ -52,10 +52,16 @@ export function OccasionsPage() {
     try {
       if (linkedIds.has(occasionId)) {
         await api.unlinkOccasionFromProject(projectId, occasionId)
-        setMsg('از پروژه حذف شد')
+        setLinkedIds((prev) => {
+          const next = new Set(prev)
+          next.delete(occasionId)
+          return next
+        })
+        setMsg('از پیج حذف شد')
       } else {
         await api.linkOccasionToProject(projectId, occasionId)
-        setMsg('به پروژه وصل شد')
+        setLinkedIds((prev) => new Set(prev).add(occasionId))
+        setMsg('به پیج وصل شد')
       }
       await reload()
     } catch (e) {
@@ -95,8 +101,8 @@ export function OccasionsPage() {
             ))}
           </select>
         </div>
-        {error && <p className="section-sub">{error}</p>}
-        {msg && <p className="section-sub">{msg}</p>}
+        {error && <p className="form-banner error">{error}</p>}
+        {msg && <p className="form-banner ok">{msg}</p>}
         {!projectId && (
           <p className="section-sub" style={{ marginTop: '0.65rem' }}>
             برای اتصال مناسبت به یک پیج، پروژه را از لیست بالا انتخاب کنید.

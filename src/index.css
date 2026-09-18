@@ -505,6 +505,24 @@ a {
   z-index: 50;
 }
 
+.form-banner {
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 14px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.form-banner.error {
+  background: rgba(180, 50, 50, 0.1);
+  color: #8b1e1e;
+}
+
+.form-banner.ok {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
 .pages-layout,
 .history-layout,
 .ideas-layout {

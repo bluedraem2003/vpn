@@ -5,15 +5,19 @@ let authToken: string | null =
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
     ...(init?.headers as Record<string, string> | undefined),
   }
+  if (init?.body && !headers['Content-Type']) headers['Content-Type'] = 'application/json'
   if (authToken) headers.Authorization = `Bearer ${authToken}`
 
-  const res = await fetch(`${API_BASE}${path}`, { ...init, headers })
-  const data = await res.json().catch(() => ({}))
+  const res = await fetch(`${API_BASE}${path}`, { ...init, headers, cache: 'no-store' })
+  const ct = res.headers.get('content-type') || ''
+  const data = ct.includes('application/json') ? await res.json().catch(() => ({})) : {}
   if (!res.ok) {
     throw new Error((data as { error?: string }).error || `خطای API (${res.status})`)
+  }
+  if (ct && !ct.includes('application/json')) {
+    throw new Error('پاسخ نامعتبر از سرور — یک‌بار رفرش اجباری کنید (Ctrl+Shift+R)')
   }
   return data as T
 }

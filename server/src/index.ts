@@ -43,16 +43,27 @@ function corsOrigins(): string[] | ((origin: string) => string | null | undefine
   if (publicUrl) defaults.push(publicUrl)
   const allow = new Set([...defaults, ...listed])
 
-  // Same-origin / tunnel / reverse-proxy: reflect allowed request Origin when listed or when unset in prod with publicUrl match
   return (origin) => {
     if (!origin) return publicUrl || 'http://127.0.0.1:8080'
     if (allow.has(origin)) return origin
-    // Allow any https origin that matches AUTH_PUBLIC_URL host (tunnels)
     if (publicUrl && origin === publicUrl) return origin
+    try {
+      const host = new URL(origin).hostname
+      if (host.endsWith('.trycloudflare.com')) return origin
+      if (host === '127.0.0.1' || host === 'localhost') return origin
+    } catch {
+      /* ignore */
+    }
     if (!isProd) return origin
     return null
   }
 }
+
+app.use('/api/*', async (c, next) => {
+  await next()
+  c.header('Cache-Control', 'no-store, no-cache, must-revalidate')
+  c.header('Pragma', 'no-cache')
+})
 
 app.use(
   '*',

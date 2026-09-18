@@ -12,6 +12,7 @@ import { HistoryView } from '../components/HistoryView'
 import { IdeasView } from '../components/IdeasView'
 import { api, type ProjectDto } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { normalizeHandle } from '../lib/handle'
 
 function mapProject(p: ProjectDto): InstagramPage {
   return {
@@ -20,6 +21,7 @@ function mapProject(p: ProjectDto): InstagramPage {
     niche: p.niche || '',
     audience: p.audience || '',
     voice: p.voice || '',
+    handle: p.handle || p.clientName || '',
     createdAt: Date.parse(p.createdAt) || Date.now(),
   }
 }
@@ -59,7 +61,7 @@ export function StudioPage() {
 
   async function reloadPages(id: string) {
     const res = await api.listProjects(id)
-    const mapped = res.items.map(mapProject)
+    const mapped = (res.items || []).map(mapProject)
     setPages(mapped)
     const saved = loadActivePageId()
     const nextActive = saved && mapped.some((p) => p.id === saved) ? saved : mapped[0]?.id ?? null
@@ -89,23 +91,29 @@ export function StudioPage() {
   async function createPage(form: PageFormInput) {
     if (!workspaceId) {
       setPagesError('وارد حساب نشده‌اید')
-      return
+      throw new Error('وارد حساب نشده‌اید')
     }
     setPagesBusy(true)
     setPagesError(null)
     try {
+      const handle = normalizeHandle(form.handle)
       const res = await api.createProject({
         workspaceId,
         name: form.name,
+        handle: handle || undefined,
+        clientName: handle || undefined,
         niche: form.niche || undefined,
         audience: form.audience || undefined,
         voice: form.voice || undefined,
       })
-      await reloadPages(workspaceId)
-      selectPage(res.item.id)
+      const page = mapProject(res.item)
+      setPages((prev) => [page, ...prev.filter((p) => p.id !== page.id)])
+      selectPage(page.id)
       notify('پیج ذخیره شد')
+      void reloadPages(workspaceId).catch(() => null)
     } catch (e) {
       setPagesError((e as Error).message)
+      throw e
     } finally {
       setPagesBusy(false)
     }
@@ -117,8 +125,9 @@ export function StudioPage() {
     setPagesError(null)
     try {
       await api.deleteProject(id)
-      await reloadPages(workspaceId)
+      setPages((prev) => prev.filter((p) => p.id !== id))
       notify('پیج حذف شد')
+      await reloadPages(workspaceId)
     } catch (e) {
       setPagesError((e as Error).message)
     } finally {

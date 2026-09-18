@@ -35,10 +35,13 @@ export function ContentPage() {
       api.listProjects(id),
       api.listCampaigns(id),
     ])
-    setItems(contentRes.items)
-    setAssets(assetRes.items)
-    setProjects(projectRes.items)
-    setCampaigns(campaignRes.items)
+    setItems(contentRes.items || [])
+    setAssets(assetRes.items || [])
+    setProjects(projectRes.items || [])
+    setCampaigns(campaignRes.items || [])
+    if (!projectId && projectRes.items?.length === 1) {
+      setProjectId(projectRes.items[0].id)
+    }
 
     const map: Record<string, Array<AssetDto & { linkId: string }>> = {}
     await Promise.all(
@@ -56,11 +59,15 @@ export function ContentPage() {
   }, [workspaceId])
 
   async function createItem() {
-    if (!workspaceId || !title.trim()) return
+    if (!workspaceId) return
+    if (!title.trim()) {
+      setError('عنوان را بنویس')
+      return
+    }
     setBusy(true)
     setError(null)
     try {
-      await api.createContent({
+      const res = await api.createContent({
         workspaceId,
         title: title.trim(),
         contentType,
@@ -74,6 +81,7 @@ export function ContentPage() {
         campaignId: campaignId || undefined,
         hashtags: [],
       })
+      setItems((prev) => [res.item, ...prev.filter((i) => i.id !== res.item.id)])
       setTitle('')
       await reload(workspaceId)
     } catch (e) {
@@ -85,15 +93,34 @@ export function ContentPage() {
 
   async function moveStatus(item: ContentDto, status: ContentStatus) {
     if (!workspaceId) return
-    await api.updateContent(item.id, { status })
-    await reload(workspaceId)
+    setError(null)
+    try {
+      await api.updateContent(item.id, { status })
+      await reload(workspaceId)
+    } catch (e) {
+      setError((e as Error).message)
+    }
   }
 
   async function attach(assetId: string, contentId: string) {
     if (!workspaceId) return
-    await api.attachAsset(assetId, contentId, 'other')
-    setAttachFor(null)
-    await reload(workspaceId)
+    try {
+      await api.attachAsset(assetId, contentId, 'other')
+      setAttachFor(null)
+      await reload(workspaceId)
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+  async function removeItem(id: string) {
+    if (!workspaceId || !window.confirm('این محتوا حذف شود؟')) return
+    try {
+      await api.deleteContent(id)
+      setItems((prev) => prev.filter((i) => i.id !== id))
+    } catch (e) {
+      setError((e as Error).message)
+    }
   }
 
   async function runReminders() {
@@ -130,6 +157,12 @@ export function ContentPage() {
       <div className="ops-split" style={{ gridTemplateColumns: '0.9fr 1.1fr' }}>
         <section className="panel panel-pad">
           <h2 className="section-title">ایجاد / اسکجول</h2>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              void createItem()
+            }}
+          >
           <div className="field">
             <label>عنوان</label>
             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="استوری صبحگاهی محصول" />
@@ -183,13 +216,14 @@ export function ContentPage() {
           <p className="section-sub">
             اگر تا پایان این بازه وضعیت «منتشر شده» نشود، پیام «اوستا اینو نذاشتی» به تلگرام می‌رود.
           </p>
-          {error && <p className="section-sub">{error}</p>}
-          <button type="button" className="btn btn-solid" disabled={busy} onClick={() => void createItem()}>
-            ذخیره اسکجول
+          {error && <p className="form-banner error">{error}</p>}
+          <button type="submit" className="btn btn-solid" disabled={busy}>
+            {busy ? 'در حال ذخیره...' : 'ذخیره اسکجول'}
           </button>
           <p className="section-sub" style={{ marginTop: '0.5rem' }}>
             پیج نداری؟ اول از منوی <strong>پیج‌ها</strong> پیجت را بساز.
           </p>
+          </form>
         </section>
 
         <section className="panel panel-pad">
@@ -206,6 +240,9 @@ export function ContentPage() {
                 </div>
                 <p>
                   {CONTENT_TYPE_LABELS[item.contentType as ContentType] || item.contentType}
+                  {item.projectId
+                    ? ` · ${projects.find((p) => p.id === item.projectId)?.name || 'پیج'}`
+                    : ''}
                   {item.publishDate ? ` · ${item.publishDate}` : ''}
                   {item.windowStart || item.windowEnd
                     ? ` · ${item.windowStart || '—'} تا ${item.windowEnd || '—'}`
@@ -241,6 +278,13 @@ export function ContentPage() {
                     onClick={() => setAttachFor(attachFor === item.id ? null : item.id)}
                   >
                     + Attach Asset
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    onClick={() => void removeItem(item.id)}
+                  >
+                    حذف
                   </button>
                 </div>
                 {attachFor === item.id && (

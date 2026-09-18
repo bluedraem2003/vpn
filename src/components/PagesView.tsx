@@ -4,6 +4,7 @@ import { useState } from 'react'
 
 export type PageFormInput = {
   name: string
+  handle: string
   niche: string
   audience: string
   voice: string
@@ -19,7 +20,7 @@ interface PagesViewProps {
   onSelect: (id: string) => void
 }
 
-const emptyForm: PageFormInput = { name: '', niche: '', audience: '', voice: '' }
+const emptyForm: PageFormInput = { name: '', handle: '', niche: '', audience: '', voice: '' }
 
 export function PagesView({
   pages,
@@ -31,25 +32,42 @@ export function PagesView({
   onSelect,
 }: PagesViewProps) {
   const [form, setForm] = useState(emptyForm)
+  const [localError, setLocalError] = useState<string | null>(null)
 
   async function addPage() {
-    if (!form.name.trim() || busy) return
-    await onCreate({
-      name: form.name.trim(),
-      niche: form.niche.trim(),
-      audience: form.audience.trim(),
-      voice: form.voice.trim(),
-    })
-    setForm(emptyForm)
+    if (busy) return
+    if (!form.name.trim()) {
+      setLocalError('نام پیج را بنویس')
+      return
+    }
+    setLocalError(null)
+    try {
+      await onCreate({
+        name: form.name.trim(),
+        handle: form.handle.trim(),
+        niche: form.niche.trim(),
+        audience: form.audience.trim(),
+        voice: form.voice.trim(),
+      })
+      setForm(emptyForm)
+    } catch {
+      /* parent shows error */
+    }
   }
 
   return (
     <div className="pages-layout">
-      <div className="panel panel-pad">
+      <form
+        className="panel panel-pad"
+        onSubmit={(e) => {
+          e.preventDefault()
+          void addPage()
+        }}
+      >
         <h2 className="section-title">افزودن پیج</h2>
         <p className="section-sub">هویت هر پیج روی سرور ذخیره می‌شود و در محتوا/مناسبت‌ها هم قابل انتخاب است.</p>
 
-        {error && <p className="section-sub">{error}</p>}
+        {(error || localError) && <p className="form-banner error">{error || localError}</p>}
 
         <div className="field">
           <label htmlFor="page-name">نام پیج</label>
@@ -59,6 +77,17 @@ export function PagesView({
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             placeholder="نام پیج اینستاگرام"
             disabled={busy}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="page-handle">آیدی اینستاگرام (@)</label>
+          <input
+            id="page-handle"
+            value={form.handle}
+            onChange={(e) => setForm({ ...form, handle: e.target.value })}
+            placeholder="instagram_handle"
+            disabled={busy}
+            dir="ltr"
           />
         </div>
         <div className="field">
@@ -91,10 +120,10 @@ export function PagesView({
             disabled={busy}
           />
         </div>
-        <button type="button" className="btn btn-solid" disabled={busy} onClick={() => void addPage()}>
+        <button type="submit" className="btn btn-solid" disabled={busy}>
           {busy ? 'در حال ذخیره...' : 'ذخیره پیج'}
         </button>
-      </div>
+      </form>
 
       <div className="panel panel-pad">
         <h2 className="section-title">پیج‌های من</h2>
@@ -116,6 +145,7 @@ export function PagesView({
                   <h3>{page.name}</h3>
                   {activePageId === page.id && <span className="meta-badge">فعال</span>}
                 </div>
+                {page.handle && <p>@{page.handle.replace(/^@/, '')}</p>}
                 {page.niche && <p>حوزه: {page.niche}</p>}
                 {page.audience && <p>مخاطب: {page.audience}</p>}
                 {page.voice && <p>صدا: {page.voice}</p>}
@@ -133,7 +163,9 @@ export function PagesView({
                     type="button"
                     className="btn btn-outline btn-sm"
                     disabled={busy}
-                    onClick={() => void onRemove(page.id)}
+                    onClick={() => {
+                      if (window.confirm('این پیج حذف شود؟')) void onRemove(page.id)
+                    }}
                   >
                     <Trash2 size={14} />
                     حذف

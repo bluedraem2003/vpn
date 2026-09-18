@@ -12,12 +12,15 @@ export function CampaignsPage() {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [msg, setMsg] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
 
   async function reload() {
     if (!workspaceId) return
     const [c, p] = await Promise.all([api.listCampaigns(workspaceId), api.listProjects(workspaceId)])
-    setItems(c.items)
-    setProjects(p.items)
+    setItems(c.items || [])
+    setProjects(p.items || [])
+    if (!projectId && p.items?.length === 1) setProjectId(p.items[0].id)
   }
 
   useEffect(() => {
@@ -25,19 +28,44 @@ export function CampaignsPage() {
   }, [workspaceId])
 
   async function create() {
-    if (!workspaceId || !name.trim()) return
-    await api.createCampaign({
-      workspaceId,
-      name: name.trim(),
-      goal,
-      projectId: projectId || undefined,
-      platforms: ['instagram'],
-      startDate: startDate || undefined,
-      endDate: endDate || undefined,
-    })
-    setName('')
-    setGoal('')
-    await reload()
+    if (!workspaceId) return
+    if (!name.trim()) {
+      setError('نام کمپین را بنویس')
+      return
+    }
+    setBusy(true)
+    setError(null)
+    setMsg(null)
+    try {
+      const res = await api.createCampaign({
+        workspaceId,
+        name: name.trim(),
+        goal: goal.trim() || undefined,
+        projectId: projectId || undefined,
+        platforms: ['instagram'],
+        startDate: startDate || undefined,
+        endDate: endDate || undefined,
+      })
+      setItems((prev) => [res.item, ...prev.filter((i) => i.id !== res.item.id)])
+      setName('')
+      setGoal('')
+      setMsg('کمپین ذخیره شد')
+      await reload()
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function remove(id: string) {
+    if (!window.confirm('این کمپین حذف شود؟')) return
+    try {
+      await api.deleteCampaign(id)
+      setItems((prev) => prev.filter((i) => i.id !== id))
+    } catch (e) {
+      setError((e as Error).message)
+    }
   }
 
   return (
@@ -48,20 +76,27 @@ export function CampaignsPage() {
           <p>بازه‌ها و اهداف کمپین محتوایی</p>
         </div>
       </header>
-      {error && <p className="section-sub">{error}</p>}
+      {error && <div className="form-banner error">{error}</div>}
+      {msg && <div className="form-banner ok">{msg}</div>}
       <div className="ops-split">
-        <section className="panel panel-pad">
+        <form
+          className="panel panel-pad"
+          onSubmit={(e) => {
+            e.preventDefault()
+            void create()
+          }}
+        >
           <h2 className="section-title">کمپین جدید</h2>
           <div className="field">
             <label>نام</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} />
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="نام کمپین" />
           </div>
           <div className="field">
             <label>هدف</label>
-            <input value={goal} onChange={(e) => setGoal(e.target.value)} />
+            <input value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="مثلاً افزایش فروش" />
           </div>
           <div className="field">
-            <label>پروژه</label>
+            <label>پیج</label>
             <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
               <option value="">—</option>
               {projects.map((p) => (
@@ -79,13 +114,14 @@ export function CampaignsPage() {
             <label>پایان</label>
             <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
           </div>
-          <button type="button" className="btn btn-solid" onClick={() => void create()}>
-            ذخیره
+          <button type="submit" className="btn btn-solid" disabled={busy}>
+            {busy ? 'در حال ذخیره...' : 'ذخیره'}
           </button>
-        </section>
+        </form>
         <section className="panel panel-pad">
           <h2 className="section-title">لیست کمپین‌ها</h2>
           <div className="page-list">
+            {items.length === 0 && <p className="section-sub">کمپینی نیست</p>}
             {items.map((c) => (
               <article key={c.id} className="list-item">
                 <div className="list-meta">
@@ -95,12 +131,9 @@ export function CampaignsPage() {
                 {c.goal && <p>{c.goal}</p>}
                 <p>
                   {c.startDate || '—'} تا {c.endDate || '—'}
+                  {c.projectId ? ` · ${projects.find((p) => p.id === c.projectId)?.name || ''}` : ''}
                 </p>
-                <button
-                  type="button"
-                  className="btn btn-outline btn-sm"
-                  onClick={() => void api.deleteCampaign(c.id).then(reload)}
-                >
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => void remove(c.id)}>
                   حذف
                 </button>
               </article>

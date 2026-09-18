@@ -8,6 +8,7 @@ export interface InstagramPage {
   niche: string
   audience: string
   voice: string
+  handle?: string
   createdAt: number
 }
 

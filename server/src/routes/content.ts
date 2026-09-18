@@ -4,6 +4,7 @@ import { assertWorkspaceAccess, requireAuth } from '../middleware/auth.js'
 import { notifyContentPublished } from '../jobs/reminders.js'
 import { hitRateLimit } from '../middleware/rateLimit.js'
 import { runMissedScheduleReminders } from '../jobs/reminders.js'
+import { resolveCampaignId, resolveProjectId } from '../lib/refs.js'
 
 export const contentRoutes = new Hono()
 contentRoutes.use('*', requireAuth)
@@ -85,25 +86,13 @@ contentRoutes.post('/', async (c) => {
     return c.json({ error: 'title و contentType الزامی هستند' }, 400)
   }
 
-  const projectId = body.projectId || null
-  if (projectId) {
-    const project = db.prepare(`SELECT id, workspace_id FROM projects WHERE id = ?`).get(projectId) as
-      | { id: string; workspace_id: string }
-      | undefined
-    if (!project || project.workspace_id !== workspaceId) {
-      return c.json({ error: 'پروژه/پیج نامعتبر است — دوباره از لیست انتخاب کنید' }, 400)
-    }
-  }
+  const project = resolveProjectId(workspaceId, body.projectId)
+  if (project.error) return c.json({ error: project.error }, 400)
+  const projectId = project.id
 
-  const campaignId = body.campaignId || null
-  if (campaignId) {
-    const campaign = db.prepare(`SELECT id, workspace_id FROM campaigns WHERE id = ?`).get(campaignId) as
-      | { id: string; workspace_id: string }
-      | undefined
-    if (!campaign || campaign.workspace_id !== workspaceId) {
-      return c.json({ error: 'کمپین نامعتبر است' }, 400)
-    }
-  }
+  const campaign = resolveCampaignId(workspaceId, body.campaignId)
+  if (campaign.error) return c.json({ error: campaign.error }, 400)
+  const campaignId = campaign.id
 
   // occasion_id is soft reference (no FK) — ignore unknown ids
   const occasionId =
@@ -168,6 +157,18 @@ contentRoutes.patch('/:id', async (c) => {
   const now = new Date().toISOString()
   const nextStatus = body.status ?? existing.status
 
+  const project =
+    body.projectId !== undefined
+      ? resolveProjectId(String(existing.workspace_id), body.projectId)
+      : { id: (existing.project_id as string | null) || null }
+  if (project.error) return c.json({ error: project.error }, 400)
+
+  const campaign =
+    body.campaignId !== undefined
+      ? resolveCampaignId(String(existing.workspace_id), body.campaignId)
+      : { id: (existing.campaign_id as string | null) || null }
+  if (campaign.error) return c.json({ error: campaign.error }, 400)
+
   if (body.status && body.status !== existing.status) {
     db.prepare(
       `INSERT INTO content_status_history (id, content_id, from_status, to_status, changed_by, note, created_at)
@@ -175,32 +176,37 @@ contentRoutes.patch('/:id', async (c) => {
     ).run(uid('csh'), id, existing.status, body.status, c.get('userId'), body.statusNote || null, now)
   }
 
-  db.prepare(
-    `UPDATE contents SET
+  try {
+    db.prepare(
+      `UPDATE contents SET
       title = ?, description = ?, platforms = ?, content_type = ?, status = ?,
       publish_date = ?, publish_time = ?, caption = ?, hashtags = ?, notes = ?,
       project_id = ?, campaign_id = ?, window_start = ?, window_end = ?, occasion_id = ?,
       updated_at = ?
      WHERE id = ?`,
-  ).run(
-    body.title ?? existing.title,
-    body.description ?? existing.description,
-    JSON.stringify(body.platforms ?? JSON.parse(String(existing.platforms || '[]'))),
-    body.contentType ?? existing.content_type,
-    nextStatus,
-    body.publishDate ?? existing.publish_date,
-    body.publishTime ?? existing.publish_time,
-    body.caption ?? existing.caption,
-    JSON.stringify(body.hashtags ?? JSON.parse(String(existing.hashtags || '[]'))),
-    body.notes ?? existing.notes,
-    body.projectId ?? existing.project_id,
-    body.campaignId ?? existing.campaign_id,
-    body.windowStart !== undefined ? body.windowStart || null : existing.window_start,
-    body.windowEnd !== undefined ? body.windowEnd || null : existing.window_end,
-    body.occasionId !== undefined ? body.occasionId || null : existing.occasion_id,
-    now,
-    id,
-  )
+    ).run(
+      body.title ?? existing.title,
+      body.description ?? existing.description,
+      JSON.stringify(body.platforms ?? JSON.parse(String(existing.platforms || '[]'))),
+      body.contentType ?? existing.content_type,
+      nextStatus,
+      body.publishDate ?? existing.publish_date,
+      body.publishTime ?? existing.publish_time,
+      body.caption ?? existing.caption,
+      JSON.stringify(body.hashtags ?? JSON.parse(String(existing.hashtags || '[]'))),
+      body.notes ?? existing.notes,
+      project.id,
+      campaign.id,
+      body.windowStart !== undefined ? body.windowStart || null : existing.window_start,
+      body.windowEnd !== undefined ? body.windowEnd || null : existing.window_end,
+      body.occasionId !== undefined ? body.occasionId || null : existing.occasion_id,
+      now,
+      id,
+    )
+  } catch (err) {
+    console.error('[Content] update failed', (err as Error).message)
+    return c.json({ error: 'به‌روزرسانی محتوا ناموفق بود. پیج/کمپین را دوباره انتخاب کنید.' }, 400)
+  }
 
   const row = db.prepare(`SELECT * FROM contents WHERE id = ?`).get(id) as Record<string, unknown>
 
