@@ -54,6 +54,7 @@ UI و API روی همان پورت سرو می‌شوند. برای استقرا
 ```bash
 npx tsc -b && npm run lint
 npx tsx --test server/src/lib/igFetchPolicy.test.ts
+npx tsx --test server/src/lib/instagramFeed.test.ts
 npx tsx --test server/src/lib/telegramChats.test.ts
 npx tsx --test server/src/data/occasions-seed.test.ts
 npx tsx --test server/src/lib/occasionSpan.test.ts
