@@ -27,6 +27,7 @@ export function SettingsPage() {
     <div className="ops-page">
       <header className="ops-page-head">
         <div>
+          <p className="ops-kicker">{t('nav.settings')}</p>
           <h1>{t('pages.settingsTitle')}</h1>
           <p>{t('pages.settingsSub')}</p>
         </div>

@@ -72,6 +72,7 @@ export function AssetsPage() {
     <div className="ops-page">
       <header className="ops-page-head">
         <div>
+          <p className="ops-kicker">{t('nav.assets')}</p>
           <h1>{t('pages.assetsTitle')}</h1>
           <p>{t('pages.assetsSub')}</p>
         </div>
@@ -104,8 +105,8 @@ export function AssetsPage() {
       </div>
 
       {error && (
-        <div className="panel panel-pad">
-          <p className="section-sub">{error}</p>
+        <div className="form-banner error" role="alert">
+          {error}
         </div>
       )}
 

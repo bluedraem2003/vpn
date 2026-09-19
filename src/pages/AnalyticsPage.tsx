@@ -186,6 +186,7 @@ export function AnalyticsPage() {
     <div className="ops-page">
       <header className="ops-page-head">
         <div>
+          <p className="ops-kicker">{t('nav.analytics')}</p>
           <h1>{t('analytics.title')}</h1>
           <p>{t('analytics.sub')}</p>
         </div>
@@ -203,15 +204,17 @@ export function AnalyticsPage() {
             onChange={setDraft}
             onPick={(hit) => runAnalysis(hit.username, false)}
           />
-          <button
-            type="button"
-            className="btn btn-solid"
-            disabled={pageBusy}
-            onClick={() => runAnalysis(draft, true)}
-          >
-            <RefreshCw size={16} className={pageBusy ? 'spin' : undefined} />
-            {pageBusy ? t('analytics.analyzing') : t('analytics.analyze')}
-          </button>
+          <div className="ig-insight-actions">
+            <button
+              type="button"
+              className="btn btn-solid"
+              disabled={pageBusy}
+              onClick={() => runAnalysis(draft, true)}
+            >
+              <RefreshCw size={16} className={pageBusy ? 'spin' : undefined} aria-hidden />
+              {pageBusy ? t('analytics.analyzing') : t('analytics.analyze')}
+            </button>
+          </div>
         </div>
 
         <div className="ig-chip-row" role="list">
@@ -234,20 +237,33 @@ export function AnalyticsPage() {
           ))}
         </div>
 
-        {pageError && <p className="field-hint warn">{pageError}</p>}
-        {!pageError && report?.cached && (
-          <p className="form-banner ok ig-cache-banner" role="status">
-            {report.staleReason === 'rate_limit' ? t('analytics.cachedRateLimit') : t('analytics.cachedStale')}
-          </p>
-        )}
-        {!handle && !pageBusy && !pageError && <p className="field-hint">{t('analytics.idleHint')}</p>}
+        <div className="ig-insight-status">
+          {pageError && (
+            <div className="form-banner error" role="alert">
+              {pageError}
+            </div>
+          )}
+          {!pageError && report?.cached && (
+            <div className="form-banner ok ig-cache-banner" role="status">
+              {report.staleReason === 'rate_limit' ? t('analytics.cachedRateLimit') : t('analytics.cachedStale')}
+            </div>
+          )}
+          {!handle && !pageBusy && !pageError && (
+            <div className="empty quiet">
+              <strong>{t('analytics.idleTitle')}</strong>
+              {t('analytics.idleHint')}
+            </div>
+          )}
+        </div>
       </section>
 
       <ConnectorCards items={connectors} supermetrics={report?.supermetrics} meta={report?.meta} />
 
       {pageBusy && !page && (
-        <section className="panel panel-pad">
-          <p className="section-sub">{t('analytics.fetching')}</p>
+        <section className="panel panel-pad empty" aria-live="polite">
+          <span className="empty-spinner" aria-hidden />
+          <strong>{t('analytics.loadingTitle')}</strong>
+          {t('analytics.fetching')}
         </section>
       )}
 

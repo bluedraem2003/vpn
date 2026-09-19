@@ -124,6 +124,7 @@ export function ProjectsPage() {
     <div className="ops-page">
       <header className="ops-page-head">
         <div>
+          <p className="ops-kicker">{t('nav.projects')}</p>
           <h1>{t('pages.projectsTitle')}</h1>
           <p>{t('pages.projectsSub')}</p>
         </div>

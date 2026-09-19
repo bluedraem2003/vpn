@@ -210,8 +210,9 @@ export function StudioPage() {
 
   return (
     <div className="studio-page">
-      <div className="result-head" style={{ marginBottom: '1rem' }}>
+      <div className="result-head studio-page-head" style={{ marginBottom: '1rem' }}>
         <div>
+          <p className="ops-kicker">{t('nav.studio')}</p>
           <h2 className="section-title">{t('studio.title')}</h2>
           <p className="section-sub" style={{ marginBottom: 0 }}>
             {t('studio.sub')}
