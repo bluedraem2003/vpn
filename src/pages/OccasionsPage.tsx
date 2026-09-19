@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, type OccasionDto, type ProjectDto } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { useI18n } from '../prefs/PrefsProvider'
 
 export function OccasionsPage() {
+  const { t } = useI18n()
   const { workspaceId } = useAuth()
   const [items, setItems] = useState<OccasionDto[]>([])
   const [projects, setProjects] = useState<ProjectDto[]>([])
@@ -117,8 +119,8 @@ export function OccasionsPage() {
     <div className="ops-page">
       <header className="ops-page-head">
         <div>
-          <h1>مناسبت‌ها</h1>
-          <p>ایرانی + جهانی — برای هر پروژه/پیج مناسبت‌های مرتبط را انتخاب کنید</p>
+          <h1>{t('pages.occasionsTitle')}</h1>
+          <p>{t('pages.occasionsSub')}</p>
         </div>
       </header>
 

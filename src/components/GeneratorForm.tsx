@@ -1,6 +1,6 @@
 import type { ContentFormat, GenerateInput, InstagramPage, Language, Tone } from '../types'
-import { formatLabels, toneLabels } from '../lib/generator'
 import { Sparkles } from 'lucide-react'
+import { useI18n } from '../prefs/PrefsProvider'
 
 interface GeneratorFormProps {
   pages: InstagramPage[]
@@ -27,28 +27,28 @@ export function GeneratorForm({
   onChange,
   onGenerate,
 }: GeneratorFormProps) {
+  const { t } = useI18n()
   const active = pages.find((p) => p.id === activePageId)
 
   return (
     <div className="panel panel-pad">
-      <h2 className="section-title">ساخت محتوا</h2>
+      <h2 className="section-title">{t('studio.formTitle')}</h2>
       <p className="section-sub">
-        موضوع را بنویس، فرمت و لحن را انتخاب کن؛ پست‌یار خروجی آماده انتشار می‌سازد.
-        {active ? ` پیج فعال: ${active.name}` : ' هنوز پیجی انتخاب نشده.'}
+        {t('studio.formSub')} {active ? t('studio.activePage', { name: active.name }) : t('studio.noPage')}
       </p>
 
       <div className="field">
-        <label htmlFor="topic">موضوع یا ایده پست</label>
+        <label htmlFor="topic">{t('studio.topic')}</label>
         <textarea
           id="topic"
-          placeholder="مثلاً: ۵ اشتباه رایج در نوشتن کپشن فروش"
+          placeholder={t('studio.topicPh')}
           value={value.topic}
           onChange={(e) => onChange({ ...value, topic: e.target.value })}
         />
       </div>
 
       <div className="field">
-        <label>فرمت محتوا</label>
+        <label>{t('studio.format')}</label>
         <div className="chip-row">
           {formats.map((f) => (
             <button
@@ -57,30 +57,30 @@ export function GeneratorForm({
               className={`chip ${value.format === f ? 'active' : ''}`}
               onClick={() => onChange({ ...value, format: f })}
             >
-              {formatLabels[f]}
+              {t(`format.${f}`)}
             </button>
           ))}
         </div>
       </div>
 
       <div className="field">
-        <label>لحن نوشتار</label>
+        <label>{t('studio.tone')}</label>
         <div className="chip-row">
-          {tones.map((t) => (
+          {tones.map((tone) => (
             <button
-              key={t}
+              key={tone}
               type="button"
-              className={`chip ${value.tone === t ? 'active' : ''}`}
-              onClick={() => onChange({ ...value, tone: t })}
+              className={`chip ${value.tone === tone ? 'active' : ''}`}
+              onClick={() => onChange({ ...value, tone })}
             >
-              {toneLabels[t]}
+              {t(`tone.${tone}`)}
             </button>
           ))}
         </div>
       </div>
 
       <div className="field">
-        <label>زبان</label>
+        <label>{t('studio.language')}</label>
         <div className="chip-row">
           {languages.map((l) => (
             <button
@@ -89,17 +89,17 @@ export function GeneratorForm({
               className={`chip ${value.language === l.id ? 'active' : ''}`}
               onClick={() => onChange({ ...value, language: l.id })}
             >
-              {l.label}
+              {l.id === 'bilingual' ? t('studio.bilingual') : l.label}
             </button>
           ))}
         </div>
       </div>
 
       <div className="field">
-        <label htmlFor="goal">هدف پست (اختیاری)</label>
+        <label htmlFor="goal">{t('studio.goal')}</label>
         <input
           id="goal"
-          placeholder="افزایش سیو، جذب لید، معرفی محصول..."
+          placeholder={t('studio.goalPh')}
           value={value.goal}
           onChange={(e) => onChange({ ...value, goal: e.target.value })}
         />
@@ -112,7 +112,7 @@ export function GeneratorForm({
             checked={value.includeEmoji}
             onChange={(e) => onChange({ ...value, includeEmoji: e.target.checked })}
           />
-          ایموجی
+          {t('studio.emoji')}
         </label>
         <label className="toggle">
           <input
@@ -120,14 +120,14 @@ export function GeneratorForm({
             checked={value.includeCta}
             onChange={(e) => onChange({ ...value, includeCta: e.target.checked })}
           />
-          دعوت به اقدام (CTA)
+          {t('studio.cta')}
         </label>
       </div>
 
       <div className="form-actions">
         <button type="button" className="btn btn-solid" disabled={busy} onClick={onGenerate}>
           <Sparkles size={18} />
-          {busy ? 'در حال ساخت...' : 'تولید محتوا'}
+          {busy ? t('studio.generating') : t('studio.generate')}
         </button>
       </div>
     </div>

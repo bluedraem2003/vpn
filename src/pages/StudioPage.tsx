@@ -14,6 +14,7 @@ import { api, type ProjectDto } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { normalizeHandle } from '../lib/handle'
 import { parseHashtags } from '../lib/hashtags'
+import { useI18n } from '../prefs/PrefsProvider'
 
 function mapProject(p: ProjectDto): InstagramPage {
   return {
@@ -40,15 +41,16 @@ const defaultInput: GenerateInput = {
   includeCta: true,
 }
 
-const nav: { id: ViewId; label: string }[] = [
-  { id: 'studio', label: 'استودیو' },
-  { id: 'pages', label: 'پیج‌ها' },
-  { id: 'ideas', label: 'ایده‌ها' },
-  { id: 'history', label: 'تاریخچه' },
+const nav: { id: ViewId; key: string }[] = [
+  { id: 'studio', key: 'studio.navStudio' },
+  { id: 'pages', key: 'studio.navPages' },
+  { id: 'ideas', key: 'studio.navIdeas' },
+  { id: 'history', key: 'studio.navHistory' },
 ]
 
 /** Caption studio — pages persist via /api/projects (same store as پیج‌ها) */
 export function StudioPage() {
+  const { t } = useI18n()
   const navigate = useNavigate()
   const { workspaceId } = useAuth()
   const [view, setView] = useState<ViewId>('studio')
@@ -210,17 +212,17 @@ export function StudioPage() {
     <div className="studio-page">
       <div className="result-head" style={{ marginBottom: '1rem' }}>
         <div>
-          <h2 className="section-title">استودیوی کپشن</h2>
+          <h2 className="section-title">{t('studio.title')}</h2>
           <p className="section-sub" style={{ marginBottom: 0 }}>
-            تولید سریع کپشن و هوک — ماژول قبلی پست‌یار بدون تغییر رفتار
+            {t('studio.sub')}
           </p>
         </div>
         <button type="button" className="btn btn-outline btn-sm" onClick={() => navigate('/calendar')}>
-          برو به تقویم
+          {t('studio.toCalendar')}
         </button>
       </div>
 
-      <nav className="nav-pills" aria-label="زیرمنوی استودیو" style={{ marginBottom: '1rem', width: 'fit-content' }}>
+      <nav className="nav-pills" aria-label={t('studio.navAria')} style={{ marginBottom: '1rem', width: 'fit-content' }}>
         {nav.map((item) => (
           <button
             key={item.id}
@@ -231,7 +233,7 @@ export function StudioPage() {
               if (item.id === 'studio') setShowHero(false)
             }}
           >
-            {item.label}
+            {t(item.key)}
           </button>
         ))}
       </nav>

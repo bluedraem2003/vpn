@@ -3,16 +3,16 @@ import { Link, useNavigate } from 'react-router-dom'
 import { api, type ContentDto, type OccasionDto, type ProjectDto } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import {
-  CONTENT_STATUS_LABELS,
-  CONTENT_TYPE_LABELS,
   type ContentStatus,
   type ContentType,
 } from '../domain/types'
 import { toJalali } from '../lib/jalaali'
+import { useI18n } from '../prefs/PrefsProvider'
 
 type CalView = 'month' | 'week' | 'day' | 'list'
 
 export function CalendarPage() {
+  const { t } = useI18n()
   const { workspaceId } = useAuth()
   const navigate = useNavigate()
   const [view, setView] = useState<CalView>('month')
@@ -98,8 +98,8 @@ export function CalendarPage() {
     <div className="ops-page">
       <header className="ops-page-head">
         <div>
-          <h1>تقویم محتوا</h1>
-          <p>روی روز کلیک کن تا محتوا بسازی — مناسبت‌های ایرانی با عدد شمسی دیده می‌شوند</p>
+          <h1>{t('pages.calendarTitle')}</h1>
+          <p>{t('pages.calendarSub')}</p>
         </div>
         <div className="chip-row">
           {(['month', 'week', 'day', 'list'] as CalView[]).map((v) => (
@@ -109,7 +109,7 @@ export function CalendarPage() {
               className={`chip ${view === v ? 'active' : ''}`}
               onClick={() => setView(v)}
             >
-              {v === 'month' ? 'ماه' : v === 'week' ? 'هفته' : v === 'day' ? 'روز' : 'لیست'}
+              {t(`cal.${v}`)}
             </button>
           ))}
         </div>
@@ -118,8 +118,8 @@ export function CalendarPage() {
       {error && <div className="form-banner error">{error}</div>}
       {projects.length === 0 && (
         <div className="form-banner error">
-          اول پیج اینستاگرام را اضافه کن.{' '}
-          <Link to="/projects">رفتن به پیج‌ها</Link>
+          {t('dash.noPages')}{' '}
+          <Link to="/projects">{t('dash.addPage')}</Link>
         </div>
       )}
 
@@ -162,8 +162,8 @@ export function CalendarPage() {
                 <span>
                   {item.publishDate} {item.windowStart || item.publishTime || ''}
                   {item.windowEnd ? `–${item.windowEnd}` : ''} ·{' '}
-                  {CONTENT_TYPE_LABELS[item.contentType as ContentType] || item.contentType} ·{' '}
-                  {CONTENT_STATUS_LABELS[item.status as ContentStatus] || item.status}
+                  {t(`type.${item.contentType as ContentType}`)} ·{' '}
+                  {t(`status.${item.status as ContentStatus}`)}
                 </span>
               </li>
             ))}

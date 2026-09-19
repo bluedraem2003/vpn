@@ -8,6 +8,8 @@ import {
   fetchMetaInsights,
   fetchSupermetricsInsights,
 } from '../lib/pageInsights.js'
+import { enrichPage } from '../lib/pageEnrichment.js'
+import { recordPageSnapshot } from '../lib/pageSnapshots.js'
 import { normalizeHandle } from '../lib/instagramSearch.js'
 
 export const analyticsRoutes = new Hono()
@@ -24,17 +26,31 @@ analyticsRoutes.get('/page', async (c) => {
   const handle = normalizeHandle(c.req.query('handle') || '')
   if (!handle) return c.json({ error: 'آیدی پیج را بنویس' }, 400)
 
-  const page = await analyzeInstagramPage(handle, { fresh: c.req.query('fresh') === '1' })
-  if (!page) return c.json({ error: 'این پیج در اینستاگرام پیدا نشد یا خصوصی است' }, 404)
+  const analyzed = await analyzeInstagramPage(handle, { fresh: c.req.query('fresh') === '1' })
+  if (!analyzed.ok) {
+    const code = analyzed.error.code
+    if (code === 'rate_limit') {
+      return c.json({ error: 'اینستاگرام موقتاً محدود کرده؛ حدود یک دقیقه بعد دوباره تحلیل بگیر' }, 429)
+    }
+    if (code === 'unavailable') {
+      return c.json({ error: 'الان اینستاگرام پاسخ نداد. چند ثانیه بعد دوباره تلاش کن' }, 503)
+    }
+    return c.json({ error: 'این پیج در اینستاگرام پیدا نشد یا خصوصی است' }, 404)
+  }
+  const page = analyzed.data
 
-  const [supermetrics, meta] = await Promise.all([
+  const [supermetrics, meta, enrichment] = await Promise.all([
     fetchSupermetricsInsights(handle),
     fetchMetaInsights(),
+    enrichPage(page),
   ])
+  const growth = recordPageSnapshot(workspaceId, page)
 
   return c.json({
     page,
-    connectors: analyticsConnectors(),
+    growth,
+    enrichment,
+    connectors: analyticsConnectors({ hasWebsite: Boolean(page.website) }),
     supermetrics: supermetrics.ok ? supermetrics : { ok: false, error: supermetrics.error },
     meta: meta.ok ? meta : { ok: false, error: meta.error },
   })

@@ -194,12 +194,61 @@ async function gotClient() {
   return mod.gotScraping
 }
 
-async function igGetJson(url: string, ms = 5000): Promise<unknown | null> {
+export type IgFetchError = {
+  code: 'not_found' | 'rate_limit' | 'unavailable'
+  status?: number
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function userFromPayload(data: unknown): Record<string, unknown> | null {
+  if (!data || typeof data !== 'object') return null
+  const rec = data as Record<string, unknown>
+  const nested = (rec.data as { user?: Record<string, unknown> } | undefined)?.user
+  if (nested?.username) return nested
+  const graphql = (rec.graphql as { user?: Record<string, unknown> } | undefined)?.user
+  if (graphql?.username) return graphql
+  if (typeof rec.username === 'string' && rec.edge_followed_by) return rec
+  return findUserObject(rec, 0)
+}
+
+function findUserObject(value: unknown, depth: number): Record<string, unknown> | null {
+  if (depth > 8 || !value || typeof value !== 'object') return null
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = findUserObject(item, depth + 1)
+      if (found) return found
+    }
+    return null
+  }
+  const rec = value as Record<string, unknown>
+  if (
+    typeof rec.username === 'string' &&
+    rec.edge_followed_by &&
+    (rec.edge_owner_to_timeline_media || rec.biography != null)
+  ) {
+    return rec
+  }
+  for (const child of Object.values(rec)) {
+    const found = findUserObject(child, depth + 1)
+    if (found) return found
+  }
+  return null
+}
+
+async function igGetJson(
+  url: string,
+  ms = 5000,
+): Promise<{ status: number; data: unknown | null }> {
   try {
     const gotScraping = await gotClient()
+    const cookie = instagramCookie()
     const res = await gotScraping({
       url,
       headers: {
+        ...igHeaders(cookie),
         'x-ig-app-id': IG_APP,
         accept: 'application/json',
         referer: 'https://www.instagram.com/',
@@ -207,36 +256,105 @@ async function igGetJson(url: string, ms = 5000): Promise<unknown | null> {
       timeout: { request: ms },
       throwHttpErrors: false,
     })
+    const status = res.statusCode
+    if (status === 404) return { status, data: null }
+    const body = String(res.body || '')
+    if (status < 200 || status >= 300) return { status, data: null }
+    try {
+      return { status, data: JSON.parse(body) }
+    } catch {
+      return { status, data: null }
+    }
+  } catch {
+    return { status: 0, data: null }
+  }
+}
+
+async function fetchProfileFromHtml(username: string): Promise<Record<string, unknown> | null> {
+  try {
+    const gotScraping = await gotClient()
+    const cookie = instagramCookie()
+    const headers: Record<string, string> = {
+      'User-Agent': IG_UA,
+      accept: 'text/html,application/xhtml+xml',
+      referer: 'https://www.instagram.com/',
+    }
+    if (cookie) headers.Cookie = cookie
+    const res = await gotScraping({
+      url: `https://www.instagram.com/${encodeURIComponent(username)}/`,
+      headers,
+      timeout: { request: 5500 },
+      throwHttpErrors: false,
+    })
     if (res.statusCode < 200 || res.statusCode >= 300) return null
-    const ct = String(res.headers['content-type'] || '')
-    if (!ct.includes('json') && !ct.includes('javascript')) {
+    const html = String(res.body || '')
+    for (const m of html.matchAll(/<script type="application\/json"[^>]*>([\s\S]*?)<\/script>/gi)) {
+      const raw = m[1] || ''
+      if (raw.length < 40 || raw.length > 2_000_000) continue
+      if (!raw.includes(username) && !raw.includes('edge_followed_by')) continue
       try {
-        return JSON.parse(String(res.body))
+        const user = userFromPayload(JSON.parse(raw))
+        if (user?.username) return user
       } catch {
-        return null
+        /* next blob */
       }
     }
-    return JSON.parse(String(res.body))
+    return null
   } catch {
     return null
   }
 }
 
-export async function fetchInstagramWebProfile(username: string): Promise<Record<string, unknown> | null> {
-  const data = await igGetJson(
-    `https://i.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`,
-    8000,
-  )
-  const user = (data as { data?: { user?: Record<string, unknown> } } | null)?.data?.user
-  return user?.username ? user : null
+export async function fetchInstagramWebProfile(username: string): Promise<{
+  user: Record<string, unknown> | null
+  error?: IgFetchError
+}> {
+  const handle = normalizeHandle(username)
+  if (!handle) return { user: null, error: { code: 'not_found' } }
+
+  const urls = [
+    `https://i.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(handle)}`,
+    `https://www.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(handle)}`,
+    `https://www.instagram.com/${encodeURIComponent(handle)}/?__a=1&__d=dis`,
+  ]
+
+  let lastStatus = 0
+  const tryUrl = async (url: string, ms = 5000) => {
+    const { status, data } = await igGetJson(url, ms)
+    lastStatus = status || lastStatus
+    const user = userFromPayload(data)
+    if (user?.username) return { user } as const
+    if (status === 404) return { error: { code: 'not_found' as const, status } }
+    return null
+  }
+
+  const first = await tryUrl(urls[0]!, 5000)
+  if (first && 'user' in first) return first
+  if (first && 'error' in first) return { user: null, error: first.error }
+
+  if (lastStatus === 429) {
+    await sleep(350)
+    const retry = await tryUrl(urls[0]!, 5000)
+    if (retry && 'user' in retry) return retry
+    if (retry && 'error' in retry) return { user: null, error: retry.error }
+  }
+
+  for (const url of urls.slice(1)) {
+    const hit = await tryUrl(url, 4500)
+    if (hit && 'user' in hit) return hit
+    if (hit && 'error' in hit) return { user: null, error: hit.error }
+  }
+
+  const htmlUser = await fetchProfileFromHtml(handle)
+  if (htmlUser?.username) return { user: htmlUser }
+
+  if (lastStatus === 429) return { user: null, error: { code: 'rate_limit', status: lastStatus } }
+  if (lastStatus === 404) return { user: null, error: { code: 'not_found', status: lastStatus } }
+  return { user: null, error: { code: 'unavailable', status: lastStatus || undefined } }
 }
 
 async function lookupInstagramUser(username: string): Promise<IgPageHit[]> {
-  const data = await igGetJson(
-    `https://i.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`,
-    5000,
-  )
-  const user = (data as { data?: { user?: Record<string, unknown> } } | null)?.data?.user
+  const { user } = await fetchInstagramWebProfile(username)
   if (!user?.username) return []
   const followers = (user.edge_followed_by as { count?: number } | undefined)?.count
   return [

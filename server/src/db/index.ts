@@ -216,6 +216,20 @@ export function migrate() {
       created_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS page_insight_snapshots (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+      handle TEXT NOT NULL,
+      fetched_at TEXT NOT NULL,
+      followers INTEGER,
+      following INTEGER,
+      posts INTEGER,
+      engagement_rate REAL,
+      avg_likes INTEGER,
+      avg_comments INTEGER,
+      avg_views INTEGER
+    );
+
     CREATE INDEX IF NOT EXISTS idx_contents_workspace_status ON contents(workspace_id, status);
     CREATE INDEX IF NOT EXISTS idx_contents_publish ON contents(publish_date, publish_time);
     CREATE INDEX IF NOT EXISTS idx_assets_workspace_type ON assets(workspace_id, type);
@@ -224,6 +238,7 @@ export function migrate() {
     CREATE INDEX IF NOT EXISTS idx_occasions_region ON occasions(region);
     CREATE INDEX IF NOT EXISTS idx_project_occasions ON project_occasions(project_id);
     CREATE INDEX IF NOT EXISTS idx_tg_notify_ws ON telegram_notifications(workspace_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_page_snapshots_ws_handle ON page_insight_snapshots(workspace_id, handle, fetched_at);
   `)
 
   ensureColumn('contents', 'window_start', 'TEXT')

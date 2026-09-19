@@ -2,8 +2,11 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { AppearanceControls } from '../components/AppearanceControls'
+import { useI18n } from '../prefs/PrefsProvider'
 
 export function LoginGate({ children }: { children: React.ReactNode }) {
+  const { t, lang } = useI18n()
   const { session, loading, login, loginWithMagic, requestMagicLink, error } = useAuth()
   const [params] = useSearchParams()
   const [email, setEmail] = useState('owner@postyar.local')
@@ -36,7 +39,7 @@ export function LoginGate({ children }: { children: React.ReactNode }) {
     return (
       <div className="login-gate">
         <div className="panel panel-pad login-card">
-          <p className="section-sub">در حال ورود...</p>
+          <p className="section-sub">{t('login.loading')}</p>
         </div>
       </div>
     )
@@ -47,15 +50,14 @@ export function LoginGate({ children }: { children: React.ReactNode }) {
       <div className="login-gate">
         <div className="panel panel-pad login-card">
           <div className="brand-mark" aria-hidden style={{ marginBottom: '1rem' }}>
-            پ
+            {lang === 'fa' ? 'پ' : 'P'}
           </div>
-          <h1 className="section-title">ورود به پست‌یار</h1>
-          <p className="section-sub">
-            با لینک دعوت هم‌تیمی وارد شوید، یا اگر عضو هستید Magic Link بگیرید.
-          </p>
+          <h1 className="section-title">{t('login.title')}</h1>
+          <p className="section-sub">{t('login.sub')}</p>
+          <AppearanceControls />
 
-          <div className="field" style={{ textAlign: 'right' }}>
-            <label>ایمیل</label>
+          <div className="field">
+            <label>{t('login.email')}</label>
             <input
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -69,7 +71,7 @@ export function LoginGate({ children }: { children: React.ReactNode }) {
           {magicUrl && (
             <div className="invite-box">
               <p className="section-sub" style={{ marginBottom: '0.5rem' }}>
-                لینک ورود شما:
+                {t('login.yourLink')}
               </p>
               <code className="invite-code">{magicUrl}</code>
               <div className="form-actions" style={{ marginTop: '0.65rem', justifyContent: 'center' }}>
@@ -78,14 +80,14 @@ export function LoginGate({ children }: { children: React.ReactNode }) {
                   className="btn btn-outline btn-sm"
                   onClick={() => void navigator.clipboard.writeText(magicUrl)}
                 >
-                  کپی لینک
+                  {t('login.copyLink')}
                 </button>
                 <button
                   type="button"
                   className="btn btn-solid btn-sm"
                   onClick={() => void loginWithMagic(new URL(magicUrl).searchParams.get('magic') || '')}
                 >
-                  همین الان وارد شو
+                  {t('login.enterNow')}
                 </button>
               </div>
             </div>
@@ -108,7 +110,7 @@ export function LoginGate({ children }: { children: React.ReactNode }) {
                   .finally(() => setBusy(false))
               }}
             >
-              دریافت لینک ورود
+              {t('login.getLink')}
             </button>
             {allowDevLogin && (
               <button
@@ -122,12 +124,12 @@ export function LoginGate({ children }: { children: React.ReactNode }) {
                     .finally(() => setBusy(false))
                 }}
               >
-                ورود سریع (dev)
+                {t('login.devLogin')}
               </button>
             )}
           </div>
           <p className="section-sub" style={{ marginTop: '0.85rem' }}>
-            عضو نیستید؟ از ادمین بخواهید از صفحه «تیم» دعوت‌تان کند.
+            {t('login.notMember')}
           </p>
         </div>
       </div>

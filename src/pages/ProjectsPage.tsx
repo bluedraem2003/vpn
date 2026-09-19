@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext'
 import { normalizeHandle } from '../lib/handle'
 import { formatHashtags, parseHashtags } from '../lib/hashtags'
 import { InstagramPageSearch } from '../components/InstagramPageSearch'
+import { useI18n } from '../prefs/PrefsProvider'
 
 const emptyForm = {
   name: '',
@@ -18,6 +19,7 @@ const emptyForm = {
 }
 
 export function ProjectsPage() {
+  const { t } = useI18n()
   const { workspaceId } = useAuth()
   const [items, setItems] = useState<ProjectDto[]>([])
   const [form, setForm] = useState(emptyForm)
@@ -122,8 +124,8 @@ export function ProjectsPage() {
     <div className="ops-page">
       <header className="ops-page-head">
         <div>
-          <h1>پیج‌ها</h1>
-          <p>پیج اینستاگرام خودت را اینجا اضافه کن — روی سرور ذخیره می‌شود و در محتوا/مناسبت‌ها قابل انتخاب است</p>
+          <h1>{t('pages.projectsTitle')}</h1>
+          <p>{t('pages.projectsSub')}</p>
         </div>
       </header>
       {error && <div className="form-banner error">{error}</div>}

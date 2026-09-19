@@ -3,6 +3,7 @@ import { api, type AssetDto } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { AssetPreviewModal } from '../components/AssetPreviewModal'
 import { AssetThumb } from '../components/AssetThumb'
+import { useI18n } from '../prefs/PrefsProvider'
 
 function resolveDownloadMime(asset: AssetDto, headerType: string | null) {
   if (headerType && !headerType.includes('octet-stream') && !headerType.includes('application/json')) {
@@ -17,6 +18,7 @@ function resolveDownloadMime(asset: AssetDto, headerType: string | null) {
 }
 
 export function AssetsPage() {
+  const { t } = useI18n()
   const { workspaceId, session } = useAuth()
   const [items, setItems] = useState<AssetDto[]>([])
   const [q, setQ] = useState('')
@@ -70,8 +72,8 @@ export function AssetsPage() {
     <div className="ops-page">
       <header className="ops-page-head">
         <div>
-          <h1>دارایی‌ها</h1>
-          <p>مرور فایل‌های ایندکس‌شده از تلگرام و اتصال به محتوا</p>
+          <h1>{t('pages.assetsTitle')}</h1>
+          <p>{t('pages.assetsSub')}</p>
         </div>
       </header>
 

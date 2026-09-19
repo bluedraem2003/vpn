@@ -6,14 +6,13 @@ import { CopyButton } from '../components/CopyButton'
 import { InstagramPreview } from '../components/InstagramPreview'
 import {
   CONTENT_STATUS_FLOW,
-  CONTENT_STATUS_LABELS,
-  CONTENT_TYPE_LABELS,
   IG_CONTENT_TYPES,
   type ContentStatus,
   type ContentType,
 } from '../domain/types'
 import { formatHashtags, IG_CAPTION_LIMIT, IG_FIRST_COMMENT_LIMIT, IG_HASHTAG_LIMIT, parseHashtags } from '../lib/hashtags'
 import { formatJalaliFromIso } from '../lib/jalaali'
+import { useI18n } from '../prefs/PrefsProvider'
 
 const emptyForm = {
   title: '',
@@ -31,6 +30,7 @@ const emptyForm = {
 }
 
 export function ContentPage() {
+  const { t } = useI18n()
   const { workspaceId, session } = useAuth()
   const [params, setParams] = useSearchParams()
   const [items, setItems] = useState<ContentDto[]>([])
@@ -364,8 +364,8 @@ export function ContentPage() {
     <div className="ops-page">
       <header className="ops-page-head">
         <div>
-          <h1>محتوا</h1>
-          <p>کپشن، هشتگ، کامنت اول و زمان انتشار را اینجا بنویس — اگر نگذاری، تلگرام یادآوری می‌کند</p>
+          <h1>{t('pages.contentTitle')}</h1>
+          <p>{t('pages.contentSub')}</p>
         </div>
         <div className="form-actions">
           <Link to="/studio" className="btn btn-outline btn-sm">
@@ -413,7 +413,7 @@ export function ContentPage() {
             >
               {typeOptions.map((k) => (
                 <option key={k} value={k}>
-                  {CONTENT_TYPE_LABELS[k] || k}
+                  {t(`type.${k}`)}
                 </option>
               ))}
             </select>
@@ -563,9 +563,9 @@ export function ContentPage() {
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="جستجوی عنوان یا کپشن..." />
             <select value={filterType} onChange={(e) => setFilterType(e.target.value)}>
               <option value="">همه انواع</option>
-              {IG_CONTENT_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {CONTENT_TYPE_LABELS[t]}
+              {IG_CONTENT_TYPES.map((typeId) => (
+                <option key={typeId} value={typeId}>
+                  {t(`type.${typeId}`)}
                 </option>
               ))}
             </select>
@@ -583,7 +583,7 @@ export function ContentPage() {
               <option value="">همه وضعیت‌ها</option>
               {CONTENT_STATUS_FLOW.map((s) => (
                 <option key={s} value={s}>
-                  {CONTENT_STATUS_LABELS[s]}
+                  {t(`status.${s}`)}
                 </option>
               ))}
             </select>
@@ -597,11 +597,11 @@ export function ContentPage() {
                   <div className="list-meta">
                     <h3>{item.title}</h3>
                     <span className="meta-badge">
-                      {CONTENT_STATUS_LABELS[item.status as ContentStatus] || item.status}
+                      {t(`status.${item.status as ContentStatus}`)}
                     </span>
                   </div>
                   <p>
-                    {CONTENT_TYPE_LABELS[item.contentType as ContentType] || item.contentType}
+                    {t(`type.${item.contentType as ContentType}`)}
                     {item.projectId ? ` · ${projects.find((p) => p.id === item.projectId)?.name || 'پیج'}` : ''}
                     {item.occasionId
                       ? ` · ${occasions.find((o) => o.id === item.occasionId)?.nameFa || 'مناسبت'}`
@@ -647,7 +647,7 @@ export function ContentPage() {
                     >
                       {CONTENT_STATUS_FLOW.map((s) => (
                         <option key={s} value={s}>
-                          {CONTENT_STATUS_LABELS[s]}
+                          {t(`status.${s}`)}
                         </option>
                       ))}
                     </select>

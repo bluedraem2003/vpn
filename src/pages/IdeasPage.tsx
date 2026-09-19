@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api, type IdeaDto, type ProjectDto } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
-import { CONTENT_TYPE_LABELS, type ContentType } from '../domain/types'
+import { type ContentType } from '../domain/types'
+import { useI18n } from '../prefs/PrefsProvider'
 
 export function IdeasPage() {
+  const { t } = useI18n()
   const { workspaceId } = useAuth()
   const navigate = useNavigate()
   const [items, setItems] = useState<IdeaDto[]>([])
@@ -84,8 +86,8 @@ export function IdeasPage() {
     <div className="ops-page">
       <header className="ops-page-head">
         <div>
-          <h1>ایده‌ها</h1>
-          <p>بانک ایده با تبدیل مستقیم به محتوا</p>
+          <h1>{t('pages.ideasTitle')}</h1>
+          <p>{t('pages.ideasSub')}</p>
         </div>
       </header>
       {error && <div className="form-banner error">{error}</div>}
@@ -110,11 +112,9 @@ export function IdeasPage() {
           <div className="field">
             <label>نوع پیشنهادی</label>
             <select value={contentType} onChange={(e) => setContentType(e.target.value as ContentType)}>
-              {Object.entries(CONTENT_TYPE_LABELS)
-                .filter(([k]) => ['reel', 'post', 'carousel', 'story'].includes(k))
-                .map(([k, v]) => (
-                  <option key={k} value={k}>
-                    {v}
+              {(['reel', 'post', 'carousel', 'story'] as ContentType[]).map((typeId) => (
+                  <option key={typeId} value={typeId}>
+                    {t(`type.${typeId}`)}
                   </option>
                 ))}
             </select>

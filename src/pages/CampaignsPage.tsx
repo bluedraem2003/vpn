@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, type CampaignDto, type ProjectDto } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { useI18n } from '../prefs/PrefsProvider'
 
 export function CampaignsPage() {
+  const { t } = useI18n()
   const { workspaceId } = useAuth()
   const [items, setItems] = useState<CampaignDto[]>([])
   const [projects, setProjects] = useState<ProjectDto[]>([])
@@ -73,8 +75,8 @@ export function CampaignsPage() {
     <div className="ops-page">
       <header className="ops-page-head">
         <div>
-          <h1>کمپین‌ها</h1>
-          <p>بازه‌ها و اهداف کمپین محتوایی</p>
+          <h1>{t('pages.campaignsTitle')}</h1>
+          <p>{t('pages.campaignsSub')}</p>
         </div>
       </header>
       {error && <div className="form-banner error">{error}</div>}

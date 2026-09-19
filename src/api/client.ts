@@ -287,7 +287,7 @@ export interface AssetDto {
 }
 
 export type AnalyticsConnector = {
-  id: 'instagram_public' | 'supermetrics' | 'meta'
+  id: 'instagram_public' | 'supermetrics' | 'meta' | 'website' | 'ads_library'
   name: string
   configured: boolean
   hint: string
@@ -304,6 +304,39 @@ export type PagePostInsight = {
   takenAt: string
   thumbUrl?: string
   engagement: number
+  hasAudio?: boolean
+  originalAudio?: boolean
+  songName?: string
+  artistName?: string
+  locationName?: string
+  taggedUsers: string[]
+  hashtags: string[]
+  mentions: string[]
+  captionLength: number
+  commentsDisabled?: boolean
+  isPinned?: boolean
+}
+
+export type TypeStats = {
+  count: number
+  avgLikes: number
+  avgComments: number
+  avgViews: number
+  avgEngagement: number
+}
+
+export type CountStat = { key: string; count: number; avgEngagement: number }
+
+export type HealthPart = { id: string; score: number; max: number }
+
+export type InsightHint = { id: string; args?: Record<string, string | number> }
+
+export type RelatedProfile = {
+  username: string
+  name: string
+  verified?: boolean
+  avatarUrl?: string
+  followers?: number
 }
 
 export type PageInsights = {
@@ -326,17 +359,80 @@ export type PageInsights = {
   postCadenceDays: number | null
   mix: { reel: number; carousel: number; post: number }
   bestPost?: PagePostInsight
+  weakestPost?: PagePostInsight
   recentPosts: PagePostInsight[]
-  hints: string[]
+  hints: InsightHint[]
   fetchedAt: string
   source: 'instagram_public'
+  highlightCount: number
+  hasClips: boolean
+  isJoinedRecently: boolean
+  hideLikeCounts: boolean
+  contactMethod?: string
+  website?: string
+  bioLinks: Array<{ title?: string; url: string }>
+  phone?: string
+  email?: string
+  telegram?: string
+  igUserId?: string
+  fbId?: string
+  relatedProfiles: RelatedProfile[]
+  avgCaptionLength: number
+  pinnedCount: number
+  lastPostedAt?: string
+  postingStdevDays: number | null
+  followerFollowingRatio: number
+  commentsToLikes: number
+  reelPlayRate: number | null
+  byType: { reel: TypeStats; carousel: TypeStats; post: TypeStats }
+  heatmapDays: CountStat[]
+  heatmapHours: CountStat[]
+  bestDay?: string
+  bestHour?: string
+  topHashtags: CountStat[]
+  collaborators: CountStat[]
+  locations: CountStat[]
+  audioMix: { original: number; licensed: number }
+  suggestedWindow?: string
+  health: { score: number; parts: HealthPart[] }
+}
+
+export type PageGrowth = {
+  previousFetchedAt?: string
+  previousFollowers?: number
+  followerDelta?: number
+  previousPosts?: number
+  postsDelta?: number
+  previousEngagement?: number
+  engagementDelta?: number
+  samples: number
+  history?: Array<{ fetchedAt: string; followers: number; posts: number; engagementRate: number }>
+}
+
+export type PageEnrichment = {
+  website?: {
+    url: string
+    title?: string
+    description?: string
+    sameAs?: string[]
+    address?: string
+    telephone?: string
+    email?: string
+  }
+  wikidata?: { id: string; label: string; description?: string; website?: string; wikiFa?: string; wikiEn?: string }
+  wikipedia?: { title: string; extract: string; url: string; lang: 'fa' | 'en' }
+  domain?: { host: string; createdAt?: string; registrar?: string }
+  place?: { name: string; displayName: string; lat: string; lon: string }
+  researchLinks: Array<{ id?: string; label: string; url: string; hint: string }>
 }
 
 export type PageAnalyticsResponse = {
   page: PageInsights
+  growth?: PageGrowth
+  enrichment?: PageEnrichment
   connectors: AnalyticsConnector[]
   supermetrics: { ok: boolean; error?: string; rows?: unknown[]; fields?: string[] }
-  meta: { ok: boolean; error?: string; data?: unknown }
+  meta: { ok: false; error?: string; data?: unknown } | { ok: boolean; error?: string; data?: unknown }
 }
 
 export interface IgPageHit {

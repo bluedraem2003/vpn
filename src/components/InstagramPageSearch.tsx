@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { LoaderCircle, Search } from 'lucide-react'
 import { api, type IgPageHit } from '../api/client'
 import { isLikelyIgHandle, normalizeHandle } from '../lib/handle'
+import { useI18n } from '../prefs/PrefsProvider'
 
 type Props = {
   id?: string
@@ -24,12 +25,16 @@ export function InstagramPageSearch({
   id,
   value,
   disabled,
-  label = 'جستجو و انتخاب پیج اینستاگرام',
-  hint = 'پیج‌هایی که داخل اینستاگرام هستند را همین‌جا جستجو کن و از لیست انتخاب کن',
-  placeholder = 'نام یا آیدی را بنویس، مثلاً karaland',
+  label,
+  hint,
+  placeholder,
   onChange,
   onPick,
 }: Props) {
+  const { t, n } = useI18n()
+  const resolvedLabel = label || t('search.label')
+  const resolvedHint = hint || t('search.hint')
+  const resolvedPlaceholder = placeholder || t('search.placeholder')
   const wrapRef = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState(value)
@@ -60,7 +65,7 @@ export function InstagramPageSearch({
     let cancelled = false
     setBusy(true)
     setErr(null)
-    const t = window.setTimeout(() => {
+    const timer = window.setTimeout(() => {
       void api
         .searchInstagramPages(query)
         .then((res) => {
@@ -80,7 +85,7 @@ export function InstagramPageSearch({
     }, 220)
     return () => {
       cancelled = true
-      window.clearTimeout(t)
+      window.clearTimeout(timer)
     }
   }, [q, open])
 
@@ -121,20 +126,20 @@ export function InstagramPageSearch({
   }
 
   const sourceLabel: Record<string, string> = {
-    instagram: 'اینستاگرام',
-    workspace: 'پیج ذخیره‌شده',
-    typed: 'آیدی واردشده',
-    wikidata: 'کاتالوگ عمومی',
+    instagram: t('search.instagram'),
+    workspace: t('search.workspace'),
+    typed: t('search.typed'),
+    wikidata: t('search.wikidata'),
   }
 
-  function followersLabel(n?: number) {
-    if (!n) return ''
-    return ` · ${new Intl.NumberFormat('fa-IR').format(n)} دنبال‌کننده`
+  function followersLabel(count?: number) {
+    if (!count) return ''
+    return t('search.followers', { n: n(count) })
   }
 
   return (
     <div className="field" ref={wrapRef}>
-      <label htmlFor={id}>{label}</label>
+      <label htmlFor={id}>{resolvedLabel}</label>
       <div className="ig-search-wrap">
         <div className={`ig-search ${open ? 'open' : ''}`}>
           {busy ? (
@@ -149,7 +154,7 @@ export function InstagramPageSearch({
             disabled={disabled}
             dir="ltr"
             autoComplete="off"
-            placeholder={placeholder}
+            placeholder={resolvedPlaceholder}
             onFocus={() => setOpen(true)}
             onChange={(e) => {
               const next = e.target.value
@@ -165,13 +170,9 @@ export function InstagramPageSearch({
         </div>
         {open && (
           <div className="ig-search-list" role="listbox">
-            {busy && shown.length === 0 && <p className="ig-search-empty">در حال جستجوی پیج‌ها...</p>}
+            {busy && shown.length === 0 && <p className="ig-search-empty">{t('search.searching')}</p>}
             {!busy && shown.length === 0 && (
-              <p className="ig-search-empty">
-                {q.trim()
-                ? 'پیجی در اینستاگرام پیدا نشد — آیدی را دقیق‌تر بنویس'
-                : 'نام یا آیدی پیج اینستاگرام را بنویس تا لیست بیاید'}
-              </p>
+              <p className="ig-search-empty">{q.trim() ? t('search.none') : t('search.typeHint')}</p>
             )}
             {shown.map((item, idx) => (
               <button
@@ -201,13 +202,13 @@ export function InstagramPageSearch({
                     {followersLabel(item.followers)}
                   </span>
                 </span>
-                <span className="ig-search-pick">انتخاب</span>
+                <span className="ig-search-pick">{t('search.pick')}</span>
               </button>
             ))}
           </div>
         )}
       </div>
-      {hint ? <span className="field-hint">{hint}</span> : null}
+      {resolvedHint ? <span className="field-hint">{resolvedHint}</span> : null}
       {err && !shown.length && <span className="field-hint warn">{err}</span>}
     </div>
   )

@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { useI18n } from '../prefs/PrefsProvider'
 
 export function TeamPage() {
+  const { t } = useI18n()
   const { session } = useAuth()
   const [items, setItems] = useState<Array<{ id: string; email: string; name: string; role: string }>>([])
   const [error, setError] = useState<string | null>(null)
@@ -49,8 +51,8 @@ export function TeamPage() {
     <div className="ops-page">
       <header className="ops-page-head">
         <div>
-          <h1>تیم</h1>
-          <p>اعضای ورک‌اسپیس را دعوت کنید و لینک ورود را برای هم‌تیمی بفرستید</p>
+          <h1>{t('pages.teamTitle')}</h1>
+          <p>{t('pages.teamSub')}</p>
         </div>
       </header>
 

@@ -1,5 +1,6 @@
-import { CONTENT_TYPE_LABELS, type ContentType } from '../domain/types'
+import { type ContentType } from '../domain/types'
 import { formatHashtags } from '../lib/hashtags'
+import { useI18n } from '../prefs/PrefsProvider'
 
 export function InstagramPreview({
   handle,
@@ -14,9 +15,10 @@ export function InstagramPreview({
   firstComment?: string
   contentType?: ContentType | string
 }) {
+  const { t } = useI18n()
   const name = handle ? `@${String(handle).replace(/^@/, '')}` : '@page'
   const tags = formatHashtags(hashtags)
-  const typeLabel = CONTENT_TYPE_LABELS[contentType as ContentType] || contentType || 'پست'
+  const typeLabel = t(`type.${contentType || 'post'}`)
 
   return (
     <div className="ig-preview" aria-label="پیش‌نمایش اینستاگرام">

@@ -1,9 +1,9 @@
 import type { GeneratedContent } from '../types'
 import { CopyButton } from './CopyButton'
-import { formatLabels, toneLabels } from '../lib/generator'
 import { IG_CAPTION_LIMIT, IG_HASHTAG_LIMIT, parseHashtags } from '../lib/hashtags'
 import { formatJalaliFromIso } from '../lib/jalaali'
 import { motion } from 'framer-motion'
+import { useI18n } from '../prefs/PrefsProvider'
 
 interface ResultPanelProps {
   result: GeneratedContent | null
@@ -22,12 +22,13 @@ export function ResultPanel({
   scheduleDate,
   onScheduleDateChange,
 }: ResultPanelProps) {
+  const { t, lang } = useI18n()
   if (!result) {
     return (
       <div className="panel panel-pad">
         <div className="empty">
-          <strong>هنوز محتوایی ساخته نشده</strong>
-          موضوع را وارد کن و دکمه تولید را بزن. خروجی اینجا نمایش داده می‌شود.
+          <strong>{t('studio.emptyTitle')}</strong>
+          {t('studio.emptySub')}
         </div>
       </div>
     )
@@ -37,9 +38,9 @@ export function ResultPanel({
     result.caption,
     '',
     result.hashtags.join(' '),
-    result.reelScript ? `\n--- اسکریپت ریلز ---\n${result.reelScript}` : '',
+    result.reelScript ? `\n--- ${t('studio.reelBlock')} ---\n${result.reelScript}` : '',
     result.carouselSlides
-      ? `\n--- اسلایدها ---\n${result.carouselSlides.map((s, i) => `${i + 1}. ${s}`).join('\n')}`
+      ? `\n--- ${t('studio.slidesBlock')} ---\n${result.carouselSlides.map((s, i) => `${i + 1}. ${s}`).join('\n')}`
       : '',
   ]
     .filter(Boolean)
@@ -56,30 +57,32 @@ export function ResultPanel({
       <div className="result-head" style={{ marginBottom: '1rem' }}>
         <div>
           <h2 className="section-title" style={{ marginBottom: 4 }}>
-            خروجی آماده
+            {t('studio.resultTitle')}
           </h2>
           <p className="section-sub" style={{ marginBottom: 0 }}>
-            {formatLabels[result.input.format]} · {toneLabels[result.input.tone]}
+            {t(`format.${result.input.format}`)} · {t(`tone.${result.input.tone}`)}
             {result.pageName ? ` · ${result.pageName}` : ''}
           </p>
         </div>
         <div className="form-actions">
-          <CopyButton text={allText} label="کپی همه" />
+          <CopyButton text={allText} label={t('studio.copyAll')} />
         </div>
       </div>
       {onSaveToCalendar && (
         <div className="studio-schedule">
           <div className="field" style={{ margin: 0 }}>
-            <label>تاریخ انتشار</label>
+            <label>{t('studio.publishDate')}</label>
             <input
               type="date"
               value={scheduleDate || ''}
               onChange={(e) => onScheduleDateChange?.(e.target.value)}
             />
-            {scheduleDate && <span className="field-hint">شمسی: {formatJalaliFromIso(scheduleDate)}</span>}
+            {scheduleDate && lang === 'fa' ? (
+              <span className="field-hint">{t('studio.jalali', { date: formatJalaliFromIso(scheduleDate) })}</span>
+            ) : null}
           </div>
           <button type="button" className="btn btn-solid" disabled={saveBusy} onClick={onSaveToCalendar}>
-            {saveBusy ? 'در حال ارسال...' : scheduleDate ? 'ارسال به تقویم' : 'ذخیره بدون تاریخ'}
+            {saveBusy ? t('studio.sending') : scheduleDate ? t('studio.sendDated') : t('studio.saveNoDate')}
           </button>
         </div>
       )}
@@ -87,7 +90,7 @@ export function ResultPanel({
 
       <div className="result-block">
         <div className="result-head">
-          <h3>هوک</h3>
+          <h3>{t('studio.hook')}</h3>
           <CopyButton text={result.hook} />
         </div>
         <p className="pre">{result.hook}</p>
@@ -95,27 +98,27 @@ export function ResultPanel({
 
       <div className="result-block">
         <div className="result-head">
-          <h3>کپشن</h3>
+          <h3>{t('studio.caption')}</h3>
           <CopyButton text={result.caption} />
         </div>
         <p className="pre">{result.caption}</p>
         <span className={`field-hint ${result.caption.length > IG_CAPTION_LIMIT ? 'warn' : ''}`}>
-          {result.caption.length} / {IG_CAPTION_LIMIT} کاراکتر
+          {t('studio.chars', { n: result.caption.length, max: IG_CAPTION_LIMIT })}
         </span>
       </div>
 
       <div className="result-block">
         <div className="result-head">
-          <h3>هشتگ‌ها</h3>
+          <h3>{t('studio.hashtags')}</h3>
           <CopyButton text={result.hashtags.join(' ')} />
         </div>
         <span className={`field-hint ${parseHashtags(result.hashtags).length > IG_HASHTAG_LIMIT ? 'warn' : ''}`}>
-          {parseHashtags(result.hashtags).length} / {IG_HASHTAG_LIMIT} هشتگ
+          {t('studio.tagsCount', { n: parseHashtags(result.hashtags).length, max: IG_HASHTAG_LIMIT })}
         </span>
         <div className="tags">
-          {result.hashtags.map((t) => (
-            <span className="tag" key={t}>
-              {t}
+          {result.hashtags.map((tag) => (
+            <span className="tag" key={tag}>
+              {tag}
             </span>
           ))}
         </div>
@@ -123,7 +126,7 @@ export function ResultPanel({
 
       <div className="result-block">
         <div className="result-head">
-          <h3>ایده بصری</h3>
+          <h3>{t('studio.visual')}</h3>
           <CopyButton text={result.visualIdea} />
         </div>
         <p className="pre">{result.visualIdea}</p>
@@ -132,7 +135,7 @@ export function ResultPanel({
       {result.reelScript && (
         <div className="result-block">
           <div className="result-head">
-            <h3>اسکریپت ریلز</h3>
+            <h3>{t('studio.reelScript')}</h3>
             <CopyButton text={result.reelScript} />
           </div>
           <p className="pre">{result.reelScript}</p>
@@ -142,7 +145,7 @@ export function ResultPanel({
       {result.carouselSlides && (
         <div className="result-block">
           <div className="result-head">
-            <h3>ساختار کاروسل</h3>
+            <h3>{t('studio.carousel')}</h3>
             <CopyButton text={result.carouselSlides.map((s, i) => `${i + 1}. ${s}`).join('\n')} />
           </div>
           <p className="pre">{result.carouselSlides.map((s, i) => `${i + 1}. ${s}`).join('\n')}</p>
@@ -151,12 +154,12 @@ export function ResultPanel({
 
       <div className="result-block">
         <div className="result-head">
-          <h3>نسخه‌های جایگزین</h3>
+          <h3>{t('studio.alts')}</h3>
         </div>
         {result.altCaptions.map((alt, i) => (
           <div key={i} style={{ marginBottom: i === 0 ? '0.85rem' : 0 }}>
             <div className="result-head">
-              <h3>نسخه {i + 2}</h3>
+              <h3>{t('studio.version', { n: i + 2 })}</h3>
               <CopyButton text={alt} />
             </div>
             <p className="pre">{alt}</p>

@@ -7,6 +7,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="پست‌یار — وب‌اپلیکیشن تولید محتوای حرفه‌ای اینستاگرام" />
     <meta name="theme-color" content="#0f2f2c" />
+    <script>
+      try {
+        var theme = localStorage.getItem('postyar_theme')
+        var lang = localStorage.getItem('postyar_lang')
+        if (theme === 'dark' || theme === 'light') document.documentElement.dataset.theme = theme
+        else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          document.documentElement.dataset.theme = 'dark'
+        }
+        if (lang === 'en') {
+          document.documentElement.lang = 'en'
+          document.documentElement.dir = 'ltr'
+        }
+      } catch (e) {}
+    </script>
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
