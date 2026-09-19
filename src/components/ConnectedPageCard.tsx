@@ -61,6 +61,15 @@ export function ConnectedPageCard({
       onChange?.(res.item, res.sync)
       if (res.sync?.ok) {
         setMsg(res.sync.cached ? t('pagesLive.syncCached') : t('pagesLive.syncDone', { n: res.sync.events.length }))
+      } else {
+        setMsg(
+          res.error ||
+            (res.code === 'ig_busy'
+              ? t('pagesLive.syncBusy')
+              : res.code === 'not_found'
+                ? t('pagesLive.statusNotFound')
+                : t('projects.savedError')),
+        )
       }
     } catch (e) {
       const err = e as Error & { code?: string }

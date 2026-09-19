@@ -236,7 +236,7 @@ export const api = {
   ) => request<{ item: ProjectDto }>(`/api/projects/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   deleteProject: (id: string) => request<{ ok: boolean }>(`/api/projects/${id}`, { method: 'DELETE' }),
   syncProject: (id: string) =>
-    request<{ item: ProjectDto; sync: ProjectSyncSummary | null; code?: string }>(`/api/projects/${id}/sync`, {
+    request<{ item: ProjectDto; sync: ProjectSyncSummary | null; code?: string; error?: string }>(`/api/projects/${id}/sync`, {
       method: 'POST',
     }),
   notifications: (workspaceId: string, params?: { unread?: boolean; limit?: number }) => {
