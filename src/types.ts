@@ -8,6 +8,10 @@ export interface InstagramPage {
   niche: string
   audience: string
   voice: string
+  handle?: string
+  windowStart?: string
+  windowEnd?: string
+  hashtags?: string[]
   createdAt: number
 }
 
@@ -37,4 +41,4 @@ export interface GeneratedContent {
   altCaptions: string[]
 }
 
-export type ViewId = 'studio' | 'pages' | 'history' | 'ideas'
+export type ViewId = 'studio' | 'history'

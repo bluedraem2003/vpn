@@ -1,6 +1,8 @@
 import { Hono } from 'hono'
+import { safeJson } from '../lib/secrets.js'
 import { db, uid } from '../db/index.js'
 import { assertWorkspaceAccess, requireAuth } from '../middleware/auth.js'
+import { resolveProjectId } from '../lib/refs.js'
 
 export const campaignRoutes = new Hono()
 campaignRoutes.use('*', requireAuth)
@@ -15,28 +17,35 @@ campaignRoutes.get('/', (c) => {
 })
 
 campaignRoutes.post('/', async (c) => {
-  const body = await c.req.json()
+  const body = await c.req.json().catch(() => ({}))
   const workspaceId = body.workspaceId || c.get('workspaceId')
   assertWorkspaceAccess(c, workspaceId)
   if (!body.name?.trim()) return c.json({ error: 'نام کمپین الزامی است' }, 400)
+  const project = resolveProjectId(workspaceId, body.projectId)
+  if (project.error) return c.json({ error: project.error }, 400)
   const id = uid('cmp')
   const now = new Date().toISOString()
-  db.prepare(
-    `INSERT INTO campaigns (
+  try {
+    db.prepare(
+      `INSERT INTO campaigns (
       id, workspace_id, project_id, name, goal, status, platforms, start_date, end_date, created_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    id,
-    workspaceId,
-    body.projectId || null,
-    body.name.trim(),
-    body.goal || null,
-    body.status || 'draft',
-    JSON.stringify(body.platforms || ['instagram']),
-    body.startDate || null,
-    body.endDate || null,
-    now,
-  )
+    ).run(
+      id,
+      workspaceId,
+      project.id,
+      body.name.trim(),
+      body.goal || null,
+      body.status || 'draft',
+      JSON.stringify(body.platforms || ['instagram']),
+      body.startDate || null,
+      body.endDate || null,
+      now,
+    )
+  } catch (err) {
+    console.error('[Campaign] create failed', (err as Error).message)
+    return c.json({ error: 'ذخیره کمپین ناموفق بود. پیج را دوباره انتخاب کنید.' }, 400)
+  }
   return c.json({ item: mapCampaign(db.prepare(`SELECT * FROM campaigns WHERE id = ?`).get(id)) }, 201)
 })
 
@@ -45,7 +54,12 @@ campaignRoutes.patch('/:id', async (c) => {
   const existing = db.prepare(`SELECT * FROM campaigns WHERE id = ?`).get(id) as Record<string, unknown> | undefined
   if (!existing) return c.json({ error: 'کمپین پیدا نشد' }, 404)
   assertWorkspaceAccess(c, String(existing.workspace_id))
-  const body = await c.req.json()
+  const body = await c.req.json().catch(() => ({}))
+  const project =
+    body.projectId !== undefined
+      ? resolveProjectId(String(existing.workspace_id), body.projectId)
+      : { id: (existing.project_id as string | null) || null }
+  if (project.error) return c.json({ error: project.error }, 400)
   db.prepare(
     `UPDATE campaigns SET name = ?, goal = ?, status = ?, platforms = ?, project_id = ?,
       start_date = ?, end_date = ? WHERE id = ?`,
@@ -53,8 +67,8 @@ campaignRoutes.patch('/:id', async (c) => {
     body.name ?? existing.name,
     body.goal ?? existing.goal,
     body.status ?? existing.status,
-    JSON.stringify(body.platforms ?? JSON.parse(String(existing.platforms || '[]'))),
-    body.projectId ?? existing.project_id,
+    JSON.stringify(body.platforms ?? safeJson<string[]>(existing.platforms, [])),
+    project.id,
     body.startDate ?? existing.start_date,
     body.endDate ?? existing.end_date,
     id,
@@ -80,7 +94,7 @@ function mapCampaign(row: unknown) {
     name: r.name,
     goal: r.goal,
     status: r.status,
-    platforms: JSON.parse(String(r.platforms || '[]')),
+    platforms: safeJson<string[]>(r.platforms, []),
     startDate: r.start_date,
     endDate: r.end_date,
     createdAt: r.created_at,

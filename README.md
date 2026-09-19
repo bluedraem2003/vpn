@@ -1,10 +1,16 @@
 # پست‌یار Content Ops
 
-وب‌اپلیکیشن مدیریت تولید محتوا (Instagram-first) با تقویم، گردش وضعیت، دارایی‌ها و لایهٔ Storage تلگرام.
+وب‌اپ مدیریت تولید محتوای اینستاگرام برای تیم: پیج‌های متصل با آمار زنده، اعلان تغییرات، تقویم و گردش وضعیت، دارایی‌های تلگرام، استودیوی کپشن، آنالیتیکس عمومی پیج. فارسی/انگلیسی و حالت روشن/شب.
 
-استودیوی کپشن قبلی در مسیر `/studio` حفظ شده است.
+## چه چیزی واقعی است
 
-## اجرا
+- **اتصال پیج اینستاگرام:** با ذخیرهٔ پیج، یک درخواست زنده به اینستاگرام (دادهٔ عمومی، بدون پسورد) می‌رود و وضعیت پیج ذخیره می‌شود. زمان‌بند هر چند دقیقه فقط **یک** پیجِ سررسیدشده را همگام می‌کند و اگر اینستاگرام محدود کند، متوقف می‌شود (بدون تلاش مکرر).
+- **اعلان‌ها:** پست جدید، افزایش/کاهش فالوور، تغییر بایو/نام/لینک/خصوصی‌شدن، حذف پست. داخل اپ (با نشان خوانده‌نشده) و اگر تلگرام تنظیم باشد، در گروه اپس.
+- **آنالیتیکس:** گزارش عمومی پیج (فالوور، تعامل، ریتم انتشار، هشتگ، لوکیشن، صدا، بهترین زمان) با اسنپ‌شات رشد. Reach/Impressions رسمی فقط با Supermetrics یا Meta Graph (اختیاری، با کلید).
+- **استودیو:** تولید کپشن/هوک از قالب‌های آفلاین پست‌یار (نه هوش مصنوعی ابری). خروجی قابل ویرایش و ارسال به تقویم است.
+- **تلگرام:** ایندکس فایل‌های کانال از طریق Webhook امن، پیش‌نمایش/دانلود داخل اپ، یادآوری برنامه‌های ازدست‌رفته.
+
+## اجرای توسعه
 
 ```bash
 cp .env.example .env
@@ -15,30 +21,37 @@ npm run dev
 - وب: `http://localhost:5173`
 - API: `http://127.0.0.1:8787`
 
-جداگانه:
+## اجرای production (یک پورت)
 
 ```bash
-npm run dev:web
-npm run dev:api
+npm run build
+NODE_ENV=production PORT=8080 npm start
 ```
 
-## مستندات
+UI و API روی همان پورت سرو می‌شوند. برای استقرار دائمی: [docs/RENDER_FA.md](./docs/RENDER_FA.md) یا [docs/DEPLOY.md](./docs/DEPLOY.md) (`docker compose up -d --build`).
 
-- [PRODUCT_AUDIT.md](./docs/PRODUCT_AUDIT.md) — معماری و Plan
-- [ENVIRONMENT.md](./docs/ENVIRONMENT.md)
+## ورود و تیم
+
+- `ALLOW_DEV_LOGIN=0` در هر استقرار مشترک. ورود سریع فقط برای توسعهٔ محلی است.
+- ادمین با `AUTH_OWNER_KEY` (ایمیل + کلید) وارد می‌شود. کلید را با `openssl rand -base64 24` بسازید.
+- هم‌تیمی‌ها با **لینک ورود یک‌بارمصرف** وارد می‌شوند که ادمین/مدیر از صفحهٔ **تیم** می‌سازد (دعوت یا «لینک ورود» برای عضو موجود) و در پیام خصوصی می‌فرستد.
+- نقش‌ها: ادمین، مدیر، ویراستار، طراح، کپی‌رایتر، بیننده (فقط مشاهده). مدیر نمی‌تواند ادمین بسازد.
+- نشست ۳۰ روزه است؛ هر پاسخ ۴۰۱ مرورگر را خارج می‌کند.
+
+## متغیرها
+
+[docs/ENVIRONMENT.md](./docs/ENVIRONMENT.md) — شامل `IG_SYNC_TICK_MS`، `IG_SYNC_INTERVAL_MS`، `AUTH_OWNER_KEY`، `TELEGRAM_WEBHOOK_SECRET`.
+
+## مستندات دیگر
+
+- [DEPLOY.md](./docs/DEPLOY.md) — استقرار دائمی + دعوت تیم
 - [TELEGRAM_SETUP.md](./docs/TELEGRAM_SETUP.md)
+- [API.md](./docs/API.md)
 
-## فاز فعلی
-
-✅ Domain + SQLite + Auth session  
-✅ Content / Calendar / Assets / Telegram webhook  
-✅ Ideas (Convert), Projects, Campaigns, Team, Search  
-✅ Analytics واقعی + Preview دارایی‌ها + Magic Link auth + Team invite  
-⏳ SMTP واقعی / Local Bot API / تقویم drag-drop
-
-## تست سریع API
+## تست
 
 ```bash
-chmod +x scripts/smoke.sh
+npx tsc -b && npm run lint
+npx tsx --test server/src/lib/igFetchPolicy.test.ts
 ./scripts/smoke.sh
 ```

@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { safeJson } from '../lib/secrets.js'
 import { db, uid } from '../db/index.js'
 import { TelegramStorageProvider } from '../services/storage/telegram.js'
 import { assertWorkspaceAccess, requireAuth } from '../middleware/auth.js'
@@ -69,7 +70,7 @@ assetRoutes.get('/:id', (c) => {
 
 assetRoutes.post('/:id/attach', async (c) => {
   const assetId = c.req.param('id')
-  const body = await c.req.json()
+  const body = await c.req.json().catch(() => ({}))
   if (!body.contentId) return c.json({ error: 'contentId الزامی است' }, 400)
 
   const asset = db.prepare(`SELECT * FROM assets WHERE id = ?`).get(assetId) as Record<string, unknown> | undefined
@@ -128,10 +129,16 @@ assetRoutes.get('/:id/download', async (c) => {
   const provider = new TelegramStorageProvider(process.env.TELEGRAM_BOT_TOKEN)
   try {
     const file = await provider.download(String(row.telegram_file_id))
+    const contentType = resolveContentType(
+      String(row.mime_type || ''),
+      file.mimeType,
+      String(row.type),
+      String(row.filename || file.filename),
+    )
     return new Response(file.stream as BodyInit, {
       headers: {
-        'Content-Type': file.mimeType || 'application/octet-stream',
-        'Content-Disposition': `attachment; filename="${encodeURIComponent(file.filename)}"`,
+        'Content-Type': contentType,
+        'Content-Disposition': `attachment; filename="${encodeURIComponent(String(row.filename || file.filename))}"`,
       },
     })
   } catch (err) {
@@ -189,10 +196,16 @@ assetRoutes.get('/:id/preview', async (c) => {
       type === 'image' || type === 'audio' || type === 'video' ? String(row.telegram_file_id) : fileId
     const file = await provider.getPreview(targetId)
     if (!file) return c.json({ error: 'پیش‌نمایش در دسترس نیست' }, 502)
+    const contentType = resolveContentType(
+      mime,
+      file.mimeType,
+      type,
+      String(row.filename || file.filename),
+    )
     return new Response(file.stream as BodyInit, {
       headers: {
-        'Content-Type': file.mimeType || mime || 'application/octet-stream',
-        'Content-Disposition': `inline; filename="${encodeURIComponent(file.filename)}"`,
+        'Content-Type': contentType,
+        'Content-Disposition': `inline; filename="${encodeURIComponent(String(row.filename || file.filename))}"`,
         'Cache-Control': 'private, max-age=60',
       },
     })
@@ -207,7 +220,7 @@ assetRoutes.patch('/:id', async (c) => {
   const row = db.prepare(`SELECT * FROM assets WHERE id = ?`).get(id) as Record<string, unknown> | undefined
   if (!row) return c.json({ error: 'فایل پیدا نشد' }, 404)
   assertWorkspaceAccess(c, String(row.workspace_id))
-  const body = await c.req.json()
+  const body = await c.req.json().catch(() => ({}))
   const tags = body.tags ? JSON.stringify(body.tags) : row.tags
   const status = body.status ?? row.status
   const virtualFolder = body.virtualFolder ?? row.virtual_folder
@@ -239,6 +252,40 @@ function escapeXml(s: string) {
   )
 }
 
+function isUsableMime(value: string | undefined | null) {
+  if (!value) return false
+  const lower = value.toLowerCase()
+  return !lower.includes('octet-stream') && !lower.includes('application/json')
+}
+
+/** Prefer DB/Telegram MIME, but never serve octet-stream when we can guess (Safari needs real image MIME). */
+function resolveContentType(
+  storedMime: string,
+  telegramMime: string | undefined,
+  type: string,
+  filename: string,
+) {
+  if (isUsableMime(storedMime)) return storedMime.split(';')[0]!.trim()
+  if (isUsableMime(telegramMime)) return telegramMime!.split(';')[0]!.trim()
+  return guessMime(type, filename)
+}
+
+function guessMime(type: string, filename: string) {
+  const lower = filename.toLowerCase()
+  if (lower.endsWith('.png')) return 'image/png'
+  if (lower.endsWith('.webp')) return 'image/webp'
+  if (lower.endsWith('.gif')) return 'image/gif'
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg'
+  if (lower.endsWith('.mp4')) return 'video/mp4'
+  if (lower.endsWith('.mp3')) return 'audio/mpeg'
+  if (lower.endsWith('.pdf')) return 'application/pdf'
+  if (type === 'image') return 'image/jpeg'
+  if (type === 'video') return 'video/mp4'
+  if (type === 'audio') return 'audio/mpeg'
+  if (type === 'pdf') return 'application/pdf'
+  return 'application/octet-stream'
+}
+
 function mapAsset(row: unknown) {
   const r = row as Record<string, unknown>
   return {
@@ -254,7 +301,7 @@ function mapAsset(row: unknown) {
     height: r.height,
     duration: r.duration,
     storageProvider: r.storage_provider,
-    tags: JSON.parse(String(r.tags || '[]')),
+    tags: safeJson<string[]>(r.tags, []),
     telegramFileUniqueId: r.telegram_file_unique_id,
     telegramCaption: r.telegram_caption,
     thumbnailFileId: r.thumbnail_file_id,

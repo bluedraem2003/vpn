@@ -1,9 +1,74 @@
 import { Hono } from 'hono'
+import { safeJson } from '../lib/secrets.js'
 import { db } from '../db/index.js'
 import { assertWorkspaceAccess, requireAuth } from '../middleware/auth.js'
+import { hitRateLimit } from '../middleware/rateLimit.js'
+import {
+  analyzeInstagramPage,
+  analyticsConnectors,
+  fetchMetaInsights,
+  fetchSupermetricsInsights,
+} from '../lib/pageInsights.js'
+import { enrichPage } from '../lib/pageEnrichment.js'
+import { recordPageSnapshot, readPageGrowth } from '../lib/pageSnapshots.js'
+import { normalizeHandle, instagramCooldownRemainingMs } from '../lib/instagramSearch.js'
 
 export const analyticsRoutes = new Hono()
 analyticsRoutes.use('*', requireAuth)
+
+analyticsRoutes.get('/connectors', (c) => c.json({ items: analyticsConnectors() }))
+
+analyticsRoutes.get('/page', async (c) => {
+  const limited = hitRateLimit(`iginsights:${c.get('userId')}`, 30, 60_000)
+  const workspaceId = c.req.query('workspaceId') || c.get('workspaceId')
+  assertWorkspaceAccess(c, workspaceId)
+  const handle = normalizeHandle(c.req.query('handle') || '')
+  if (!handle) return c.json({ error: 'آیدی پیج را بنویس', code: 'need_handle' }, 400)
+
+  const wantFresh = c.req.query('fresh') === '1'
+  const analyzed = await analyzeInstagramPage(handle, {
+    fresh: wantFresh && !limited,
+    allowNetwork: !limited,
+  })
+  if (!analyzed.ok) {
+    if (limited) {
+      return c.json({ error: 'کمی صبر کن و دوباره تحلیل را بگیر', code: 'busy' }, 429)
+    }
+    const code = analyzed.error.code
+    if (code === 'rate_limit') {
+      const wait = Math.max(15, Math.ceil(instagramCooldownRemainingMs() / 1000) || 60)
+      c.header('Retry-After', String(wait))
+      return c.json({ error: 'اینستاگرام موقتاً محدود کرده؛ حدود یک دقیقه بعد دوباره تحلیل بگیر', code: 'ig_busy' }, 429)
+    }
+    if (code === 'unavailable') {
+      return c.json({ error: 'الان اینستاگرام پاسخ نداد. چند ثانیه بعد دوباره تلاش کن', code: 'ig_unavailable' }, 503)
+    }
+    return c.json({ error: 'این پیج در اینستاگرام پیدا نشد یا خصوصی است', code: 'not_found' }, 404)
+  }
+  const page = analyzed.data
+  const cached = Boolean(analyzed.cached)
+
+  const [supermetrics, meta, enrichment] = cached
+    ? [
+        { ok: false as const, error: 'not_configured' },
+        { ok: false as const, error: 'not_configured' },
+        undefined,
+      ]
+    : await Promise.all([fetchSupermetricsInsights(handle), fetchMetaInsights(), enrichPage(page)])
+  const growth = cached ? readPageGrowth(workspaceId, page) : recordPageSnapshot(workspaceId, page)
+
+  return c.json({
+    page,
+    growth,
+    enrichment,
+    cached,
+    staleReason: analyzed.staleReason,
+    connectors: analyticsConnectors({ hasWebsite: Boolean(page.website) }),
+    supermetrics: supermetrics.ok ? supermetrics : { ok: false, error: supermetrics.error },
+    meta: meta.ok ? meta : { ok: false, error: meta.error },
+  })
+})
+
 
 analyticsRoutes.get('/', (c) => {
   const workspaceId = c.req.query('workspaceId') || c.get('workspaceId')
@@ -26,7 +91,7 @@ analyticsRoutes.get('/', (c) => {
 
   const platformCounts: Record<string, number> = {}
   for (const row of contents) {
-    const platforms = JSON.parse(row.platforms || '[]') as string[]
+    const platforms = safeJson<string[]>(row.platforms, [])
     for (const p of platforms) platformCounts[p] = (platformCounts[p] || 0) + 1
   }
 
@@ -109,15 +174,10 @@ analyticsRoutes.get('/', (c) => {
         title: row.title,
         contentType: row.content_type,
         publishDate: row.publish_date,
-        platforms: JSON.parse(String(row.platforms || '[]')),
+        platforms: safeJson<string[]>(row.platforms, []),
         updatedAt: row.updated_at,
       }
     }),
     missingAssets,
-    aiReadyHints: [
-      'Detect missing assets before publish',
-      'Suggest schedule from overdue + capacity',
-      'Caption assist using content.ai_meta',
-    ],
   })
 })

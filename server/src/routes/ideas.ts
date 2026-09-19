@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { safeJson } from '../lib/secrets.js'
 import { db, uid } from '../db/index.js'
 import { assertWorkspaceAccess, requireAuth } from '../middleware/auth.js'
 
@@ -15,7 +16,7 @@ ideaRoutes.get('/', (c) => {
 })
 
 ideaRoutes.post('/', async (c) => {
-  const body = await c.req.json()
+  const body = await c.req.json().catch(() => ({}))
   const workspaceId = body.workspaceId || c.get('workspaceId')
   assertWorkspaceAccess(c, workspaceId)
   if (!body.title?.trim()) return c.json({ error: 'عنوان ایده الزامی است' }, 400)
@@ -51,22 +52,39 @@ ideaRoutes.post('/:id/convert', async (c) => {
     return c.json({ error: 'این ایده قبلاً به محتوا تبدیل شده', contentId: idea.converted_content_id }, 409)
   }
 
+  const body = await c.req.json().catch(() => ({} as Record<string, unknown>))
+  let projectId: string | null = body.projectId ? String(body.projectId) : null
+  if (projectId) {
+    const project = db
+      .prepare(`SELECT id FROM projects WHERE id = ? AND workspace_id = ?`)
+      .get(projectId, idea.workspace_id)
+    if (!project) return c.json({ error: 'پیج نامعتبر است' }, 400)
+  } else {
+    const pages = db
+      .prepare(`SELECT id FROM projects WHERE workspace_id = ? ORDER BY created_at DESC`)
+      .all(idea.workspace_id) as Array<{ id: string }>
+    if (pages.length === 1) projectId = pages[0]!.id
+  }
+
   const now = new Date().toISOString()
   const contentId = uid('cnt')
   const status = 'planned'
+  const caption = idea.description ? String(idea.description) : null
   db.prepare(
     `INSERT INTO contents (
-      id, workspace_id, title, description, platforms, content_type, status,
-      hashtags, notes, ai_meta, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, '[]', ?, '{}', ?, ?)`,
+      id, workspace_id, project_id, title, description, platforms, content_type, status,
+      caption, hashtags, notes, ai_meta, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '[]', ?, '{}', ?, ?)`,
   ).run(
     contentId,
     idea.workspace_id,
+    projectId,
     idea.title,
     idea.description,
     idea.platforms,
     idea.content_type || 'reel',
     status,
+    caption,
     idea.notes,
     now,
     now,
@@ -101,10 +119,10 @@ function mapIdea(row: unknown) {
     title: r.title,
     description: r.description,
     reference: r.reference,
-    platforms: JSON.parse(String(r.platforms || '[]')),
+    platforms: safeJson<string[]>(r.platforms, []),
     contentType: r.content_type,
     priority: r.priority,
-    tags: JSON.parse(String(r.tags || '[]')),
+    tags: safeJson<string[]>(r.tags, []),
     notes: r.notes,
     convertedContentId: r.converted_content_id,
     createdAt: r.created_at,

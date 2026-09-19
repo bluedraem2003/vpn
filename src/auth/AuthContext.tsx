@@ -15,6 +15,7 @@ type AuthContextValue = {
   loading: boolean
   error: string | null
   login: (email?: string) => Promise<void>
+  loginWithOwnerKey: (email: string, key: string) => Promise<void>
   loginWithMagic: (token: string) => Promise<void>
   requestMagicLink: (email: string) => Promise<{ message: string; devMagicUrl?: string }>
   logout: () => Promise<void>
@@ -82,10 +83,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void hydrate()
   }, [hydrate])
 
+  useEffect(() => {
+    const onUnauthorized = () => {
+      localStorage.removeItem(TOKEN_KEY)
+      api.setToken(null)
+      setSession(null)
+      setError('نشست شما تمام شد — دوباره وارد شوید')
+    }
+    window.addEventListener('postyar:unauthorized', onUnauthorized)
+    return () => window.removeEventListener('postyar:unauthorized', onUnauthorized)
+  }, [])
+
   const login = useCallback(
     async (email?: string) => {
       setError(null)
       const res = await api.login(email)
+      applySession(res)
+    },
+    [applySession],
+  )
+
+  const loginWithOwnerKey = useCallback(
+    async (email: string, key: string) => {
+      setError(null)
+      const res = await api.ownerKeyLogin(email, key)
       applySession(res)
     },
     [applySession],
@@ -128,13 +149,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       error,
       login,
+      loginWithOwnerKey,
       loginWithMagic,
       requestMagicLink,
       logout,
       workspaceId: session?.workspaceId ?? null,
       applySession,
     }),
-    [session, loading, error, login, loginWithMagic, requestMagicLink, logout, applySession],
+    [session, loading, error, login, loginWithOwnerKey, loginWithMagic, requestMagicLink, logout, applySession],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
