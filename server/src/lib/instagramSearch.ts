@@ -191,7 +191,7 @@ export function markInstagramRateLimit(retryAfterMs?: number) {
 
 export function igProbePolicy(status: number): 'ok' | 'rate_limit' | 'not_found' | 'fallback' {
   if (status >= 200 && status < 300) return 'ok'
-  if (status === 429 || status === 401) return 'rate_limit'
+  if (status === 429) return 'rate_limit'
   if (status === 404) return 'not_found'
   return 'fallback'
 }
@@ -375,6 +375,11 @@ async function fetchInstagramWebProfileUncached(handle: string): Promise<{
 
   const lastStatus = html.status || first.status
   if (lastStatus === 404) return { user: null, error: { code: 'not_found', status: lastStatus } }
+  if (lastStatus === 401 || first.status === 401) {
+    const stale = cachedProfile(handle)
+    if (stale?.user) return { user: stale.user }
+    return { user: null, error: { code: 'rate_limit', status: lastStatus || first.status } }
+  }
   return { user: null, error: { code: 'unavailable', status: lastStatus || undefined } }
 }
 

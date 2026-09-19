@@ -3,7 +3,7 @@ import { igProbePolicy, isLikelyIgHandle, normalizeHandle } from './instagramSea
 
 assert.equal(igProbePolicy(200), 'ok')
 assert.equal(igProbePolicy(429), 'rate_limit')
-assert.equal(igProbePolicy(401), 'rate_limit')
+assert.equal(igProbePolicy(401), 'fallback')
 assert.equal(igProbePolicy(404), 'not_found')
 assert.equal(igProbePolicy(500), 'fallback')
 assert.equal(igProbePolicy(0), 'fallback')
