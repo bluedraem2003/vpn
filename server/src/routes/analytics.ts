@@ -1,9 +1,45 @@
 import { Hono } from 'hono'
 import { db } from '../db/index.js'
 import { assertWorkspaceAccess, requireAuth } from '../middleware/auth.js'
+import { hitRateLimit } from '../middleware/rateLimit.js'
+import {
+  analyzeInstagramPage,
+  analyticsConnectors,
+  fetchMetaInsights,
+  fetchSupermetricsInsights,
+} from '../lib/pageInsights.js'
+import { normalizeHandle } from '../lib/instagramSearch.js'
 
 export const analyticsRoutes = new Hono()
 analyticsRoutes.use('*', requireAuth)
+
+analyticsRoutes.get('/connectors', (c) => c.json({ items: analyticsConnectors() }))
+
+analyticsRoutes.get('/page', async (c) => {
+  if (hitRateLimit(`iginsights:${c.get('userId')}`, 20, 60_000)) {
+    return c.json({ error: 'کمی صبر کن و دوباره تحلیل را بگیر' }, 429)
+  }
+  const workspaceId = c.req.query('workspaceId') || c.get('workspaceId')
+  assertWorkspaceAccess(c, workspaceId)
+  const handle = normalizeHandle(c.req.query('handle') || '')
+  if (!handle) return c.json({ error: 'آیدی پیج را بنویس' }, 400)
+
+  const page = await analyzeInstagramPage(handle, { fresh: c.req.query('fresh') === '1' })
+  if (!page) return c.json({ error: 'این پیج در اینستاگرام پیدا نشد یا خصوصی است' }, 404)
+
+  const [supermetrics, meta] = await Promise.all([
+    fetchSupermetricsInsights(handle),
+    fetchMetaInsights(),
+  ])
+
+  return c.json({
+    page,
+    connectors: analyticsConnectors(),
+    supermetrics: supermetrics.ok ? supermetrics : { ok: false, error: supermetrics.error },
+    meta: meta.ok ? meta : { ok: false, error: meta.error },
+  })
+})
+
 
 analyticsRoutes.get('/', (c) => {
   const workspaceId = c.req.query('workspaceId') || c.get('workspaceId')

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { api } from '../api/client'
+import { Link } from 'react-router-dom'
+import { api, type AnalyticsConnector } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 
 export function SettingsPage() {
@@ -7,9 +8,11 @@ export function SettingsPage() {
   const [q, setQ] = useState('')
   const [results, setResults] = useState<Record<string, unknown[]> | null>(null)
   const [tg, setTg] = useState<Record<string, unknown> | null>(null)
+  const [connectors, setConnectors] = useState<AnalyticsConnector[]>([])
 
   useEffect(() => {
     api.telegramStatus().then((s) => setTg(s as unknown as Record<string, unknown>)).catch(() => null)
+    api.analyticsConnectors().then((res) => setConnectors(res.items || [])).catch(() => setConnectors([]))
   }, [])
 
   async function runSearch() {
@@ -74,6 +77,32 @@ export function SettingsPage() {
           )}
         </section>
       </div>
+
+      <section className="panel panel-pad" style={{ marginTop: '1rem' }}>
+        <h2 className="section-title">اتصال تحلیل پیج</h2>
+        <p className="section-sub">
+          آمار عمومی اینستاگرام بدون پسورد داخل{' '}
+          <Link to="/analytics">آنالیتیکس</Link> می‌آید. Reach و Impressions با Supermetrics یا Meta.
+        </p>
+        <ul className="ops-list" style={{ marginTop: '0.75rem' }}>
+          {(connectors.length
+            ? connectors
+            : [
+                {
+                  id: 'instagram_public' as const,
+                  name: 'اینستاگرام عمومی',
+                  configured: true,
+                  hint: '',
+                },
+              ]
+          ).map((c) => (
+            <li key={c.id}>
+              <strong>{c.name}</strong>
+              <span>{c.configured ? 'وصل' : 'آماده اتصال'}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       <section className="panel panel-pad" style={{ marginTop: '1rem' }}>
         <h2 className="section-title">جستجوی سراسری</h2>

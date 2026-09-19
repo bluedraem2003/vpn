@@ -222,6 +222,15 @@ async function igGetJson(url: string, ms = 5000): Promise<unknown | null> {
   }
 }
 
+export async function fetchInstagramWebProfile(username: string): Promise<Record<string, unknown> | null> {
+  const data = await igGetJson(
+    `https://i.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`,
+    8000,
+  )
+  const user = (data as { data?: { user?: Record<string, unknown> } } | null)?.data?.user
+  return user?.username ? user : null
+}
+
 async function lookupInstagramUser(username: string): Promise<IgPageHit[]> {
   const data = await igGetJson(
     `https://i.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`,

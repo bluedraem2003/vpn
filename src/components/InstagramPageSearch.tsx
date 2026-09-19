@@ -7,6 +7,9 @@ type Props = {
   id?: string
   value: string
   disabled?: boolean
+  label?: string
+  hint?: string
+  placeholder?: string
   onChange: (handle: string) => void
   onPick?: (hit: IgPageHit) => void
 }
@@ -17,7 +20,16 @@ function typedHit(query: string): IgPageHit | null {
   return { username: handle, name: handle, source: 'typed' }
 }
 
-export function InstagramPageSearch({ id, value, disabled, onChange, onPick }: Props) {
+export function InstagramPageSearch({
+  id,
+  value,
+  disabled,
+  label = 'جستجو و انتخاب پیج اینستاگرام',
+  hint = 'پیج‌هایی که داخل اینستاگرام هستند را همین‌جا جستجو کن و از لیست انتخاب کن',
+  placeholder = 'نام یا آیدی را بنویس، مثلاً karaland',
+  onChange,
+  onPick,
+}: Props) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState(value)
@@ -122,7 +134,7 @@ export function InstagramPageSearch({ id, value, disabled, onChange, onPick }: P
 
   return (
     <div className="field" ref={wrapRef}>
-      <label htmlFor={id}>جستجو و انتخاب پیج اینستاگرام</label>
+      <label htmlFor={id}>{label}</label>
       <div className="ig-search-wrap">
         <div className={`ig-search ${open ? 'open' : ''}`}>
           {busy ? (
@@ -137,7 +149,7 @@ export function InstagramPageSearch({ id, value, disabled, onChange, onPick }: P
             disabled={disabled}
             dir="ltr"
             autoComplete="off"
-            placeholder="نام یا آیدی را بنویس، مثلاً karaland"
+            placeholder={placeholder}
             onFocus={() => setOpen(true)}
             onChange={(e) => {
               const next = e.target.value
@@ -195,9 +207,7 @@ export function InstagramPageSearch({ id, value, disabled, onChange, onPick }: P
           </div>
         )}
       </div>
-      <span className="field-hint">
-        پیج‌هایی که داخل اینستاگرام هستند را همین‌جا جستجو کن و از لیست انتخاب کن
-      </span>
+      {hint ? <span className="field-hint">{hint}</span> : null}
       {err && !shown.length && <span className="field-hint warn">{err}</span>}
     </div>
   )

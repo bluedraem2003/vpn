@@ -76,6 +76,12 @@ export const api = {
     }>('/api/auth/magic-link/consume', { method: 'POST', body: JSON.stringify({ token }) }),
   analytics: (workspaceId: string) =>
     request<Record<string, unknown>>(`/api/analytics?workspaceId=${workspaceId}`),
+  analyticsConnectors: () => request<{ items: AnalyticsConnector[] }>('/api/analytics/connectors'),
+  pageAnalytics: (workspaceId: string, handle: string, fresh?: boolean) => {
+    const sp = new URLSearchParams({ workspaceId, handle })
+    if (fresh) sp.set('fresh', '1')
+    return request<PageAnalyticsResponse>(`/api/analytics/page?${sp}`)
+  },
   updateAsset: (id: string, body: { tags?: string[]; status?: string; virtualFolder?: string }) =>
     request<{ item: AssetDto }>(`/api/assets/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   inviteMember: (body: { email: string; name?: string; role?: string }) =>
@@ -278,6 +284,59 @@ export interface AssetDto {
   height?: number
   tags: string[]
   createdAt: string
+}
+
+export type AnalyticsConnector = {
+  id: 'instagram_public' | 'supermetrics' | 'meta'
+  name: string
+  configured: boolean
+  hint: string
+}
+
+export type PagePostInsight = {
+  shortcode: string
+  url: string
+  type: 'reel' | 'carousel' | 'post'
+  caption: string
+  likes: number
+  comments: number
+  views?: number
+  takenAt: string
+  thumbUrl?: string
+  engagement: number
+}
+
+export type PageInsights = {
+  handle: string
+  name: string
+  biography: string
+  avatarUrl?: string
+  verified: boolean
+  isProfessional: boolean
+  isBusiness: boolean
+  isPrivate: boolean
+  category?: string
+  followers: number
+  following: number
+  posts: number
+  avgLikes: number
+  avgComments: number
+  avgViews: number
+  engagementRate: number
+  postCadenceDays: number | null
+  mix: { reel: number; carousel: number; post: number }
+  bestPost?: PagePostInsight
+  recentPosts: PagePostInsight[]
+  hints: string[]
+  fetchedAt: string
+  source: 'instagram_public'
+}
+
+export type PageAnalyticsResponse = {
+  page: PageInsights
+  connectors: AnalyticsConnector[]
+  supermetrics: { ok: boolean; error?: string; rows?: unknown[]; fields?: string[] }
+  meta: { ok: boolean; error?: string; data?: unknown }
 }
 
 export interface IgPageHit {
