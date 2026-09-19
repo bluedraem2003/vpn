@@ -2,8 +2,19 @@ import { useEffect, useState } from 'react'
 import { api, type ProjectDto } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { normalizeHandle } from '../lib/handle'
+import { formatHashtags, parseHashtags } from '../lib/hashtags'
 
-const emptyForm = { name: '', handle: '', niche: '', audience: '', voice: '' }
+const emptyForm = {
+  name: '',
+  handle: '',
+  niche: '',
+  audience: '',
+  voice: '',
+  notes: '',
+  windowStart: '10:00',
+  windowEnd: '12:00',
+  hashtagText: '',
+}
 
 export function ProjectsPage() {
   const { workspaceId } = useAuth()
@@ -50,6 +61,10 @@ export function ProjectsPage() {
       niche: form.niche.trim() || undefined,
       audience: form.audience.trim() || undefined,
       voice: form.voice.trim() || undefined,
+      notes: form.notes.trim() || undefined,
+      windowStart: form.windowStart || undefined,
+      windowEnd: form.windowEnd || undefined,
+      hashtags: parseHashtags(form.hashtagText),
     }
     try {
       if (editingId) {
@@ -79,6 +94,10 @@ export function ProjectsPage() {
       niche: p.niche || '',
       audience: p.audience || '',
       voice: p.voice || '',
+      notes: p.notes || '',
+      windowStart: p.windowStart || '10:00',
+      windowEnd: p.windowEnd || '12:00',
+      hashtagText: formatHashtags(p.hashtags),
     })
     setError(null)
     setMsg(null)
@@ -167,6 +186,49 @@ export function ProjectsPage() {
               disabled={busy}
             />
           </div>
+          <div className="ops-filters" style={{ gridTemplateColumns: '1fr 1fr' }}>
+            <div className="field" style={{ margin: 0 }}>
+              <label htmlFor="prj-ws">ساعت انتشار از</label>
+              <input
+                id="prj-ws"
+                type="time"
+                value={form.windowStart}
+                onChange={(e) => setForm({ ...form, windowStart: e.target.value })}
+                disabled={busy}
+              />
+            </div>
+            <div className="field" style={{ margin: 0 }}>
+              <label htmlFor="prj-we">تا</label>
+              <input
+                id="prj-we"
+                type="time"
+                value={form.windowEnd}
+                onChange={(e) => setForm({ ...form, windowEnd: e.target.value })}
+                disabled={busy}
+              />
+            </div>
+          </div>
+          <div className="field">
+            <label htmlFor="prj-tags">هشتگ‌های پیش‌فرض</label>
+            <input
+              id="prj-tags"
+              value={form.hashtagText}
+              onChange={(e) => setForm({ ...form, hashtagText: e.target.value })}
+              placeholder="#brand #tehran"
+              disabled={busy}
+              dir="ltr"
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="prj-notes">یادداشت پیج</label>
+            <textarea
+              id="prj-notes"
+              value={form.notes}
+              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              placeholder="قوانین برند، چیزهایی که نباید بگوییم..."
+              disabled={busy}
+            />
+          </div>
           <div className="form-actions">
             <button type="submit" className="btn btn-solid" disabled={busy}>
               {busy ? 'در حال ذخیره...' : editingId ? 'به‌روزرسانی پیج' : 'ذخیره پیج'}
@@ -194,6 +256,12 @@ export function ProjectsPage() {
                 {p.niche && <p>حوزه: {p.niche}</p>}
                 {p.audience && <p>مخاطب: {p.audience}</p>}
                 {p.voice && <p>صدا: {p.voice}</p>}
+                {(p.windowStart || p.windowEnd) && (
+                  <p>
+                    بازه انتشار: {p.windowStart || '—'} تا {p.windowEnd || '—'}
+                  </p>
+                )}
+                {p.hashtags && p.hashtags.length > 0 && <p>{p.hashtags.join(' ')}</p>}
                 <div className="form-actions">
                   <button type="button" className="btn btn-outline btn-sm" onClick={() => startEdit(p)}>
                     ویرایش

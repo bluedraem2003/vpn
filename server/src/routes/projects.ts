@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { db, uid } from '../db/index.js'
 import { assertWorkspaceAccess, requireAuth } from '../middleware/auth.js'
+import { parseHashtags } from '../lib/hashtags.js'
 
 export const projectRoutes = new Hono()
 projectRoutes.use('*', requireAuth)
@@ -22,18 +23,24 @@ projectRoutes.post('/', async (c) => {
   const id = uid('prj')
   const now = new Date().toISOString()
   db.prepare(
-    `INSERT INTO projects (id, workspace_id, name, client_name, description, niche, audience, voice, handle, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO projects (
+      id, workspace_id, name, client_name, description, niche, audience, voice, handle,
+      notes, window_start, window_end, hashtags, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     workspaceId,
     body.name.trim(),
     body.clientName || body.handle || null,
-    body.description || null,
+    body.description || body.notes || null,
     body.niche || null,
     body.audience || null,
     body.voice || null,
     body.handle || body.clientName || null,
+    body.notes || null,
+    body.windowStart || null,
+    body.windowEnd || null,
+    JSON.stringify(parseHashtags(body.hashtags)),
     now,
   )
   const row = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id)
@@ -47,7 +54,8 @@ projectRoutes.patch('/:id', async (c) => {
   assertWorkspaceAccess(c, String(existing.workspace_id))
   const body = await c.req.json()
   db.prepare(
-    `UPDATE projects SET name = ?, client_name = ?, description = ?, niche = ?, audience = ?, voice = ?, handle = ?
+    `UPDATE projects SET name = ?, client_name = ?, description = ?, niche = ?, audience = ?, voice = ?, handle = ?,
+      notes = ?, window_start = ?, window_end = ?, hashtags = ?
      WHERE id = ?`,
   ).run(
     body.name ?? existing.name,
@@ -57,6 +65,10 @@ projectRoutes.patch('/:id', async (c) => {
     body.audience ?? existing.audience,
     body.voice ?? existing.voice,
     body.handle ?? body.clientName ?? existing.handle,
+    body.notes ?? existing.notes,
+    body.windowStart ?? existing.window_start,
+    body.windowEnd ?? existing.window_end,
+    JSON.stringify(body.hashtags !== undefined ? parseHashtags(body.hashtags) : parseHashtags(existing.hashtags)),
     id,
   )
   return c.json({ item: mapProject(db.prepare(`SELECT * FROM projects WHERE id = ?`).get(id)) })
@@ -87,6 +99,10 @@ function mapProject(row: unknown) {
     niche: r.niche || null,
     audience: r.audience || null,
     voice: r.voice || null,
+    notes: r.notes || null,
+    windowStart: r.window_start || null,
+    windowEnd: r.window_end || null,
+    hashtags: parseHashtags(r.hashtags),
     createdAt: r.created_at,
   }
 }

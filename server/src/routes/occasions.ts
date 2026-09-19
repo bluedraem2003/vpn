@@ -10,7 +10,7 @@ occasionRoutes.get('/', (c) => {
   const workspaceId = c.req.query('workspaceId') || c.get('workspaceId')
   assertWorkspaceAccess(c, workspaceId)
 
-  const region = c.req.query('region') // ir | global | all
+  const region = c.req.query('region') // ir | global | custom | all
   const projectId = c.req.query('projectId')
   const year = Number(c.req.query('year') || new Date().getFullYear())
 
@@ -30,14 +30,7 @@ occasionRoutes.get('/', (c) => {
       )
       .all(projectId)
   } else {
-    rows =
-      region && region !== 'all'
-        ? db
-            .prepare(
-              `SELECT * FROM occasions WHERE region = ? ORDER BY month ASC, day ASC, name_fa ASC`,
-            )
-            .all(region)
-        : db.prepare(`SELECT * FROM occasions ORDER BY region ASC, month ASC, day ASC`).all()
+    rows = listVisibleOccasions(String(workspaceId), region)
   }
 
   const items = rows.map((row) => mapOccasion(row, year))
@@ -61,7 +54,7 @@ occasionRoutes.get('/calendar', (c) => {
       )
       .all(projectId)
   } else {
-    rows = db.prepare(`SELECT * FROM occasions`).all()
+    rows = listVisibleOccasions(String(workspaceId), undefined)
   }
 
   const items = rows
@@ -120,6 +113,76 @@ occasionRoutes.delete('/project-link', async (c) => {
   return c.json({ ok: true })
 })
 
+occasionRoutes.post('/', async (c) => {
+  const body = await c.req.json().catch(() => ({} as Record<string, unknown>))
+  const workspaceId = String(body.workspaceId || c.get('workspaceId') || '')
+  assertWorkspaceAccess(c, workspaceId)
+  const nameFa = String(body.nameFa || body.name || '').trim()
+  if (!nameFa) return c.json({ error: 'نام مناسبت الزامی است' }, 400)
+  const calendar = body.calendar === 'jalali' ? 'jalali' : 'gregorian'
+  const month = Number(body.month)
+  const day = Number(body.day)
+  if (!Number.isFinite(month) || month < 1 || month > 12 || !Number.isFinite(day) || day < 1 || day > 31) {
+    return c.json({ error: 'ماه و روز معتبر نیست' }, 400)
+  }
+  const id = uid('occ')
+  const now = new Date().toISOString()
+  db.prepare(
+    `INSERT INTO occasions (id, slug, name_fa, name_en, region, calendar, month, day, kind, created_at, workspace_id)
+     VALUES (?, ?, ?, ?, 'custom', ?, ?, ?, 'custom', ?, ?)`,
+  ).run(id, `custom_${id}`, nameFa, body.nameEn || null, calendar, month, day, now, workspaceId)
+
+  const projectId = body.projectId ? String(body.projectId) : ''
+  if (projectId) {
+    const project = db.prepare(`SELECT * FROM projects WHERE id = ?`).get(projectId) as
+      | Record<string, unknown>
+      | undefined
+    if (project) {
+      assertWorkspaceAccess(c, String(project.workspace_id))
+      db.prepare(`INSERT OR IGNORE INTO project_occasions (id, project_id, occasion_id) VALUES (?, ?, ?)`).run(
+        uid('poc'),
+        projectId,
+        id,
+      )
+    }
+  }
+
+  const year = Number(body.year || new Date().getFullYear())
+  const row = db.prepare(`SELECT * FROM occasions WHERE id = ?`).get(id)
+  return c.json({ item: mapOccasion(row, year) }, 201)
+})
+
+occasionRoutes.delete('/:id', (c) => {
+  const id = c.req.param('id')
+  const existing = db.prepare(`SELECT * FROM occasions WHERE id = ?`).get(id) as Record<string, unknown> | undefined
+  if (!existing) return c.json({ error: 'مناسبت پیدا نشد' }, 404)
+  if (!existing.workspace_id) return c.json({ error: 'مناسبت‌های پیش‌فرض قابل حذف نیستند' }, 403)
+  assertWorkspaceAccess(c, String(existing.workspace_id))
+  db.prepare(`UPDATE contents SET occasion_id = NULL WHERE occasion_id = ?`).run(id)
+  db.prepare(`DELETE FROM project_occasions WHERE occasion_id = ?`).run(id)
+  db.prepare(`DELETE FROM occasions WHERE id = ?`).run(id)
+  return c.json({ ok: true })
+})
+
+function listVisibleOccasions(workspaceId: string, region?: string | undefined) {
+  if (region && region !== 'all') {
+    return db
+      .prepare(
+        `SELECT * FROM occasions
+         WHERE region = ? AND (workspace_id IS NULL OR workspace_id = ?)
+         ORDER BY month ASC, day ASC, name_fa ASC`,
+      )
+      .all(region, workspaceId)
+  }
+  return db
+    .prepare(
+      `SELECT * FROM occasions
+       WHERE workspace_id IS NULL OR workspace_id = ?
+       ORDER BY region ASC, month ASC, day ASC`,
+    )
+    .all(workspaceId)
+}
+
 function mapOccasion(row: unknown, year: number) {
   const r = row as Record<string, unknown>
   const calendar = String(r.calendar) as 'jalali' | 'gregorian'
@@ -135,6 +198,8 @@ function mapOccasion(row: unknown, year: number) {
     month,
     day,
     kind: r.kind,
+    workspaceId: r.workspace_id || null,
+    custom: Boolean(r.workspace_id),
     dateInYear: occasionDateInYear(calendar, month, day, year),
     createdAt: r.created_at,
   }

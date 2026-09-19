@@ -810,16 +810,48 @@ a {
   border-radius: 12px;
   padding: 0.35rem;
   background: rgba(255, 255, 255, 0.55);
+  text-align: right;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+}
+
+.cal-cell.interactive {
+  cursor: pointer;
+}
+
+.cal-cell.interactive:hover {
+  border-color: rgba(27, 107, 99, 0.4);
+  background: rgba(27, 107, 99, 0.08);
+}
+
+.cal-cell.today {
+  box-shadow: inset 0 0 0 2px rgba(27, 107, 99, 0.45);
 }
 
 .cal-cell.empty {
   opacity: 0.35;
+  cursor: default;
 }
 
 .cal-daynum {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
   font-size: 0.78rem;
   color: var(--muted);
   margin-bottom: 0.25rem;
+}
+
+.cal-daynum-fa {
+  font-weight: 700;
+  color: var(--ink);
+  font-size: 0.95rem;
+}
+
+.cal-daynum-g {
+  font-size: 0.68rem;
+  opacity: 0.65;
 }
 
 .cal-pill {
@@ -853,6 +885,18 @@ a {
   border: 1px solid var(--line);
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.55);
+  text-align: right;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+}
+
+.cal-daycol.interactive {
+  cursor: pointer;
+}
+
+.cal-daycol.interactive:hover {
+  border-color: rgba(27, 107, 99, 0.4);
 }
 
 .ops-user {

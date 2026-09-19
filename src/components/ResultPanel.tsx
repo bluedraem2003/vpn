@@ -5,9 +5,12 @@ import { motion } from 'framer-motion'
 
 interface ResultPanelProps {
   result: GeneratedContent | null
+  onSaveToCalendar?: () => void
+  saveBusy?: boolean
+  saveMsg?: string | null
 }
 
-export function ResultPanel({ result }: ResultPanelProps) {
+export function ResultPanel({ result, onSaveToCalendar, saveBusy, saveMsg }: ResultPanelProps) {
   if (!result) {
     return (
       <div className="panel panel-pad">
@@ -49,8 +52,16 @@ export function ResultPanel({ result }: ResultPanelProps) {
             {result.pageName ? ` · ${result.pageName}` : ''}
           </p>
         </div>
-        <CopyButton text={allText} label="کپی همه" />
+        <div className="form-actions">
+          <CopyButton text={allText} label="کپی همه" />
+          {onSaveToCalendar && (
+            <button type="button" className="btn btn-solid btn-sm" disabled={saveBusy} onClick={onSaveToCalendar}>
+              {saveBusy ? 'در حال ارسال...' : 'ارسال به تقویم'}
+            </button>
+          )}
+        </div>
       </div>
+      {saveMsg && <p className="form-banner ok">{saveMsg}</p>}
 
       <div className="result-block">
         <div className="result-head">

@@ -7,11 +7,16 @@ export function OccasionsPage() {
   const [items, setItems] = useState<OccasionDto[]>([])
   const [projects, setProjects] = useState<ProjectDto[]>([])
   const [linkedIds, setLinkedIds] = useState<Set<string>>(new Set())
-  const [region, setRegion] = useState<'all' | 'ir' | 'global'>('all')
+  const [region, setRegion] = useState<'all' | 'ir' | 'global' | 'custom'>('all')
   const [projectId, setProjectId] = useState('')
   const [year, setYear] = useState(new Date().getFullYear())
   const [error, setError] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
+  const [customName, setCustomName] = useState('')
+  const [customCal, setCustomCal] = useState<'jalali' | 'gregorian'>('jalali')
+  const [customMonth, setCustomMonth] = useState('1')
+  const [customDay, setCustomDay] = useState('1')
+  const [busy, setBusy] = useState(false)
 
   async function reload() {
     if (!workspaceId) return
@@ -69,6 +74,44 @@ export function OccasionsPage() {
     }
   }
 
+  async function addCustom() {
+    if (!workspaceId) return
+    if (!customName.trim()) {
+      setError('نام مناسبت را بنویس')
+      return
+    }
+    setBusy(true)
+    setError(null)
+    setMsg(null)
+    try {
+      await api.createOccasion({
+        workspaceId,
+        nameFa: customName.trim(),
+        calendar: customCal,
+        month: Number(customMonth),
+        day: Number(customDay),
+        projectId: projectId || undefined,
+      })
+      setCustomName('')
+      setMsg('مناسبت اختصاصی ذخیره شد')
+      await reload()
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function removeCustom(id: string) {
+    if (!window.confirm('این مناسبت اختصاصی حذف شود؟')) return
+    try {
+      await api.deleteOccasion(id)
+      await reload()
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
   return (
     <div className="ops-page">
       <header className="ops-page-head">
@@ -84,6 +127,7 @@ export function OccasionsPage() {
             <option value="all">همه مناطق</option>
             <option value="ir">ایرانی</option>
             <option value="global">جهانی</option>
+            <option value="custom">اختصاصی پیج</option>
           </select>
           <select value={year} onChange={(e) => setYear(Number(e.target.value))}>
             {[year - 1, year, year + 1].map((y) => (
@@ -110,6 +154,48 @@ export function OccasionsPage() {
         )}
       </div>
 
+      <form
+        className="panel panel-pad"
+        style={{ marginBottom: '1rem' }}
+        onSubmit={(e) => {
+          e.preventDefault()
+          void addCustom()
+        }}
+      >
+        <h2 className="section-title">مناسبت اختصاصی</h2>
+        <p className="section-sub">تولد برند، سالگرد فروشگاه، کمپین داخلی...</p>
+        <div className="ops-filters" style={{ gridTemplateColumns: '1.4fr 0.8fr 0.5fr 0.5fr auto' }}>
+          <input
+            value={customName}
+            onChange={(e) => setCustomName(e.target.value)}
+            placeholder="نام مناسبت"
+          />
+          <select value={customCal} onChange={(e) => setCustomCal(e.target.value as 'jalali' | 'gregorian')}>
+            <option value="jalali">شمسی</option>
+            <option value="gregorian">میلادی</option>
+          </select>
+          <input
+            type="number"
+            min={1}
+            max={12}
+            value={customMonth}
+            onChange={(e) => setCustomMonth(e.target.value)}
+            placeholder="ماه"
+          />
+          <input
+            type="number"
+            min={1}
+            max={31}
+            value={customDay}
+            onChange={(e) => setCustomDay(e.target.value)}
+            placeholder="روز"
+          />
+          <button type="submit" className="btn btn-solid btn-sm" disabled={busy}>
+            افزودن
+          </button>
+        </div>
+      </form>
+
       <section className="panel panel-pad" style={{ marginBottom: '1rem' }}>
         <h2 className="section-title">نزدیک‌ترین‌ها</h2>
         <div className="chip-row" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
@@ -129,7 +215,9 @@ export function OccasionsPage() {
             <article key={o.id} className="panel panel-pad">
               <div className="list-meta">
                 <h3 style={{ margin: 0 }}>{o.nameFa}</h3>
-                <span className="meta-badge">{o.region === 'ir' ? 'ایرانی' : 'جهانی'}</span>
+                <span className="meta-badge">
+                  {o.region === 'ir' ? 'ایرانی' : o.region === 'custom' ? 'اختصاصی' : 'جهانی'}
+                </span>
               </div>
               <p className="section-sub" style={{ margin: '0.45rem 0' }}>
                 {o.dateInYear || `${o.month}/${o.day}`} · {o.nameEn} · {o.kind}
@@ -141,7 +229,16 @@ export function OccasionsPage() {
                   className={`btn btn-sm ${linked ? 'btn-solid' : 'btn-outline'}`}
                   onClick={() => void toggleLink(o.id)}
                 >
-                  {linked ? 'وصل است — حذف' : 'وصل به پروژه'}
+                  {linked ? 'وصل است — حذف' : 'وصل به پیج'}
+                </button>
+              )}
+              {o.custom && (
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={() => void removeCustom(o.id)}
+                >
+                  حذف مناسبت
                 </button>
               )}
             </article>

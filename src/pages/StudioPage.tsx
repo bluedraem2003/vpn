@@ -22,6 +22,9 @@ function mapProject(p: ProjectDto): InstagramPage {
     audience: p.audience || '',
     voice: p.voice || '',
     handle: p.handle || p.clientName || '',
+    windowStart: p.windowStart || '',
+    windowEnd: p.windowEnd || '',
+    hashtags: p.hashtags || [],
     createdAt: Date.parse(p.createdAt) || Date.now(),
   }
 }
@@ -58,6 +61,8 @@ export function StudioPage() {
   const [activePageId, setActivePageId] = useState<string | null>(null)
   const [history, setHistory] = useState<GeneratedContent[]>([])
   const [toast, setToast] = useState<string | null>(null)
+  const [calBusy, setCalBusy] = useState(false)
+  const [calMsg, setCalMsg] = useState<string | null>(null)
 
   async function reloadPages(id: string) {
     const res = await api.listProjects(id)
@@ -158,6 +163,38 @@ export function StudioPage() {
     }, 420)
   }
 
+  async function saveToCalendar() {
+    if (!workspaceId || !result) {
+      notify('اول وارد شو و محتوا بساز')
+      return
+    }
+    setCalBusy(true)
+    setCalMsg(null)
+    const typeMap = { feed: 'post', reel: 'reel', story: 'story', carousel: 'carousel' } as const
+    try {
+      const page = pages.find((p) => p.id === activePageId)
+      await api.createContent({
+        workspaceId,
+        title: result.input.topic.trim() || result.hook.slice(0, 80),
+        contentType: typeMap[result.input.format] || 'post',
+        platforms: ['instagram'],
+        status: 'planned',
+        projectId: activePageId || undefined,
+        caption: result.caption,
+        hashtags: [...result.hashtags, ...(page?.hashtags || [])],
+        notes: [result.visualIdea, result.reelScript].filter(Boolean).join('\n\n'),
+        windowStart: page?.windowStart || undefined,
+        windowEnd: page?.windowEnd || undefined,
+      })
+      setCalMsg('به تقویم/محتوا ارسال شد')
+      notify('به بخش محتوا فرستاده شد')
+    } catch (e) {
+      setCalMsg((e as Error).message)
+    } finally {
+      setCalBusy(false)
+    }
+  }
+
   return (
     <div className="studio-page">
       <div className="result-head" style={{ marginBottom: '1rem' }}>
@@ -213,7 +250,12 @@ export function StudioPage() {
             onChange={setInput}
             onGenerate={handleGenerate}
           />
-          <ResultPanel result={result} />
+          <ResultPanel
+            result={result}
+            onSaveToCalendar={() => void saveToCalendar()}
+            saveBusy={calBusy}
+            saveMsg={calMsg}
+          />
         </motion.div>
       )}
 

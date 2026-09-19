@@ -234,6 +234,11 @@ export function migrate() {
   ensureColumn('projects', 'audience', 'TEXT')
   ensureColumn('projects', 'voice', 'TEXT')
   ensureColumn('projects', 'handle', 'TEXT')
+  ensureColumn('projects', 'notes', 'TEXT')
+  ensureColumn('projects', 'window_start', 'TEXT')
+  ensureColumn('projects', 'window_end', 'TEXT')
+  ensureColumn('projects', 'hashtags', 'TEXT')
+  ensureColumn('occasions', 'workspace_id', 'TEXT')
 }
 
 function ensureColumn(table: string, column: string, typeSql: string) {

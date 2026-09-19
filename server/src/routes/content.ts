@@ -5,6 +5,7 @@ import { notifyContentPublished } from '../jobs/reminders.js'
 import { hitRateLimit } from '../middleware/rateLimit.js'
 import { runMissedScheduleReminders } from '../jobs/reminders.js'
 import { resolveCampaignId, resolveProjectId } from '../lib/refs.js'
+import { parseHashtags } from '../lib/hashtags.js'
 
 export const contentRoutes = new Hono()
 contentRoutes.use('*', requireAuth)
@@ -27,15 +28,20 @@ contentRoutes.get('/', (c) => {
   assertWorkspaceAccess(c, workspaceId)
 
   const status = c.req.query('status')
-  const rows = status
-    ? db
-        .prepare(
-          `SELECT * FROM contents WHERE workspace_id = ? AND status = ? ORDER BY updated_at DESC`,
-        )
-        .all(workspaceId, status)
-    : db
-        .prepare(`SELECT * FROM contents WHERE workspace_id = ? ORDER BY updated_at DESC`)
-        .all(workspaceId)
+  const projectId = c.req.query('projectId')
+  const clauses = ['workspace_id = ?']
+  const params: string[] = [workspaceId]
+  if (status) {
+    clauses.push('status = ?')
+    params.push(status)
+  }
+  if (projectId) {
+    clauses.push('project_id = ?')
+    params.push(projectId)
+  }
+  const rows = db
+    .prepare(`SELECT * FROM contents WHERE ${clauses.join(' AND ')} ORDER BY updated_at DESC`)
+    .all(...params)
 
   return c.json({ items: rows.map(mapContent) })
 })
@@ -123,7 +129,7 @@ contentRoutes.post('/', async (c) => {
       body.publishDate || null,
       body.publishTime || body.windowStart || null,
       body.caption || null,
-      JSON.stringify(body.hashtags || []),
+      JSON.stringify(parseHashtags(body.hashtags)),
       body.notes || null,
       JSON.stringify(body.aiMeta || {}),
       body.windowStart || null,
@@ -193,7 +199,7 @@ contentRoutes.patch('/:id', async (c) => {
       body.publishDate ?? existing.publish_date,
       body.publishTime ?? existing.publish_time,
       body.caption ?? existing.caption,
-      JSON.stringify(body.hashtags ?? JSON.parse(String(existing.hashtags || '[]'))),
+      JSON.stringify(body.hashtags !== undefined ? parseHashtags(body.hashtags) : parseHashtags(existing.hashtags)),
       body.notes ?? existing.notes,
       project.id,
       campaign.id,
@@ -249,7 +255,7 @@ function mapContent(row: unknown) {
     occasionId: r.occasion_id,
     remindedAt: r.reminded_at,
     caption: r.caption,
-    hashtags: JSON.parse(String(r.hashtags || '[]')),
+    hashtags: parseHashtags(r.hashtags),
     notes: r.notes,
     aiMeta: JSON.parse(String(r.ai_meta || '{}')),
     createdAt: r.created_at,

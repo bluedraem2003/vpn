@@ -87,10 +87,12 @@ export const api = {
   workspaces: () =>
     request<{ items: Array<{ id: string; name: string; slug: string; role?: string }> }>('/api/workspaces'),
   dashboard: (workspaceId: string) => request<Record<string, unknown>>(`/api/workspaces/${workspaceId}/dashboard`),
-  listContent: (workspaceId: string, status?: string) =>
-    request<{ items: ContentDto[] }>(
-      `/api/content?workspaceId=${workspaceId}${status ? `&status=${status}` : ''}`,
-    ),
+  listContent: (workspaceId: string, params?: { status?: string; projectId?: string }) => {
+    const sp = new URLSearchParams({ workspaceId })
+    if (params?.status) sp.set('status', params.status)
+    if (params?.projectId) sp.set('projectId', params.projectId)
+    return request<{ items: ContentDto[] }>(`/api/content?${sp}`)
+  },
   createContent: (body: Partial<ContentDto> & { workspaceId: string; title: string; contentType: string }) =>
     request<{ item: ContentDto }>('/api/content', { method: 'POST', body: JSON.stringify(body) }),
   updateContent: (id: string, body: Partial<ContentDto>) =>
@@ -122,6 +124,10 @@ export const api = {
     niche?: string
     audience?: string
     voice?: string
+    notes?: string
+    windowStart?: string
+    windowEnd?: string
+    hashtags?: string[] | string
   }) => request<{ item: ProjectDto }>('/api/projects', { method: 'POST', body: JSON.stringify(body) }),
   updateProject: (
     id: string,
@@ -133,6 +139,10 @@ export const api = {
       niche: string
       audience: string
       voice: string
+      notes: string
+      windowStart: string
+      windowEnd: string
+      hashtags: string[] | string
     }>,
   ) => request<{ item: ProjectDto }>(`/api/projects/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   deleteProject: (id: string) => request<{ ok: boolean }>(`/api/projects/${id}`, { method: 'DELETE' }),
@@ -188,6 +198,15 @@ export const api = {
       method: 'DELETE',
       body: JSON.stringify({ projectId, occasionId }),
     }),
+  createOccasion: (body: {
+    workspaceId: string
+    nameFa: string
+    calendar?: 'jalali' | 'gregorian'
+    month: number
+    day: number
+    projectId?: string
+  }) => request<{ item: OccasionDto }>('/api/occasions', { method: 'POST', body: JSON.stringify(body) }),
+  deleteOccasion: (id: string) => request<{ ok: boolean }>(`/api/occasions/${id}`, { method: 'DELETE' }),
   runMissedReminders: () =>
     request<{ ok: boolean; checked: number; sent: number }>('/api/content/jobs/remind-missed', {
       method: 'POST',
@@ -227,6 +246,8 @@ export interface OccasionDto {
   month: number
   day: number
   kind: string
+  workspaceId?: string | null
+  custom?: boolean
   dateInYear?: string | null
   createdAt: string
 }
@@ -254,6 +275,10 @@ export interface ProjectDto {
   niche?: string
   audience?: string
   voice?: string
+  notes?: string
+  windowStart?: string
+  windowEnd?: string
+  hashtags?: string[]
   createdAt: string
 }
 

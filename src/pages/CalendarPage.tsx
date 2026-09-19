@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
-import { api, type ContentDto, type OccasionDto } from '../api/client'
+import { useEffect, useMemo, useState, type MouseEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { api, type ContentDto, type OccasionDto, type ProjectDto } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import {
   CONTENT_STATUS_LABELS,
@@ -7,14 +8,18 @@ import {
   type ContentStatus,
   type ContentType,
 } from '../domain/types'
+import { toJalali } from '../lib/jalaali'
 
 type CalView = 'month' | 'week' | 'day' | 'list'
 
 export function CalendarPage() {
   const { workspaceId } = useAuth()
+  const navigate = useNavigate()
   const [view, setView] = useState<CalView>('month')
   const [items, setItems] = useState<ContentDto[]>([])
   const [occasions, setOccasions] = useState<OccasionDto[]>([])
+  const [projects, setProjects] = useState<ProjectDto[]>([])
+  const [projectId, setProjectId] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [cursor, setCursor] = useState(() => new Date())
 
@@ -25,13 +30,15 @@ export function CalendarPage() {
       try {
         const year = cursor.getFullYear()
         const month = cursor.getMonth() + 1
-        const [contentRes, occRes] = await Promise.all([
-          api.listContent(workspaceId),
-          api.occasionsCalendar(workspaceId, { year, month }),
+        const [contentRes, occRes, projRes] = await Promise.all([
+          api.listContent(workspaceId, projectId ? { projectId } : undefined),
+          api.occasionsCalendar(workspaceId, { year, month, projectId: projectId || undefined }),
+          api.listProjects(workspaceId),
         ])
         if (!cancelled) {
-          setItems(contentRes.items)
-          setOccasions(occRes.items)
+          setItems(contentRes.items || [])
+          setOccasions(occRes.items || [])
+          setProjects(projRes.items || [])
         }
       } catch (e) {
         if (!cancelled) setError((e as Error).message)
@@ -40,7 +47,7 @@ export function CalendarPage() {
     return () => {
       cancelled = true
     }
-  }, [workspaceId, cursor])
+  }, [workspaceId, cursor, projectId])
 
   const dated = useMemo(
     () =>
@@ -62,12 +69,25 @@ export function CalendarPage() {
     return map
   }, [occasions])
 
+  const todayKey = formatDate(new Date())
+
+  function openDay(date: string) {
+    const qs = new URLSearchParams({ date })
+    if (projectId) qs.set('projectId', projectId)
+    navigate(`/content?${qs}`)
+  }
+
+  function openItem(id: string, e: MouseEvent) {
+    e.stopPropagation()
+    navigate(`/content?edit=${id}`)
+  }
+
   return (
     <div className="ops-page">
       <header className="ops-page-head">
         <div>
           <h1>تقویم محتوا</h1>
-          <p>زمان‌بندی انتشار + مناسبت‌های ایرانی و جهانی</p>
+          <p>روی روز کلیک کن تا محتوا بسازی — مناسبت‌های ایرانی با عدد شمسی دیده می‌شوند</p>
         </div>
         <div className="chip-row">
           {(['month', 'week', 'day', 'list'] as CalView[]).map((v) => (
@@ -83,11 +103,7 @@ export function CalendarPage() {
         </div>
       </header>
 
-      {error && (
-        <div className="panel panel-pad" style={{ marginBottom: '1rem' }}>
-          <p className="section-sub">{error}</p>
-        </div>
-      )}
+      {error && <div className="form-banner error">{error}</div>}
 
       <div className="panel panel-pad">
         <div className="result-head" style={{ marginBottom: '1rem' }}>
@@ -95,6 +111,14 @@ export function CalendarPage() {
             {cursor.toLocaleDateString('fa-IR', { month: 'long', year: 'numeric' })}
           </h2>
           <div className="form-actions">
+            <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+              <option value="">همه پیج‌ها</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
             <button type="button" className="btn btn-outline btn-sm" onClick={() => setCursor(addMonths(cursor, -1))}>
               قبلی
             </button>
@@ -114,7 +138,9 @@ export function CalendarPage() {
             )}
             {dated.map((item) => (
               <li key={item.id}>
-                <strong>{item.title}</strong>
+                <button type="button" className="btn btn-outline btn-sm" onClick={(e) => openItem(item.id, e)}>
+                  {item.title}
+                </button>
                 <span>
                   {item.publishDate} {item.windowStart || item.publishTime || ''}
                   {item.windowEnd ? `–${item.windowEnd}` : ''} ·{' '}
@@ -127,7 +153,7 @@ export function CalendarPage() {
               <li key={o.id}>
                 <strong>🎉 {o.nameFa}</strong>
                 <span>
-                  {o.dateInYear} · {o.region === 'ir' ? 'ایرانی' : 'جهانی'}
+                  {o.dateInYear} · {o.region === 'ir' ? 'ایرانی' : o.region === 'custom' ? 'اختصاصی' : 'جهانی'}
                 </span>
               </li>
             ))}
@@ -145,27 +171,51 @@ export function CalendarPage() {
               const key = cell ? formatDate(cell) : `e-${idx}`
               const dayItems = cell ? dated.filter((i) => i.publishDate === key) : []
               const dayOcc = cell ? occByDate.get(key) || [] : []
+              const j = cell ? toJalali(cell.getFullYear(), cell.getMonth() + 1, cell.getDate()) : null
               return (
-                <div key={key} className={`cal-cell ${cell ? '' : 'empty'}`}>
-                  {cell && <div className="cal-daynum">{cell.getDate()}</div>}
+                <button
+                  key={key}
+                  type="button"
+                  className={`cal-cell ${cell ? 'interactive' : 'empty'} ${key === todayKey ? 'today' : ''}`}
+                  disabled={!cell}
+                  onClick={() => cell && openDay(key)}
+                >
+                  {cell && j && (
+                    <div className="cal-daynum">
+                      <span className="cal-daynum-fa">{j.jd}</span>
+                      <span className="cal-daynum-g">{cell.getDate()}</span>
+                    </div>
+                  )}
                   {dayOcc.slice(0, 2).map((o) => (
                     <div key={o.id} className="cal-pill cal-pill-occasion" title={o.nameEn || o.nameFa}>
                       {o.nameFa}
                     </div>
                   ))}
                   {dayItems.slice(0, 3).map((i) => (
-                    <div key={i.id} className="cal-pill" title={i.title}>
+                    <div
+                      key={i.id}
+                      className="cal-pill"
+                      title={i.title}
+                      onClick={(e) => openItem(i.id, e)}
+                    >
                       {i.title}
                     </div>
                   ))}
-                </div>
+                </button>
               )
             })}
           </div>
         )}
 
         {(view === 'week' || view === 'day') && (
-          <WeekDayView cursor={cursor} view={view} items={dated} occasions={occByDate} />
+          <WeekDayView
+            cursor={cursor}
+            view={view}
+            items={dated}
+            occasions={occByDate}
+            onDay={openDay}
+            onItem={openItem}
+          />
         )}
       </div>
     </div>
@@ -177,11 +227,15 @@ function WeekDayView({
   view,
   items,
   occasions,
+  onDay,
+  onItem,
 }: {
   cursor: Date
   view: 'week' | 'day'
   items: ContentDto[]
   occasions: Map<string, OccasionDto[]>
+  onDay: (date: string) => void
+  onItem: (id: string, e: MouseEvent) => void
 }) {
   const days =
     view === 'day'
@@ -200,21 +254,26 @@ function WeekDayView({
         const dayItems = items.filter((i) => i.publishDate === key)
         const dayOcc = occasions.get(key) || []
         return (
-          <div key={key} className="cal-daycol panel-pad">
+          <button
+            key={key}
+            type="button"
+            className="cal-daycol panel-pad interactive"
+            onClick={() => onDay(key)}
+          >
             <strong>{d.toLocaleDateString('fa-IR', { weekday: 'short', day: 'numeric' })}</strong>
             {dayOcc.map((o) => (
               <div key={o.id} className="cal-pill cal-pill-occasion">
                 {o.nameFa}
               </div>
             ))}
-            {dayItems.length === 0 && dayOcc.length === 0 && <p className="section-sub">خالی</p>}
+            {dayItems.length === 0 && dayOcc.length === 0 && <p className="section-sub">خالی — کلیک برای افزودن</p>}
             {dayItems.map((i) => (
-              <div key={i.id} className="cal-pill">
+              <div key={i.id} className="cal-pill" onClick={(e) => onItem(i.id, e)}>
                 {i.windowStart || i.publishTime ? `${i.windowStart || i.publishTime} · ` : ''}
                 {i.title}
               </div>
             ))}
-          </div>
+          </button>
         )
       })}
     </div>

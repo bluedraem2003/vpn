@@ -9,6 +9,9 @@ export interface InstagramPage {
   audience: string
   voice: string
   handle?: string
+  windowStart?: string
+  windowEnd?: string
+  hashtags?: string[]
   createdAt: number
 }
 

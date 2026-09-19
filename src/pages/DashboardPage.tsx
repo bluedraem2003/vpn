@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { CONTENT_STATUS_LABELS, type ContentStatus } from '../domain/types'
+import { formatJalaliDate } from '../lib/jalaali'
 
 export function DashboardPage() {
   const { workspaceId } = useAuth()
@@ -41,7 +42,6 @@ export function DashboardPage() {
       <div className="panel panel-pad">
         <h2 className="section-title">داشبورد</h2>
         <p className="section-sub">{error}</p>
-        <p className="section-sub">برای API: <code>npm run dev:api</code></p>
         <Link className="btn btn-solid btn-sm" to="/studio">
           فعلاً برو به استودیو
         </Link>
@@ -55,24 +55,35 @@ export function DashboardPage() {
   const upcoming = (data?.upcoming || []) as Array<Record<string, unknown>>
   const overdue = (data?.overdue || []) as Array<Record<string, unknown>>
   const recentAssets = (data?.recentAssets || []) as Array<Record<string, unknown>>
+  const upcomingOccasions = (data?.upcomingOccasions || []) as Array<Record<string, unknown>>
+  const pageCount = Number(data?.pageCount || 0)
+  const scheduledCount = Number(data?.scheduledCount || 0)
 
   return (
     <div className="ops-page">
       <header className="ops-page-head">
         <div>
           <h1>داشبورد</h1>
-          <p>وضعیت تولید محتوا و دارایی‌ها {workspaceId ? `· ${workspaceId.slice(0, 12)}…` : ''}</p>
+          <p>امروز {formatJalaliDate(new Date())} — وضعیت پیج‌ها و انتشار</p>
         </div>
-        <Link to="/content" className="btn btn-solid btn-sm">
-          محتوای جدید
-        </Link>
+        <div className="form-actions">
+          <Link to="/projects" className="btn btn-outline btn-sm">
+            پیج جدید
+          </Link>
+          <Link to="/studio" className="btn btn-outline btn-sm">
+            استودیو
+          </Link>
+          <Link to="/content" className="btn btn-solid btn-sm">
+            محتوای جدید
+          </Link>
+        </div>
       </header>
 
       <div className="ops-stat-grid">
         {[
+          ['پیج‌ها', pageCount],
+          ['زمان‌بندی‌شده', scheduledCount],
           ['در تولید', progress.inProduction],
-          ['بازبینی', progress.inReview],
-          ['آماده انتشار', progress.ready],
           ['منتشر شده', progress.published],
         ].map(([label, value]) => (
           <div key={String(label)} className="panel panel-pad ops-stat">
@@ -96,21 +107,40 @@ export function DashboardPage() {
           <ItemList items={overdue} empty="عقب‌افتاده‌ای نیست" />
         </section>
         <section className="panel panel-pad">
-          <h2 className="section-title">آخرین فایل‌ها</h2>
-          {recentAssets.length === 0 ? (
-            <p className="section-sub">هنوز فایلی ایندکس نشده</p>
+          <h2 className="section-title">مناسبت‌های نزدیک</h2>
+          {upcomingOccasions.length === 0 ? (
+            <p className="section-sub">موردی نیست — از صفحه مناسبت‌ها وصل کن</p>
           ) : (
             <ul className="ops-list">
-              {recentAssets.map((a) => (
-                <li key={String(a.id)}>
-                  <strong>{String(a.filename)}</strong>
-                  <span>{String(a.type)}</span>
+              {upcomingOccasions.map((o) => (
+                <li key={String(o.id)}>
+                  <strong>{String(o.nameFa)}</strong>
+                  <span>{String(o.dateInYear)}</span>
                 </li>
               ))}
             </ul>
           )}
+          <Link to="/occasions" className="btn btn-outline btn-sm" style={{ marginTop: '0.65rem' }}>
+            مدیریت مناسبت‌ها
+          </Link>
         </section>
       </div>
+
+      <section className="panel panel-pad" style={{ marginTop: '1rem' }}>
+        <h2 className="section-title">آخرین فایل‌ها</h2>
+        {recentAssets.length === 0 ? (
+          <p className="section-sub">هنوز فایلی ایندکس نشده</p>
+        ) : (
+          <ul className="ops-list">
+            {recentAssets.map((a) => (
+              <li key={String(a.id)}>
+                <strong>{String(a.filename)}</strong>
+                <span>{String(a.type)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section className="panel panel-pad" style={{ marginTop: '1rem' }}>
         <h2 className="section-title">پیشرفت وضعیت‌ها</h2>
@@ -139,7 +169,9 @@ function ItemList({
     <ul className="ops-list">
       {items.map((item) => (
         <li key={String(item.id)}>
-          <strong>{String(item.title)}</strong>
+          <Link to={`/content?edit=${String(item.id)}`}>
+            <strong>{String(item.title)}</strong>
+          </Link>
           <span>
             {CONTENT_STATUS_LABELS[item.status as ContentStatus] || String(item.status)}
             {item.publish_date ? ` · ${String(item.publish_date)}` : ''}
