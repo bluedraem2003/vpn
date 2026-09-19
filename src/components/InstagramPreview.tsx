@@ -21,7 +21,7 @@ export function InstagramPreview({
   const typeLabel = t(`type.${contentType || 'post'}`)
 
   return (
-    <div className="ig-preview" aria-label="پیش‌نمایش اینستاگرام">
+    <div className="ig-preview" aria-label={t('igPreview.aria')}>
       <div className="ig-preview-head">
         <span className="ig-preview-avatar" aria-hidden />
         <strong>{name}</strong>
@@ -30,13 +30,11 @@ export function InstagramPreview({
       <div className="ig-preview-media">{typeLabel}</div>
       <div className="ig-preview-body">
         <p>
-          <strong>{name}</strong> {caption?.trim() || 'کپشن اینجا دیده می‌شود'}
+          <strong>{name}</strong> {caption?.trim() || t('igPreview.captionPh')}
         </p>
         {tags && <p className="ig-preview-tags">{tags}</p>}
         {firstComment?.trim() && (
-          <p className="ig-preview-comment">
-            کامنت اول: {firstComment.trim()}
-          </p>
+          <p className="ig-preview-comment">{t('igPreview.firstComment', { text: firstComment.trim() })}</p>
         )}
       </div>
     </div>

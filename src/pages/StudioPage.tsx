@@ -99,8 +99,8 @@ export function StudioPage() {
 
   async function createPage(form: PageFormInput) {
     if (!workspaceId) {
-      setPagesError('وارد حساب نشده‌اید')
-      throw new Error('وارد حساب نشده‌اید')
+      setPagesError(t('projects.notSignedIn'))
+      throw new Error(t('projects.notSignedIn'))
     }
     setPagesBusy(true)
     setPagesError(null)
@@ -118,7 +118,7 @@ export function StudioPage() {
       const page = mapProject(res.item)
       setPages((prev) => [page, ...prev.filter((p) => p.id !== page.id)])
       selectPage(page.id)
-      notify('پیج ذخیره شد')
+      notify(t('projects.saved'))
       void reloadPages(workspaceId).catch(() => null)
     } catch (e) {
       setPagesError((e as Error).message)
@@ -135,7 +135,7 @@ export function StudioPage() {
     try {
       await api.deleteProject(id)
       setPages((prev) => prev.filter((p) => p.id !== id))
-      notify('پیج حذف شد')
+      notify(t('projects.deleted'))
       await reloadPages(workspaceId)
     } catch (e) {
       setPagesError((e as Error).message)
@@ -146,7 +146,7 @@ export function StudioPage() {
 
   function handleGenerate() {
     if (!input.topic.trim()) {
-      notify('لطفاً موضوع محتوا را بنویس')
+      notify(t('studio.needTopic'))
       return
     }
     setBusy(true)
@@ -163,13 +163,13 @@ export function StudioPage() {
       saveHistory(nextHistory)
       setBusy(false)
       setShowHero(false)
-      notify('محتوا آماده شد')
+      notify(t('studio.ready'))
     }, 420)
   }
 
   async function saveToCalendar() {
     if (!workspaceId || !result) {
-      notify('اول وارد شو و محتوا بساز')
+      notify(t('studio.needLogin'))
       return
     }
     setCalBusy(true)
@@ -198,8 +198,8 @@ export function StudioPage() {
         windowStart: page?.windowStart || undefined,
         windowEnd: page?.windowEnd || undefined,
       })
-      setCalMsg('به تقویم ارسال شد — در حال باز کردن محتوا...')
-      notify('به بخش محتوا فرستاده شد')
+      setCalMsg(t('studio.sentCal'))
+      notify(t('studio.sentContent'))
       navigate(`/content?edit=${res.item.id}`)
     } catch (e) {
       setCalMsg((e as Error).message)
@@ -308,7 +308,7 @@ export function StudioPage() {
             setInput({ ...input, topic, format })
             setView('studio')
             setShowHero(false)
-            notify('ایده به استودیو منتقل شد')
+            notify(t('studio.ideaMoved'))
           }}
         />
       )}

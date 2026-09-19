@@ -3,6 +3,14 @@ const API_BASE = import.meta.env.VITE_API_URL || ''
 let authToken: string | null =
   typeof localStorage !== 'undefined' ? localStorage.getItem('postyar_session_token') : null
 
+function uiLang() {
+  try {
+    return localStorage.getItem('postyar_lang') === 'en' ? 'en' : 'fa'
+  } catch {
+    return 'fa'
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
     ...(init?.headers as Record<string, string> | undefined),
@@ -14,10 +22,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const ct = res.headers.get('content-type') || ''
   const data = ct.includes('application/json') ? await res.json().catch(() => ({})) : {}
   if (!res.ok) {
-    throw new Error((data as { error?: string }).error || `خطای API (${res.status})`)
+    throw new Error(
+      (data as { error?: string }).error ||
+        (uiLang() === 'en' ? `API error (${res.status})` : `خطای API (${res.status})`),
+    )
   }
   if (ct && !ct.includes('application/json')) {
-    throw new Error('پاسخ نامعتبر از سرور — یک‌بار رفرش اجباری کنید (Ctrl+Shift+R)')
+    throw new Error(
+      uiLang() === 'en'
+        ? 'Invalid server response — hard-refresh once (Ctrl+Shift+R)'
+        : 'پاسخ نامعتبر از سرور — یک‌بار رفرش اجباری کنید (Ctrl+Shift+R)',
+    )
   }
   return data as T
 }

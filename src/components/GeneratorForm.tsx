@@ -13,11 +13,7 @@ interface GeneratorFormProps {
 
 const formats: ContentFormat[] = ['feed', 'reel', 'story', 'carousel']
 const tones: Tone[] = ['friendly', 'pro', 'witty', 'inspiring', 'luxury']
-const languages: { id: Language; label: string }[] = [
-  { id: 'fa', label: 'فارسی' },
-  { id: 'en', label: 'English' },
-  { id: 'bilingual', label: 'دوزبانه' },
-]
+const languages: Language[] = ['fa', 'en', 'bilingual']
 
 export function GeneratorForm({
   pages,
@@ -82,14 +78,14 @@ export function GeneratorForm({
       <div className="field">
         <label>{t('studio.language')}</label>
         <div className="chip-row">
-          {languages.map((l) => (
+          {languages.map((id) => (
             <button
-              key={l.id}
+              key={id}
               type="button"
-              className={`chip ${value.language === l.id ? 'active' : ''}`}
-              onClick={() => onChange({ ...value, language: l.id })}
+              className={`chip ${value.language === id ? 'active' : ''}`}
+              onClick={() => onChange({ ...value, language: id })}
             >
-              {l.id === 'bilingual' ? t('studio.bilingual') : l.label}
+              {id === 'fa' ? t('settings.persian') : id === 'en' ? t('settings.english') : t('studio.bilingual')}
             </button>
           ))}
         </div>

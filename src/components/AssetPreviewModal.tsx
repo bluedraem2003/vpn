@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { AssetDto } from '../api/client'
 import { api } from '../api/client'
+import { useI18n } from '../prefs/PrefsProvider'
 
 function resolveMime(asset: AssetDto, headerType: string | null) {
   if (headerType && !headerType.includes('octet-stream') && !headerType.includes('application/json')) {
@@ -23,6 +24,7 @@ export function AssetPreviewModal({
   authToken?: string
   onClose: () => void
 }) {
+  const { t } = useI18n()
   const [blobUrl, setBlobUrl] = useState<string | null>(null)
   const [meta, setMeta] = useState<{ message?: string; previewable?: boolean } | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -47,13 +49,13 @@ export function AssetPreviewModal({
         if (headerType.includes('application/json')) {
           const data = await res.json()
           if (!cancelled) {
-            if (!res.ok) setError(data.error || 'پیش‌نمایش ناموفق')
+            if (!res.ok) setError(data.error || t('preview.fail'))
             else setMeta(data)
           }
           return
         }
         if (!res.ok) {
-          if (!cancelled) setError('پیش‌نمایش ناموفق')
+          if (!cancelled) setError(t('preview.fail'))
           return
         }
         const raw = await res.arrayBuffer()
@@ -73,7 +75,7 @@ export function AssetPreviewModal({
       cancelled = true
       if (revoked) URL.revokeObjectURL(revoked)
     }
-  }, [asset.id, asset.type, asset.mimeType, asset.filename, authToken])
+  }, [asset.id, asset.type, asset.mimeType, asset.filename, authToken, t])
 
   async function saveTags() {
     const tags = tagInput
@@ -89,7 +91,7 @@ export function AssetPreviewModal({
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
     if (!res.ok) {
-      setError('دانلود ناموفق بود')
+      setError(t('assets.downloadFail'))
       return
     }
     const raw = await res.arrayBuffer()
@@ -117,14 +119,14 @@ export function AssetPreviewModal({
             </p>
           </div>
           <button type="button" className="btn btn-outline btn-sm" onClick={onClose}>
-            بستن
+            {t('common.close')}
           </button>
         </div>
 
         <div className="preview-stage">
-          {loading && <p className="section-sub">در حال بارگذاری پیش‌نمایش...</p>}
+          {loading && <p className="section-sub">{t('preview.loading')}</p>}
           {error && <p className="section-sub">{error}</p>}
-          {meta && <p className="section-sub">{meta.message || 'پیش‌نمایش فایل در دسترس نیست'}</p>}
+          {meta && <p className="section-sub">{meta.message || t('preview.unavailable')}</p>}
           {blobUrl && asset.type === 'image' && (
             <img src={blobUrl} alt={asset.filename} decoding="async" />
           )}
@@ -134,20 +136,20 @@ export function AssetPreviewModal({
             <iframe title={asset.filename} src={blobUrl} />
           )}
           {blobUrl && !['image', 'video', 'audio', 'pdf', 'document'].includes(asset.type) && (
-            <p className="section-sub">فایل آماده دانلود است.</p>
+            <p className="section-sub">{t('preview.ready')}</p>
           )}
         </div>
 
         <div className="field" style={{ marginTop: '0.85rem' }}>
-          <label>تگ‌ها (با ویرگول)</label>
+          <label>{t('preview.tags')}</label>
           <input value={tagInput} onChange={(e) => setTagInput(e.target.value)} placeholder="Reel, Final, Cover" />
         </div>
         <div className="form-actions">
           <button type="button" className="btn btn-solid btn-sm" onClick={() => void saveTags()}>
-            ذخیره تگ
+            {t('preview.saveTags')}
           </button>
           <button type="button" className="btn btn-outline btn-sm" onClick={() => void download()}>
-            دانلود
+            {t('common.download')}
           </button>
         </div>
       </div>
