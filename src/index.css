@@ -2726,6 +2726,14 @@ html[data-theme='dark'] .sync-chip.sync-cooldown {
   font-size: 0.75rem;
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+}
+
+.tg-chat-id span,
+.ops-list span[dir='ltr'] {
+  unicode-bidi: isolate;
 }
 
 .tg-chat-card .btn {

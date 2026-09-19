@@ -97,7 +97,7 @@ export function TelegramPage() {
               {botHandle && (
                 <li>
                   <strong>{t('telegram.botUser')}</strong>
-                  <span>{botHandle}</span>
+                  <span dir="ltr">{botHandle}</span>
                 </li>
               )}
               <li>
@@ -118,7 +118,7 @@ export function TelegramPage() {
               </li>
               <li>
                 <strong>{t('telegram.botLimit')}</strong>
-                <span>{String(status.limits.botApiMaxDownloadMb)} MB</span>
+                <span dir="ltr">{String(status.limits.botApiMaxDownloadMb)} MB</span>
               </li>
             </ul>
           )}
@@ -183,7 +183,10 @@ export function TelegramPage() {
                       : t('telegram.noFilesYet')}
                   </span>
                 </div>
-                <p className="tg-chat-id">{t('telegram.chatId')}: {chat.chatId}</p>
+                <p className="tg-chat-id">
+                  <span>{t('telegram.chatId')}</span>
+                  <span dir="ltr">{chat.chatId}</span>
+                </p>
                 <Link to="/assets" className="btn btn-outline btn-sm">
                   {t('telegram.viewAssets')}
                 </Link>
