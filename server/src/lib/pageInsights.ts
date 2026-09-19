@@ -292,7 +292,7 @@ async function analyzeInstagramPageUncached(
   if (!allowNetwork || isInstagramCoolingDown()) {
     const stale = staleFromStores(handle, 'rate_limit')
     if (stale) return stale
-    if (!allowNetwork) return { ok: false, error: { code: 'rate_limit' } }
+    return { ok: false, error: { code: 'rate_limit' } }
   }
 
   const fetched = await fetchInstagramWebProfile(handle, {
