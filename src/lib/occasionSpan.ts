@@ -27,12 +27,19 @@ export function occasionHint(o: Pick<OccasionDto, 'hintFa' | 'hintEn'>, lang: 'f
 }
 
 /** Prefer the occasion that starts on `date`; otherwise the highest-priority span that covers it. */
-export function pickOccasionForDate<T extends DatedOccasion>(occasions: T[], date: string): T | undefined {
+export function pickOccasionForDate<T extends DatedOccasion>(
+  occasions: T[],
+  date: string,
+  preferredIds?: Set<string>,
+): T | undefined {
   if (!date) return undefined
   const covering = occasions.filter((o) => occasionSpanDays(o).includes(date))
   if (covering.length === 0) return undefined
-  const exact = covering.filter((o) => o.dateInYear === date)
-  const pool = exact.length ? exact : covering
+  const preferred =
+    preferredIds && preferredIds.size > 0 ? covering.filter((o) => preferredIds.has(o.id)) : covering
+  const poolBase = preferred.length ? preferred : covering
+  const exact = poolBase.filter((o) => o.dateInYear === date)
+  const pool = exact.length ? exact : poolBase
   return [...pool].sort((a, b) => (b.priority || 0) - (a.priority || 0))[0]
 }
 

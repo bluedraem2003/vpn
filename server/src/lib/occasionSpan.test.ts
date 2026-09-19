@@ -36,4 +36,11 @@ assert.equal(pickOccasionForDate(pool, '2026-10-05')?.id, 'teacher')
 assert.equal(publishDateForOccasion(space, '2026-10-07'), '2026-10-07')
 assert.equal(publishDateForOccasion(space, '2026-10-01'), '2026-10-04')
 
+const village = { id: 'village', dateInYear: '2026-10-07', dateEndInYear: null, priority: 3 }
+assert.equal(pickOccasionForDate([space, village], '2026-10-07')?.id, 'village')
+assert.equal(
+  pickOccasionForDate([space, village], '2026-10-07', new Set(['space']))?.id,
+  'space',
+)
+
 console.log('occasion span ok')
