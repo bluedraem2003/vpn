@@ -286,6 +286,7 @@ export interface IgPageHit {
   biography?: string
   avatarUrl?: string
   verified?: boolean
+  followers?: number
   source?: 'instagram' | 'workspace' | 'typed' | 'wikidata'
 }
 

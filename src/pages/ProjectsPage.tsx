@@ -137,7 +137,7 @@ export function ProjectsPage() {
           }}
         >
           <h2 className="section-title">{editingId ? 'ویرایش پیج' : 'افزودن پیج'}</h2>
-          <p className="section-sub">پیج اینستاگرام را جستجو کن و از لیست انتخاب کن</p>
+          <p className="section-sub">پیج‌های داخل اینستاگرام را جستجو کن و از لیست انتخاب کن</p>
           <div className="field">
             <label htmlFor="prj-name">نام پیج</label>
             <input

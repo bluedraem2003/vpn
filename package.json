@@ -20,6 +20,7 @@
     "concurrently": "^10.0.5",
     "dotenv": "^17.4.2",
     "framer-motion": "^13.4.0",
+    "got-scraping": "^4.2.1",
     "hono": "^4.13.8",
     "lucide-react": "^1.47.0",
     "react": "^19.2.8",

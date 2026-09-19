@@ -55,7 +55,7 @@ instagramRoutes.get('/search', async (c) => {
     ? [{ username: handle, name: handle, source: 'typed' }]
     : []
 
-  const items = dedupe([...workspaceHits, ...remote, ...typed]).slice(0, 12)
+  const items = dedupe([...remote, ...workspaceHits, ...typed]).slice(0, 12)
   return c.json({ items, q })
 })
 

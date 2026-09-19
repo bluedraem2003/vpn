@@ -69,7 +69,7 @@ export function PagesView({
         }}
       >
         <h2 className="section-title">افزودن پیج</h2>
-        <p className="section-sub">پیج اینستاگرام را جستجو کن و همان‌جا انتخاب کن — روی سرور ذخیره می‌شود.</p>
+        <p className="section-sub">پیج‌های داخل اینستاگرام را جستجو کن و همان‌جا انتخاب کن — روی سرور ذخیره می‌شود.</p>
 
         {(error || localError) && <p className="form-banner error">{error || localError}</p>}
 

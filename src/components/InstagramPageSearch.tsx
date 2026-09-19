@@ -112,7 +112,12 @@ export function InstagramPageSearch({ id, value, disabled, onChange, onPick }: P
     instagram: 'اینستاگرام',
     workspace: 'پیج ذخیره‌شده',
     typed: 'آیدی واردشده',
-    wikidata: 'اینستاگرام',
+    wikidata: 'کاتالوگ عمومی',
+  }
+
+  function followersLabel(n?: number) {
+    if (!n) return ''
+    return ` · ${new Intl.NumberFormat('fa-IR').format(n)} دنبال‌کننده`
   }
 
   return (
@@ -152,8 +157,8 @@ export function InstagramPageSearch({ id, value, disabled, onChange, onPick }: P
             {!busy && shown.length === 0 && (
               <p className="ig-search-empty">
                 {q.trim()
-                  ? 'پیجی پیدا نشد — آیدی را دقیق‌تر بنویس یا از اینستاگرام کپی کن'
-                  : 'نام پیج یا آیدی را بنویس تا لیست بیاید'}
+                ? 'پیجی در اینستاگرام پیدا نشد — آیدی را دقیق‌تر بنویس'
+                : 'نام یا آیدی پیج اینستاگرام را بنویس تا لیست بیاید'}
               </p>
             )}
             {shown.map((item, idx) => (
@@ -181,6 +186,7 @@ export function InstagramPageSearch({ id, value, disabled, onChange, onPick }: P
                   <span>
                     @{item.username}
                     {item.source ? ` · ${sourceLabel[item.source] || ''}` : ''}
+                    {followersLabel(item.followers)}
                   </span>
                 </span>
                 <span className="ig-search-pick">انتخاب</span>
@@ -190,7 +196,7 @@ export function InstagramPageSearch({ id, value, disabled, onChange, onPick }: P
         )}
       </div>
       <span className="field-hint">
-        پیج را همین‌جا جستجو کن و از لیست انتخاب کن — لینک پروفایل هم قابل چسباندن است
+        پیج‌هایی که داخل اینستاگرام هستند را همین‌جا جستجو کن و از لیست انتخاب کن
       </span>
       {err && !shown.length && <span className="field-hint warn">{err}</span>}
     </div>
