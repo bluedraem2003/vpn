@@ -191,15 +191,21 @@ export function markInstagramRateLimit(retryAfterMs?: number) {
 
 export function igProbePolicy(status: number): 'ok' | 'rate_limit' | 'not_found' | 'fallback' {
   if (status >= 200 && status < 300) return 'ok'
-  if (status === 429) return 'rate_limit'
+  // 401 is Instagram's "please wait" / login-wall — do not follow up with another URL.
+  if (status === 429 || status === 401) return 'rate_limit'
   if (status === 404) return 'not_found'
   return 'fallback'
 }
 
-function payloadSaysWait(data: unknown) {
+export function igPayloadSaysWait(data: unknown) {
   if (!data || typeof data !== 'object') return false
   const msg = String((data as { message?: string }).message || '')
   return /please wait a few minutes/i.test(msg)
+}
+
+/** True when the first Instagram probe must not try HTML or any other URL. */
+export function igShouldStopFollowup(status: number, data?: unknown) {
+  return igProbePolicy(status) === 'rate_limit' || igPayloadSaysWait(data)
 }
 
 function retryAfterMs(headers: Record<string, unknown> | undefined) {
@@ -356,21 +362,15 @@ async function fetchInstagramWebProfileUncached(handle: string): Promise<{
     return { user }
   }
 
-  const policy = igProbePolicy(first.status)
-  const jsonWait = payloadSaysWait(first.data)
-  if (policy === 'rate_limit') {
+  if (igShouldStopFollowup(first.status, first.data)) {
     markInstagramRateLimit(first.retryAfterMs)
-    console.warn('[instagram] rate-limited', handle, first.status)
+    console.warn('[instagram] stopping after error — no HTML retry', handle, first.status)
     const stale = cachedProfile(handle)
     if (stale?.user) return { user: stale.user }
     return { user: null, error: { code: 'rate_limit', status: first.status } }
   }
-  if (policy === 'not_found') {
+  if (igProbePolicy(first.status) === 'not_found') {
     return { user: null, error: { code: 'not_found', status: first.status } }
-  }
-  if (jsonWait) {
-    markInstagramRateLimit(first.retryAfterMs)
-    console.warn('[instagram] asked to wait', handle, first.status)
   }
 
   const html = await fetchProfileFromHtml(handle)
@@ -378,8 +378,7 @@ async function fetchInstagramWebProfileUncached(handle: string): Promise<{
     profileCache.set(handle.toLowerCase(), { at: Date.now(), user: html.user })
     return { user: html.user }
   }
-  const htmlPolicy = igProbePolicy(html.status)
-  if (htmlPolicy === 'rate_limit') {
+  if (igShouldStopFollowup(html.status)) {
     markInstagramRateLimit(html.retryAfterMs)
     const stale = cachedProfile(handle)
     if (stale?.user) return { user: stale.user }
@@ -388,12 +387,6 @@ async function fetchInstagramWebProfileUncached(handle: string): Promise<{
 
   const lastStatus = html.status || first.status
   if (lastStatus === 404) return { user: null, error: { code: 'not_found', status: lastStatus } }
-  if (jsonWait || lastStatus === 401 || first.status === 401) {
-    if (jsonWait) markInstagramRateLimit(first.retryAfterMs)
-    const stale = cachedProfile(handle)
-    if (stale?.user) return { user: stale.user }
-    return { user: null, error: { code: 'rate_limit', status: lastStatus || first.status } }
-  }
   return { user: null, error: { code: 'unavailable', status: lastStatus || undefined } }
 }
 
@@ -412,9 +405,10 @@ export async function fetchInstagramWebProfile(
     const hit = profileCache.get(key)
     if (hit && Date.now() - hit.at < PROFILE_CACHE_MS) return { user: hit.user }
   }
-  if (isInstagramCoolingDown() && opts?.skipCache) {
+  if (isInstagramCoolingDown()) {
     const stale = cachedProfile(handle)
     if (stale?.user) return { user: stale.user }
+    return { user: null, error: { code: 'rate_limit' } }
   }
 
   const existing = profileInflight.get(key)
