@@ -3,16 +3,29 @@ export const IG_HASHTAG_LIMIT = 30
 export const IG_FIRST_COMMENT_LIMIT = 2200
 
 export function parseHashtags(raw: string | string[] | null | undefined): string[] {
-  const parts = Array.isArray(raw) ? raw.map(String) : String(raw || '').split(/[\s,]+/)
+  let value: unknown = raw
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (trimmed.startsWith('[')) {
+      try {
+        value = JSON.parse(trimmed)
+      } catch {
+        value = trimmed
+      }
+    } else {
+      value = trimmed
+    }
+  }
+  const parts = Array.isArray(value) ? value.map(String) : String(value || '').split(/[\s,]+/)
   const seen = new Set<string>()
   const out: string[] = []
   for (const part of parts) {
-    const tag = part.replace(/^#+/, '').trim()
+    const tag = part.replace(/^#+/, '').replace(/[",[\]]/g, '').trim()
     if (!tag) continue
     const key = tag.toLowerCase()
     if (seen.has(key)) continue
     seen.add(key)
-    out.push(`#${tag.replace(/^#/, '')}`)
+    out.push(`#${tag}`)
   }
   return out
 }

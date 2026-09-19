@@ -1,5 +1,18 @@
 export function parseHashtags(raw: unknown): string[] {
-  const parts = Array.isArray(raw) ? raw.map(String) : String(raw || '').split(/[\s,]+/)
+  let value: unknown = raw
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (trimmed.startsWith('[')) {
+      try {
+        value = JSON.parse(trimmed)
+      } catch {
+        value = trimmed
+      }
+    } else {
+      value = trimmed
+    }
+  }
+  const parts = Array.isArray(value) ? value.map(String) : String(value || '').split(/[\s,]+/)
   const seen = new Set<string>()
   const out: string[] = []
   for (const part of parts) {
