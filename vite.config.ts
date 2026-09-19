@@ -9,7 +9,7 @@ export default defineConfig({
     allowedHosts: true,
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8787',
+        target: process.env.VITE_API_PROXY || 'http://127.0.0.1:8080',
         changeOrigin: true,
       },
     },

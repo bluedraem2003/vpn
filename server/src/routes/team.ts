@@ -81,7 +81,7 @@ teamRoutes.post('/invite', async (c) => {
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
   ).run(uid('ml'), email, token, workspaceId, memberRole, now, expires)
 
-  const publicUrl = process.env.AUTH_PUBLIC_URL || 'http://127.0.0.1:5173'
+  const publicUrl = (process.env.AUTH_PUBLIC_URL || 'http://127.0.0.1:8080').replace(/\/$/, '')
   const magicUrl = `${publicUrl}/?magic=${token}`
   console.log('[Auth] Invite magic link for', email, magicUrl)
 
@@ -90,6 +90,8 @@ teamRoutes.post('/invite', async (c) => {
     member: { id: user.id, email, name: user.name, role: memberRole },
     invite: {
       expiresAt: expires,
+      inviteUrl: magicUrl,
+      // Back-compat
       devMagicUrl: magicUrl,
     },
   })

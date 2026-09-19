@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { db } from '../db/index.js'
 import { requireAuth } from '../middleware/auth.js'
+import { occasionDateInYear } from '../lib/jalaali.js'
 
 export const workspaceRoutes = new Hono()
 workspaceRoutes.use('*', requireAuth)
@@ -80,12 +81,48 @@ workspaceRoutes.get('/:id/dashboard', (c) => {
     )
     .all(workspaceId)
 
+  const pageCount = (
+    db.prepare(`SELECT COUNT(*) AS c FROM projects WHERE workspace_id = ?`).get(workspaceId) as { c: number }
+  ).c
+  const scheduledCount = (
+    db
+      .prepare(
+        `SELECT COUNT(*) AS c FROM contents WHERE workspace_id = ? AND status IN ('scheduled', 'ready', 'planned')`,
+      )
+      .get(workspaceId) as { c: number }
+  ).c
+
+  const year = new Date().getFullYear()
+  const occRows = db
+    .prepare(
+      `SELECT * FROM occasions WHERE workspace_id IS NULL OR workspace_id = ?`,
+    )
+    .all(workspaceId) as Array<Record<string, unknown>>
+  const upcomingOccasions = occRows
+    .map((r) => {
+      const calendar = String(r.calendar) as 'jalali' | 'gregorian'
+      const dateInYear = occasionDateInYear(calendar, Number(r.month), Number(r.day), year)
+      return {
+        id: r.id,
+        nameFa: r.name_fa,
+        nameEn: r.name_en,
+        region: r.region,
+        dateInYear,
+      }
+    })
+    .filter((o) => o.dateInYear && o.dateInYear >= today)
+    .sort((a, b) => String(a.dateInYear).localeCompare(String(b.dateInYear)))
+    .slice(0, 8)
+
   return c.json({
     byStatus,
     today: todayItems,
     upcoming,
     overdue,
     recentAssets,
+    pageCount,
+    scheduledCount,
+    upcomingOccasions,
     progress: {
       inProduction: byStatus.in_production || 0,
       inReview: byStatus.in_review || 0,

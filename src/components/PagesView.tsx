@@ -1,94 +1,147 @@
 import type { InstagramPage } from '../types'
 import { Trash2, Check } from 'lucide-react'
 import { useState } from 'react'
-import { uid } from '../lib/storage'
+import { InstagramPageSearch } from './InstagramPageSearch'
+import type { IgPageHit } from '../api/client'
+import { useI18n } from '../prefs/PrefsProvider'
+
+export type PageFormInput = {
+  name: string
+  handle: string
+  niche: string
+  audience: string
+  voice: string
+}
 
 interface PagesViewProps {
   pages: InstagramPage[]
   activePageId: string | null
-  onSave: (pages: InstagramPage[], activeId: string | null) => void
+  busy?: boolean
+  error?: string | null
+  onCreate: (form: PageFormInput) => Promise<void> | void
+  onRemove: (id: string) => Promise<void> | void
+  onSelect: (id: string) => void
 }
 
-const emptyForm = { name: '', niche: '', audience: '', voice: '' }
+const emptyForm: PageFormInput = { name: '', handle: '', niche: '', audience: '', voice: '' }
 
-export function PagesView({ pages, activePageId, onSave }: PagesViewProps) {
+export function PagesView({
+  pages,
+  activePageId,
+  busy = false,
+  error = null,
+  onCreate,
+  onRemove,
+  onSelect,
+}: PagesViewProps) {
+  const { t } = useI18n()
   const [form, setForm] = useState(emptyForm)
+  const [localError, setLocalError] = useState<string | null>(null)
 
-  function addPage() {
-    if (!form.name.trim()) return
-    const page: InstagramPage = {
-      id: uid('page'),
-      name: form.name.trim(),
-      niche: form.niche.trim(),
-      audience: form.audience.trim(),
-      voice: form.voice.trim(),
-      createdAt: Date.now(),
+  async function addPage() {
+    if (busy) return
+    const handle = form.handle.trim().replace(/^@/, '')
+    const name = form.name.trim() || handle
+    if (!name) {
+      setLocalError(t('projects.needName'))
+      return
     }
-    const next = [page, ...pages]
-    onSave(next, page.id)
-    setForm(emptyForm)
-  }
-
-  function removePage(id: string) {
-    const next = pages.filter((p) => p.id !== id)
-    onSave(next, activePageId === id ? next[0]?.id ?? null : activePageId)
+    setLocalError(null)
+    try {
+      await onCreate({
+        name,
+        handle,
+        niche: form.niche.trim(),
+        audience: form.audience.trim(),
+        voice: form.voice.trim(),
+      })
+      setForm(emptyForm)
+    } catch {
+      /* parent shows error */
+    }
   }
 
   return (
     <div className="pages-layout">
-      <div className="panel panel-pad">
-        <h2 className="section-title">افزودن پیج</h2>
-        <p className="section-sub">هویت هر پیج را ذخیره کن تا محتوا با لحن برند هماهنگ شود.</p>
+      <form
+        className="panel panel-pad"
+        onSubmit={(e) => {
+          e.preventDefault()
+          void addPage()
+        }}
+      >
+        <h2 className="section-title">{t('projects.addTitle')}</h2>
+        <p className="section-sub">{t('projects.searchHintStudio')}</p>
+
+        {(error || localError) && <p className="form-banner error">{error || localError}</p>}
 
         <div className="field">
-          <label htmlFor="page-name">نام پیج</label>
+          <label htmlFor="page-name">{t('projects.name')}</label>
           <input
             id="page-name"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="مثلاً فروشگاه نور"
+            placeholder={t('projects.namePh')}
+            disabled={busy}
           />
         </div>
+        <InstagramPageSearch
+          id="page-handle"
+          value={form.handle}
+          disabled={busy}
+          onChange={(handle) => setForm((f) => ({ ...f, handle }))}
+          onPick={(hit: IgPageHit) =>
+            setForm((f) => ({
+              ...f,
+              handle: hit.username,
+              name: f.name.trim() && f.name !== f.handle ? f.name : hit.name || hit.username,
+              niche: f.niche.trim() ? f.niche : hit.biography || f.niche,
+            }))
+          }
+        />
         <div className="field">
-          <label htmlFor="page-niche">حوزه / نیچ</label>
+          <label htmlFor="page-niche">{t('projects.niche')}</label>
           <input
             id="page-niche"
             value={form.niche}
             onChange={(e) => setForm({ ...form, niche: e.target.value })}
-            placeholder="زیبایی، فیتنس، آموزش، کافه..."
+            placeholder={t('projects.nichePh')}
+            disabled={busy}
           />
         </div>
         <div className="field">
-          <label htmlFor="page-audience">مخاطب هدف</label>
+          <label htmlFor="page-audience">{t('projects.audience')}</label>
           <input
             id="page-audience"
             value={form.audience}
             onChange={(e) => setForm({ ...form, audience: e.target.value })}
-            placeholder="بانوان ۲۵–۴۰، صاحبان کسب‌وکار..."
+            placeholder={t('projects.audiencePh')}
+            disabled={busy}
           />
         </div>
         <div className="field">
-          <label htmlFor="page-voice">صدای برند</label>
+          <label htmlFor="page-voice">{t('projects.voice')}</label>
           <textarea
             id="page-voice"
             value={form.voice}
             onChange={(e) => setForm({ ...form, voice: e.target.value })}
-            placeholder="صمیمی اما دقیق، بدون اغراق، تمرکز روی آموزش کوتاه"
+            placeholder={t('projects.voicePh')}
+            disabled={busy}
           />
         </div>
-        <button type="button" className="btn btn-solid" onClick={addPage}>
-          ذخیره پیج
+        <button type="submit" className="btn btn-solid" disabled={busy}>
+          {busy ? t('common.saving') : t('projects.save')}
         </button>
-      </div>
+      </form>
 
       <div className="panel panel-pad">
-        <h2 className="section-title">پیج‌های من</h2>
-        <p className="section-sub">یک پیج را فعال کن تا تولید محتوا بر اساس آن تنظیم شود.</p>
+        <h2 className="section-title">{t('projects.mine')}</h2>
+        <p className="section-sub">{t('projects.activateHint')}</p>
 
         {pages.length === 0 ? (
           <div className="empty">
-            <strong>پیجی ثبت نشده</strong>
-            از فرم روبه‌رو اولین پیج را اضافه کن.
+            <strong>{t('projects.emptyTitle')}</strong>
+            {t('projects.emptyStudio')}
           </div>
         ) : (
           <div className="page-list">
@@ -99,27 +152,32 @@ export function PagesView({ pages, activePageId, onSave }: PagesViewProps) {
               >
                 <div className="list-meta">
                   <h3>{page.name}</h3>
-                  {activePageId === page.id && <span className="meta-badge">فعال</span>}
+                  {activePageId === page.id && <span className="meta-badge">{t('common.active')}</span>}
                 </div>
-                {page.niche && <p>حوزه: {page.niche}</p>}
-                {page.audience && <p>مخاطب: {page.audience}</p>}
-                {page.voice && <p>صدا: {page.voice}</p>}
+                {page.handle && <p>@{page.handle.replace(/^@/, '')}</p>}
+                {page.niche && <p>{t('projects.nicheLine', { v: page.niche })}</p>}
+                {page.audience && <p>{t('projects.audienceLine', { v: page.audience })}</p>}
+                {page.voice && <p>{t('projects.voiceLine', { v: page.voice })}</p>}
                 <div className="form-actions">
                   <button
                     type="button"
                     className="btn btn-outline btn-sm"
-                    onClick={() => onSave(pages, page.id)}
+                    disabled={busy}
+                    onClick={() => onSelect(page.id)}
                   >
                     <Check size={14} />
-                    انتخاب
+                    {t('common.pick')}
                   </button>
                   <button
                     type="button"
                     className="btn btn-outline btn-sm"
-                    onClick={() => removePage(page.id)}
+                    disabled={busy}
+                    onClick={() => {
+                      if (window.confirm(t('projects.confirmDelete'))) void onRemove(page.id)
+                    }}
                   >
                     <Trash2 size={14} />
-                    حذف
+                    {t('common.delete')}
                   </button>
                 </div>
               </div>
