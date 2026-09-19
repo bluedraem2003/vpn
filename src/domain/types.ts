@@ -228,3 +228,7 @@ export const CONTENT_TYPE_LABELS: Record<ContentType, string> = {
   short: 'شورت',
   other: 'سایر',
 }
+
+export const IG_CONTENT_TYPES: ContentType[] = ['reel', 'post', 'carousel', 'story']
+
+export const CONTENT_QUICK_STATUSES: ContentStatus[] = ['planned', 'scheduled', 'published', 'archived']

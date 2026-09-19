@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { useI18n } from '../prefs/PrefsProvider'
 
 export function TeamPage() {
+  const { t } = useI18n()
   const { session } = useAuth()
   const [items, setItems] = useState<Array<{ id: string; email: string; name: string; role: string }>>([])
   const [error, setError] = useState<string | null>(null)
@@ -10,6 +12,7 @@ export function TeamPage() {
   const [name, setName] = useState('')
   const [role, setRole] = useState('editor')
   const [inviteLink, setInviteLink] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
 
   async function reload() {
     const res = await api.team()
@@ -23,9 +26,11 @@ export function TeamPage() {
   async function invite() {
     setError(null)
     setInviteLink(null)
+    setCopied(false)
     try {
       const res = await api.inviteMember({ email, name, role })
-      setInviteLink(res.invite.devMagicUrl)
+      const link = res.invite.inviteUrl || res.invite.devMagicUrl
+      setInviteLink(link)
       setEmail('')
       setName('')
       await reload()
@@ -34,31 +39,44 @@ export function TeamPage() {
     }
   }
 
+  async function copyInvite() {
+    if (!inviteLink) return
+    await navigator.clipboard.writeText(inviteLink)
+    setCopied(true)
+  }
+
   const canInvite = session?.role === 'admin' || session?.role === 'manager'
 
   return (
     <div className="ops-page">
       <header className="ops-page-head">
         <div>
-          <h1>تیم</h1>
-          <p>اعضای ورک‌اسپیس، نقش‌ها و دعوت با Magic Link</p>
+          <p className="ops-kicker">{t('nav.team')}</p>
+          <h1>{t('pages.teamTitle')}</h1>
+          <p>{t('pages.teamSub')}</p>
         </div>
       </header>
 
       <div className="ops-split">
         {canInvite && (
           <section className="panel panel-pad">
-            <h2 className="section-title">دعوت عضو</h2>
+            <h2 className="section-title">{t('team.inviteTitle')}</h2>
+            <p className="section-sub">{t('team.inviteHint')}</p>
             <div className="field">
-              <label>ایمیل</label>
-              <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="editor@example.com" />
+              <label>{t('team.email')}</label>
+              <input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="colleague@example.com"
+                autoComplete="email"
+              />
             </div>
             <div className="field">
-              <label>نام</label>
-              <input value={name} onChange={(e) => setName(e.target.value)} />
+              <label>{t('team.name')}</label>
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('team.namePh')} />
             </div>
             <div className="field">
-              <label>نقش</label>
+              <label>{t('team.role')}</label>
               <select value={role} onChange={(e) => setRole(e.target.value)}>
                 {['admin', 'manager', 'editor', 'designer', 'copywriter', 'viewer'].map((r) => (
                   <option key={r} value={r}>
@@ -69,18 +87,29 @@ export function TeamPage() {
             </div>
             {error && <p className="section-sub">{error}</p>}
             {inviteLink && (
-              <p className="section-sub">
-                لینک دعوت (dev): <code>{inviteLink}</code>
-              </p>
+              <div className="invite-box">
+                <p className="section-sub" style={{ marginBottom: '0.45rem' }}>
+                  {t('team.linkReady')}
+                </p>
+                <code className="invite-code">{inviteLink}</code>
+                <div className="form-actions" style={{ marginTop: '0.65rem' }}>
+                  <button type="button" className="btn btn-solid btn-sm" onClick={() => void copyInvite()}>
+                    {copied ? t('common.copied') : t('team.copyInvite')}
+                  </button>
+                  <a className="btn btn-outline btn-sm" href={inviteLink} target="_blank" rel="noreferrer">
+                    {t('team.open')}
+                  </a>
+                </div>
+              </div>
             )}
-            <button type="button" className="btn btn-solid" onClick={() => void invite()}>
-              ارسال دعوت
+            <button type="button" className="btn btn-solid" onClick={() => void invite()} style={{ marginTop: '0.75rem' }}>
+              {t('team.createInvite')}
             </button>
           </section>
         )}
 
         <section className="panel panel-pad">
-          <h2 className="section-title">اعضا</h2>
+          <h2 className="section-title">{t('team.members')}</h2>
           {!canInvite && error && <p className="section-sub">{error}</p>}
           <div className="page-list">
             {items.map((m) => (

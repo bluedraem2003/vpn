@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { db, uid } from '../db/index.js'
+import { notifyAssetIndexed } from '../jobs/reminders.js'
 
 export const telegramRoutes = new Hono()
 
@@ -116,6 +117,16 @@ telegramRoutes.post('/webhook', async (c) => {
   )
 
   console.log('[Telegram] Asset indexed', assetId)
+
+  // Notify ops chat that new media landed (story/reel uploads to channel)
+  void notifyAssetIndexed({
+    workspaceId: workspace.id,
+    assetId,
+    filename: file.filename,
+    type: file.type,
+    caption: message.caption || null,
+  }).catch((err) => console.error('[Telegram] notify asset', (err as Error).message))
+
   return c.json({ ok: true, assetId })
 })
 

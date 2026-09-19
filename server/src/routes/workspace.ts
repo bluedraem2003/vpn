@@ -1,6 +1,8 @@
 import { Hono } from 'hono'
 import { db } from '../db/index.js'
 import { requireAuth } from '../middleware/auth.js'
+import { occasionDateInYear } from '../lib/jalaali.js'
+import { mapProject } from './projects.js'
 
 export const workspaceRoutes = new Hono()
 workspaceRoutes.use('*', requireAuth)
@@ -80,12 +82,90 @@ workspaceRoutes.get('/:id/dashboard', (c) => {
     )
     .all(workspaceId)
 
+  const pageCount = (
+    db.prepare(`SELECT COUNT(*) AS c FROM projects WHERE workspace_id = ?`).get(workspaceId) as { c: number }
+  ).c
+  const scheduledCount = (
+    db
+      .prepare(
+        `SELECT COUNT(*) AS c FROM contents WHERE workspace_id = ? AND status IN ('scheduled', 'ready', 'planned')`,
+      )
+      .get(workspaceId) as { c: number }
+  ).c
+
+  const year = new Date().getFullYear()
+  const occRows = db
+    .prepare(
+      `SELECT * FROM occasions WHERE workspace_id IS NULL OR workspace_id = ?`,
+    )
+    .all(workspaceId) as Array<Record<string, unknown>>
+  const upcomingOccasions = occRows
+    .map((r) => {
+      const calendar = String(r.calendar) as 'jalali' | 'gregorian'
+      const dateInYear = occasionDateInYear(calendar, Number(r.month), Number(r.day), year)
+      return {
+        id: r.id,
+        nameFa: r.name_fa,
+        nameEn: r.name_en,
+        region: r.region,
+        dateInYear,
+      }
+    })
+    .filter((o) => o.dateInYear && o.dateInYear >= today)
+    .sort((a, b) => String(a.dateInYear).localeCompare(String(b.dateInYear)))
+    .slice(0, 8)
+
+  const pages = (
+    db
+      .prepare(`SELECT * FROM projects WHERE workspace_id = ? ORDER BY created_at ASC`)
+      .all(workspaceId) as Array<Record<string, unknown>>
+  ).map(mapProject)
+
+  const recentEvents = (
+    db
+      .prepare(
+        `SELECT id, project_id, handle, kind, title, body, url, meta, read_at, created_at
+         FROM notifications WHERE workspace_id = ? ORDER BY created_at DESC LIMIT 8`,
+      )
+      .all(workspaceId) as Array<Record<string, unknown>>
+  ).map((r) => {
+    let meta: Record<string, unknown> = {}
+    try {
+      meta = JSON.parse(String(r.meta || '{}'))
+    } catch {
+      meta = {}
+    }
+    return {
+      id: r.id,
+      projectId: r.project_id || null,
+      handle: r.handle || null,
+      kind: r.kind,
+      title: r.title,
+      body: r.body || null,
+      url: r.url || null,
+      meta,
+      readAt: r.read_at || null,
+      createdAt: r.created_at,
+    }
+  })
+  const unreadNotifications = (
+    db
+      .prepare(`SELECT COUNT(*) AS c FROM notifications WHERE workspace_id = ? AND read_at IS NULL`)
+      .get(workspaceId) as { c: number }
+  ).c
+
   return c.json({
     byStatus,
     today: todayItems,
     upcoming,
     overdue,
     recentAssets,
+    pageCount,
+    pages,
+    recentEvents,
+    unreadNotifications,
+    scheduledCount,
+    upcomingOccasions,
     progress: {
       inProduction: byStatus.in_production || 0,
       inReview: byStatus.in_review || 0,

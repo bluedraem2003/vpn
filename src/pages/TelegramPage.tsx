@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api/client'
+import { useI18n } from '../prefs/PrefsProvider'
 
 export function TelegramPage() {
+  const { t } = useI18n()
   const [status, setStatus] = useState<{
     configured: boolean
     chatIdConfigured: boolean
@@ -33,8 +35,9 @@ export function TelegramPage() {
     <div className="ops-page">
       <header className="ops-page-head">
         <div>
-          <h1>تلگرام Storage</h1>
-          <p>ایندکس فایل‌های کانال خصوصی بدون کپی دائمی روی سرور</p>
+          <p className="ops-kicker">{t('nav.telegram')}</p>
+          <h1>{t('pages.telegramTitle')}</h1>
+          <p>{t('pages.telegramSub')}</p>
         </div>
         <button type="button" className="btn btn-outline btn-sm" onClick={trySync}>
           Sync
@@ -49,25 +52,25 @@ export function TelegramPage() {
 
       <div className="ops-split">
         <section className="panel panel-pad">
-          <h2 className="section-title">وضعیت اتصال</h2>
+          <h2 className="section-title">{t('telegram.status')}</h2>
           {!status ? (
-            <p className="section-sub">در حال بررسی...</p>
+            <p className="section-sub">{t('telegram.checking')}</p>
           ) : (
             <ul className="ops-list">
               <li>
-                <strong>Bot Token</strong>
-                <span>{status.configured ? 'تنظیم شده' : 'تنظیم نشده'}</span>
+                <strong>{t('telegram.botToken')}</strong>
+                <span>{status.configured ? t('telegram.set') : t('telegram.unset')}</span>
               </li>
               <li>
-                <strong>Chat ID مجاز</strong>
-                <span>{status.chatIdConfigured ? 'تنظیم شده' : 'تنظیم نشده'}</span>
+                <strong>{t('telegram.allowedChat')}</strong>
+                <span>{status.chatIdConfigured ? t('telegram.set') : t('telegram.unset')}</span>
               </li>
               <li>
-                <strong>فایل‌های ایندکس‌شده</strong>
+                <strong>{t('telegram.indexed')}</strong>
                 <span>{status.indexedFiles}</span>
               </li>
               <li>
-                <strong>سقف دانلود Bot API</strong>
+                <strong>{t('telegram.botLimit')}</strong>
                 <span>{String(status.limits.botApiMaxDownloadMb)} MB</span>
               </li>
             </ul>
@@ -76,22 +79,15 @@ export function TelegramPage() {
         </section>
 
         <section className="panel panel-pad">
-          <h2 className="section-title">راه‌اندازی Webhook</h2>
+          <h2 className="section-title">{t('telegram.webhook')}</h2>
           <ol className="ops-steps">
-            <li>در BotFather یک بات بسازید و توکن را در <code>TELEGRAM_BOT_TOKEN</code> بگذارید.</li>
-            <li>بات را ادمین کانال/گروه خصوصی دارایی‌ها کنید.</li>
-            <li>
-              <code>TELEGRAM_CHAT_ID</code> و <code>TELEGRAM_WEBHOOK_SECRET</code> را تنظیم کنید.
-            </li>
-            <li>
-              Webhook را روی <code>POST /api/telegram/webhook</code> با HTTPS عمومی ست کنید.
-            </li>
-            <li>یک فایل تست بفرستید؛ باید در «دارایی‌ها» ظاهر شود.</li>
+            <li>{t('telegram.step1')}</li>
+            <li>{t('telegram.step2')}</li>
+            <li>{t('telegram.step3')}</li>
+            <li>{t('telegram.step4')}</li>
+            <li>{t('telegram.step5')}</li>
           </ol>
-          <p className="section-sub">
-            محدودیت واقعی: همگام‌سازی کامل تاریخچه کانال با Bot API ممکن نیست. برای فایل‌های قدیمی،
-            فوروارد مجدد یا Local Bot API لازم است.
-          </p>
+          <p className="section-sub">{t('telegram.limitNote')}</p>
         </section>
       </div>
     </div>
