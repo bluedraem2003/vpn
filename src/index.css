@@ -714,6 +714,8 @@ a {
   position: sticky;
   top: 0;
   height: 100vh;
+  display: flex;
+  flex-direction: column;
   padding: 1.05rem 0.85rem 1.2rem;
   border-inline-end: 1px solid var(--line);
   background: var(--sidebar);
@@ -733,6 +735,10 @@ a {
 }
 
 .ops-sidebar-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
   margin-top: 1.05rem;
 }
 
@@ -769,6 +775,7 @@ a {
 .ops-nav {
   display: grid;
   gap: 0.15rem;
+  flex: 1 0 auto;
 }
 
 .ops-nav-group {
@@ -1102,10 +1109,17 @@ a {
   border-color: rgba(27, 107, 99, 0.4);
 }
 
-.ops-user {
-  margin-top: 0.85rem;
-  padding-top: 0.9rem;
+.ops-sidebar-foot {
+  margin-top: auto;
+  padding-top: 0.7rem;
   border-top: 1px solid var(--line);
+}
+
+.ops-sidebar-foot .appearance-controls {
+  margin: 0 0 0.55rem;
+}
+
+.ops-user {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1150,7 +1164,7 @@ a {
 
 .login-card .appearance-controls {
   justify-content: center;
-  margin: 0.15rem 0 1.2rem;
+  margin: 0.1rem 0 0.95rem;
 }
 
 .login-card .field {
@@ -1966,19 +1980,21 @@ html[data-theme='dark'] .field-hint.warn {
 .appearance-controls {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem;
-  margin: 1rem 0 0;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.75rem 0 0;
 }
 
 .appearance-controls.compact {
-  margin-top: 0.35rem;
+  margin: 0;
+  gap: 0.28rem;
 }
 
 .appearance-group {
   display: inline-flex;
   align-items: center;
-  gap: 0.15rem;
-  padding: 0.2rem;
+  gap: 0.08rem;
+  padding: 0.1rem;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--chip);
@@ -1989,12 +2005,19 @@ html[data-theme='dark'] .field-hint.warn {
   background: transparent;
   color: var(--ink-soft);
   border-radius: 999px;
-  padding: 0.28rem 0.55rem;
-  min-width: 2rem;
+  padding: 0.16rem 0.48rem;
+  min-width: 0;
+  line-height: 1.1;
+  font-size: 0.72rem;
+  font-weight: 600;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.2rem;
+}
+
+.appearance-controls.compact .appearance-group button {
+  padding: 0.1rem 0.38rem;
+  font-size: 0.68rem;
 }
 
 .appearance-group button.active {
@@ -2136,7 +2159,7 @@ html[data-theme='dark'] .cal-pill-occasion {
   }
 
   .ops-sidebar.is-open .ops-sidebar-body {
-    display: block;
+    display: flex;
   }
 
   .ops-nav {

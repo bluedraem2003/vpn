@@ -124,21 +124,23 @@ export function AppLayout() {
               </div>
             ))}
           </nav>
-          <AppearanceControls compact />
-          <div className="ops-user">
-            <div>
-              <strong>{session?.user.name}</strong>
-              <span>{session?.role}</span>
+          <div className="ops-sidebar-foot">
+            <AppearanceControls compact />
+            <div className="ops-user">
+              <div>
+                <strong>{session?.user.name}</strong>
+                <span>{session?.role}</span>
+              </div>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm ops-logout"
+                onClick={() => void logout()}
+                aria-label={t('common.logout')}
+              >
+                <LogOut size={14} aria-hidden />
+                <span>{t('common.logout')}</span>
+              </button>
             </div>
-            <button
-              type="button"
-              className="btn btn-outline btn-sm ops-logout"
-              onClick={() => void logout()}
-              aria-label={t('common.logout')}
-            >
-              <LogOut size={14} aria-hidden />
-              <span>{t('common.logout')}</span>
-            </button>
           </div>
         </div>
       </aside>

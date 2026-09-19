@@ -1,12 +1,12 @@
-import { Languages, Moon, Sun } from 'lucide-react'
+import { Moon, Sun } from 'lucide-react'
 import { useI18n } from '../prefs/PrefsProvider'
 
 export function AppearanceControls({ compact = false }: { compact?: boolean }) {
   const { lang, theme, setLang, setTheme, t } = useI18n()
+  const iconSize = compact ? 12 : 13
   return (
     <div className={`appearance-controls ${compact ? 'compact' : ''}`}>
       <div className="appearance-group" role="group" aria-label={t('settings.language')}>
-        <Languages size={14} aria-hidden />
         <button
           type="button"
           className={lang === 'fa' ? 'active' : ''}
@@ -33,7 +33,7 @@ export function AppearanceControls({ compact = false }: { compact?: boolean }) {
           title={t('settings.light')}
           aria-label={t('settings.light')}
         >
-          <Sun size={14} aria-hidden />
+          <Sun size={iconSize} aria-hidden />
         </button>
         <button
           type="button"
@@ -43,7 +43,7 @@ export function AppearanceControls({ compact = false }: { compact?: boolean }) {
           title={t('settings.dark')}
           aria-label={t('settings.dark')}
         >
-          <Moon size={14} aria-hidden />
+          <Moon size={iconSize} aria-hidden />
         </button>
       </div>
     </div>
