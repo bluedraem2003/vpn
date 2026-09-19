@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { api, type IdeaDto } from '../api/client'
+import { api, type IdeaDto, type ProjectDto } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { CONTENT_TYPE_LABELS, type ContentType } from '../domain/types'
 
@@ -8,17 +8,21 @@ export function IdeasPage() {
   const { workspaceId } = useAuth()
   const navigate = useNavigate()
   const [items, setItems] = useState<IdeaDto[]>([])
+  const [projects, setProjects] = useState<ProjectDto[]>([])
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [contentType, setContentType] = useState<ContentType>('reel')
+  const [projectId, setProjectId] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
   async function reload() {
     if (!workspaceId) return
-    const res = await api.listIdeas(workspaceId)
-    setItems(res.items || [])
+    const [ideas, pages] = await Promise.all([api.listIdeas(workspaceId), api.listProjects(workspaceId)])
+    setItems(ideas.items || [])
+    setProjects(pages.items || [])
+    if (!projectId && pages.items?.length === 1) setProjectId(pages.items[0]!.id)
   }
 
   useEffect(() => {
@@ -58,9 +62,9 @@ export function IdeasPage() {
   async function convert(id: string) {
     setError(null)
     try {
-      await api.convertIdea(id)
+      const res = await api.convertIdea(id, projectId ? { projectId } : undefined)
       await reload()
-      navigate('/content')
+      navigate(`/content?edit=${res.contentId}`)
     } catch (e) {
       setError((e as Error).message)
     }
@@ -106,9 +110,22 @@ export function IdeasPage() {
           <div className="field">
             <label>نوع پیشنهادی</label>
             <select value={contentType} onChange={(e) => setContentType(e.target.value as ContentType)}>
-              {Object.entries(CONTENT_TYPE_LABELS).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v}
+              {Object.entries(CONTENT_TYPE_LABELS)
+                .filter(([k]) => ['reel', 'post', 'carousel', 'story'].includes(k))
+                .map(([k, v]) => (
+                  <option key={k} value={k}>
+                    {v}
+                  </option>
+                ))}
+            </select>
+          </div>
+          <div className="field">
+            <label>پیج</label>
+            <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+              <option value="">—</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
                 </option>
               ))}
             </select>
@@ -130,7 +147,13 @@ export function IdeasPage() {
                 {idea.description && <p>{idea.description}</p>}
                 <div className="form-actions">
                   {idea.convertedContentId ? (
-                    <span className="meta-badge">تبدیل‌شده</span>
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      onClick={() => navigate(`/content?edit=${idea.convertedContentId}`)}
+                    >
+                      باز کردن محتوا
+                    </button>
                   ) : (
                     <button type="button" className="btn btn-solid btn-sm" onClick={() => void convert(idea.id)}>
                       تبدیل به محتوا

@@ -29,6 +29,11 @@ contentRoutes.get('/', (c) => {
 
   const status = c.req.query('status')
   const projectId = c.req.query('projectId')
+  const campaignId = c.req.query('campaignId')
+  const contentType = c.req.query('type')
+  const q = (c.req.query('q') || '').trim()
+  const from = c.req.query('from')
+  const to = c.req.query('to')
   const clauses = ['workspace_id = ?']
   const params: string[] = [workspaceId]
   if (status) {
@@ -38,6 +43,27 @@ contentRoutes.get('/', (c) => {
   if (projectId) {
     clauses.push('project_id = ?')
     params.push(projectId)
+  }
+  if (campaignId) {
+    clauses.push('campaign_id = ?')
+    params.push(campaignId)
+  }
+  if (contentType) {
+    clauses.push('content_type = ?')
+    params.push(contentType)
+  }
+  if (from) {
+    clauses.push('publish_date >= ?')
+    params.push(from)
+  }
+  if (to) {
+    clauses.push('publish_date <= ?')
+    params.push(to)
+  }
+  if (q) {
+    clauses.push('(title LIKE ? OR IFNULL(caption, \'\') LIKE ? OR IFNULL(notes, \'\') LIKE ?)')
+    const like = `%${q}%`
+    params.push(like, like, like)
   }
   const rows = db
     .prepare(`SELECT * FROM contents WHERE ${clauses.join(' AND ')} ORDER BY updated_at DESC`)
@@ -113,8 +139,8 @@ contentRoutes.post('/', async (c) => {
       `INSERT INTO contents (
       id, workspace_id, project_id, campaign_id, assignee_id, title, description,
       platforms, content_type, status, publish_date, publish_time, caption, hashtags,
-      notes, ai_meta, window_start, window_end, occasion_id, reminded_at, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      notes, ai_meta, window_start, window_end, occasion_id, reminded_at, first_comment, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       id,
       workspaceId,
@@ -136,6 +162,7 @@ contentRoutes.post('/', async (c) => {
       body.windowEnd || null,
       occasionId,
       null,
+      body.firstComment || null,
       now,
       now,
     )
@@ -188,7 +215,7 @@ contentRoutes.patch('/:id', async (c) => {
       title = ?, description = ?, platforms = ?, content_type = ?, status = ?,
       publish_date = ?, publish_time = ?, caption = ?, hashtags = ?, notes = ?,
       project_id = ?, campaign_id = ?, window_start = ?, window_end = ?, occasion_id = ?,
-      updated_at = ?
+      first_comment = ?, updated_at = ?
      WHERE id = ?`,
     ).run(
       body.title ?? existing.title,
@@ -196,16 +223,17 @@ contentRoutes.patch('/:id', async (c) => {
       JSON.stringify(body.platforms ?? JSON.parse(String(existing.platforms || '[]'))),
       body.contentType ?? existing.content_type,
       nextStatus,
-      body.publishDate ?? existing.publish_date,
-      body.publishTime ?? existing.publish_time,
-      body.caption ?? existing.caption,
+      body.publishDate !== undefined ? body.publishDate || null : existing.publish_date,
+      body.publishTime !== undefined ? body.publishTime || null : existing.publish_time,
+      body.caption !== undefined ? body.caption || null : existing.caption,
       JSON.stringify(body.hashtags !== undefined ? parseHashtags(body.hashtags) : parseHashtags(existing.hashtags)),
-      body.notes ?? existing.notes,
+      body.notes !== undefined ? body.notes || null : existing.notes,
       project.id,
       campaign.id,
       body.windowStart !== undefined ? body.windowStart || null : existing.window_start,
       body.windowEnd !== undefined ? body.windowEnd || null : existing.window_end,
       body.occasionId !== undefined ? body.occasionId || null : existing.occasion_id,
+      body.firstComment !== undefined ? body.firstComment || null : existing.first_comment,
       now,
       id,
     )
@@ -235,6 +263,83 @@ contentRoutes.delete('/:id', (c) => {
   return c.json({ ok: true })
 })
 
+contentRoutes.post('/:id/duplicate', async (c) => {
+  const id = c.req.param('id')
+  const existing = db.prepare(`SELECT * FROM contents WHERE id = ?`).get(id) as Record<string, unknown> | undefined
+  if (!existing) return c.json({ error: 'محتوا پیدا نشد' }, 404)
+  assertWorkspaceAccess(c, String(existing.workspace_id))
+
+  const body = await c.req.json().catch(() => ({} as Record<string, unknown>))
+  const now = new Date().toISOString()
+  const newId = uid('cnt')
+  const publishDate = body.publishDate ? String(body.publishDate) : existing.publish_date
+  const status = publishDate ? 'scheduled' : 'planned'
+
+  db.prepare(
+    `INSERT INTO contents (
+      id, workspace_id, project_id, campaign_id, assignee_id, title, description,
+      platforms, content_type, status, publish_date, publish_time, caption, hashtags,
+      notes, ai_meta, window_start, window_end, occasion_id, reminded_at, first_comment, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    newId,
+    existing.workspace_id,
+    existing.project_id,
+    existing.campaign_id,
+    existing.assignee_id,
+    body.title ? String(body.title) : `${existing.title} (کپی)`,
+    existing.description,
+    existing.platforms,
+    existing.content_type,
+    status,
+    publishDate || null,
+    existing.publish_time,
+    existing.caption,
+    existing.hashtags,
+    existing.notes,
+    existing.ai_meta,
+    existing.window_start,
+    existing.window_end,
+    existing.occasion_id,
+    null,
+    existing.first_comment,
+    now,
+    now,
+  )
+
+  const links = db
+    .prepare(`SELECT asset_id, role, sort_order FROM content_assets WHERE content_id = ?`)
+    .all(id) as Array<{ asset_id: string; role: string; sort_order: number }>
+  const insertLink = db.prepare(
+    `INSERT INTO content_assets (id, content_id, asset_id, role, sort_order) VALUES (?, ?, ?, ?, ?)`,
+  )
+  for (const link of links) {
+    insertLink.run(uid('ca'), newId, link.asset_id, link.role || 'other', link.sort_order || 0)
+  }
+
+  db.prepare(
+    `INSERT INTO content_status_history (id, content_id, from_status, to_status, changed_by, created_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run(uid('csh'), newId, null, status, c.get('userId'), now)
+
+  const row = db.prepare(`SELECT * FROM contents WHERE id = ?`).get(newId)
+  return c.json({ item: mapContent(row) }, 201)
+})
+
+contentRoutes.delete('/:id/assets/:linkId', (c) => {
+  const contentId = c.req.param('id')
+  const linkId = c.req.param('linkId')
+  const content = db.prepare(`SELECT * FROM contents WHERE id = ?`).get(contentId) as Record<string, unknown> | undefined
+  if (!content) return c.json({ error: 'محتوا پیدا نشد' }, 404)
+  assertWorkspaceAccess(c, String(content.workspace_id))
+  const link = db
+    .prepare(`SELECT * FROM content_assets WHERE id = ? AND content_id = ?`)
+    .get(linkId, contentId) as Record<string, unknown> | undefined
+  if (!link) return c.json({ error: 'فایل متصل پیدا نشد' }, 404)
+  db.prepare(`DELETE FROM content_assets WHERE id = ?`).run(linkId)
+  return c.json({ ok: true })
+})
+
 function mapContent(row: unknown) {
   const r = row as Record<string, unknown>
   return {
@@ -255,6 +360,7 @@ function mapContent(row: unknown) {
     occasionId: r.occasion_id,
     remindedAt: r.reminded_at,
     caption: r.caption,
+    firstComment: r.first_comment,
     hashtags: parseHashtags(r.hashtags),
     notes: r.notes,
     aiMeta: JSON.parse(String(r.ai_meta || '{}')),

@@ -1,20 +1,23 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { api, type AssetDto, type CampaignDto, type ContentDto, type OccasionDto, type ProjectDto } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { CopyButton } from '../components/CopyButton'
+import { InstagramPreview } from '../components/InstagramPreview'
 import {
   CONTENT_STATUS_FLOW,
   CONTENT_STATUS_LABELS,
   CONTENT_TYPE_LABELS,
+  IG_CONTENT_TYPES,
   type ContentStatus,
   type ContentType,
 } from '../domain/types'
-import { formatHashtags, parseHashtags } from '../lib/hashtags'
+import { formatHashtags, IG_CAPTION_LIMIT, IG_FIRST_COMMENT_LIMIT, IG_HASHTAG_LIMIT, parseHashtags } from '../lib/hashtags'
+import { formatJalaliFromIso } from '../lib/jalaali'
 
 const emptyForm = {
   title: '',
-  contentType: 'story' as ContentType,
+  contentType: 'reel' as ContentType,
   publishDate: '',
   windowStart: '10:00',
   windowEnd: '12:00',
@@ -23,6 +26,7 @@ const emptyForm = {
   occasionId: '',
   caption: '',
   hashtagText: '',
+  firstComment: '',
   notes: '',
 }
 
@@ -41,23 +45,32 @@ export function ContentPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [filterProject, setFilterProject] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
+  const [filterType, setFilterType] = useState('')
+  const [query, setQuery] = useState('')
   const [busy, setBusy] = useState(false)
   const [attachFor, setAttachFor] = useState<string | null>(null)
   const [remindMsg, setRemindMsg] = useState<string | null>(null)
 
   async function reload(id: string) {
-    const [contentRes, assetRes, projectRes, campaignRes, occRes] = await Promise.all([
+    const year = new Date().getFullYear()
+    const [contentRes, assetRes, projectRes, campaignRes, occRes, occNext] = await Promise.all([
       api.listContent(id),
       api.listAssets(id),
       api.listProjects(id),
       api.listCampaigns(id),
-      api.listOccasions(id, { year: new Date().getFullYear() }),
+      api.listOccasions(id, { year }),
+      api.listOccasions(id, { year: year + 1 }),
     ])
     setItems(contentRes.items || [])
     setAssets(assetRes.items || [])
     setProjects(projectRes.items || [])
     setCampaigns(campaignRes.items || [])
-    setOccasions(occRes.items || [])
+    const byId = new Map<string, OccasionDto>()
+    for (const o of [...(occRes.items || []), ...(occNext.items || [])]) {
+      const prev = byId.get(o.id)
+      if (!prev || String(o.dateInYear) < String(prev.dateInYear)) byId.set(o.id, o)
+    }
+    setOccasions([...byId.values()])
 
     const map: Record<string, Array<AssetDto & { linkId: string }>> = {}
     await Promise.all(
@@ -67,45 +80,99 @@ export function ContentPage() {
       }),
     )
     setAttached(map)
-    return { items: contentRes.items || [], projects: projectRes.items || [] }
+    return {
+      items: contentRes.items || [],
+      projects: projectRes.items || [],
+      occasions: [...byId.values()],
+    }
+  }
+
+  function applyQuery(loaded: ContentDto[], pages: ProjectDto[], occs: OccasionDto[] = occasions) {
+    const date = params.get('date')
+    const edit = params.get('edit')
+    const project = params.get('projectId')
+    const occasion = params.get('occasionId')
+    const campaign = params.get('campaignId')
+    if (edit) {
+      const item = loaded.find((i) => i.id === edit)
+      if (item) startEdit(item)
+      return
+    }
+    setForm((f) => {
+      const next = { ...f }
+      if (date) next.publishDate = date
+      if (project) next.projectId = project
+      if (campaign) next.campaignId = campaign
+      if (occasion) next.occasionId = occasion
+      else if (!f.occasionId && date) {
+        const match = occs.find((o) => o.dateInYear === date)
+        if (match) next.occasionId = match.id
+      }
+      if (!next.projectId && pages.length === 1) next.projectId = pages[0]!.id
+      const page = pages.find((p) => p.id === next.projectId)
+      if (page) {
+        next.windowStart = page.windowStart || next.windowStart || '10:00'
+        next.windowEnd = page.windowEnd || next.windowEnd || '12:00'
+        next.hashtagText = next.hashtagText.trim() ? next.hashtagText : formatHashtags(page.hashtags)
+      }
+      return next
+    })
   }
 
   useEffect(() => {
     if (!workspaceId) return
     void reload(workspaceId)
-      .then(({ items: loaded, projects: pages }) => {
-        const date = params.get('date')
-        const edit = params.get('edit')
-        const project = params.get('projectId')
-        if (date) setForm((f) => ({ ...f, publishDate: date }))
-        if (project) setForm((f) => ({ ...f, projectId: project }))
-        if (edit) {
-          const item = loaded.find((i) => i.id === edit)
-          if (item) startEdit(item)
-        } else if (!project && pages.length === 1) {
-          setForm((f) => (f.projectId ? f : { ...f, projectId: pages[0].id }))
-        }
-      })
+      .then(({ items: loaded, projects: pages, occasions: occs }) => applyQuery(loaded, pages, occs))
       .catch((e) => setError((e as Error).message))
   }, [workspaceId])
 
-  const filtered = useMemo(
-    () =>
-      items.filter((item) => {
+  useEffect(() => {
+    const edit = params.get('edit')
+    const date = params.get('date')
+    const project = params.get('projectId')
+    const occasion = params.get('occasionId')
+    const campaign = params.get('campaignId')
+    if (!edit && !date && !project && !occasion && !campaign) return
+    applyQuery(items, projects)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.get('edit'), params.get('date'), params.get('projectId'), params.get('occasionId'), params.get('campaignId')])
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return items
+      .filter((item) => {
         if (filterProject && item.projectId !== filterProject) return false
         if (filterStatus && item.status !== filterStatus) return false
+        if (filterType && item.contentType !== filterType) return false
+        if (q) {
+          const hay = `${item.title} ${item.caption || ''} ${item.notes || ''} ${item.hashtags.join(' ')}`.toLowerCase()
+          if (!hay.includes(q)) return false
+        }
         return true
-      }),
-    [items, filterProject, filterStatus],
-  )
+      })
+      .sort((a, b) => String(a.publishDate || '9999').localeCompare(String(b.publishDate || '9999')))
+  }, [items, filterProject, filterStatus, filterType, query])
 
   const occasionOptions = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10)
     return [...occasions]
       .filter((o) => o.dateInYear)
       .sort((a, b) => String(a.dateInYear).localeCompare(String(b.dateInYear)))
-      .filter((o) => String(o.dateInYear) >= today || o.id === form.occasionId)
-  }, [occasions, form.occasionId])
+      .filter((o) => String(o.dateInYear) >= today || o.id === form.occasionId || o.dateInYear === form.publishDate)
+  }, [occasions, form.occasionId, form.publishDate])
+
+  const dateOccasions = useMemo(
+    () => (form.publishDate ? occasions.filter((o) => o.dateInYear === form.publishDate) : []),
+    [occasions, form.publishDate],
+  )
+
+  const selectedPage = projects.find((p) => p.id === form.projectId)
+  const captionLen = form.caption.length
+  const firstLen = form.firstComment.length
+  const tagCount = parseHashtags(form.hashtagText).length
+  const typeOptions = IG_CONTENT_TYPES.includes(form.contentType)
+    ? IG_CONTENT_TYPES
+    : [form.contentType, ...IG_CONTENT_TYPES]
 
   function patchForm(partial: Partial<typeof emptyForm>) {
     setForm((f) => ({ ...f, ...partial }))
@@ -113,7 +180,10 @@ export function ContentPage() {
 
   function applyPageDefaults(projectId: string) {
     const page = projects.find((p) => p.id === projectId)
-    if (!page) return
+    if (!page) {
+      patchForm({ projectId })
+      return
+    }
     setForm((f) => ({
       ...f,
       projectId,
@@ -124,7 +194,7 @@ export function ContentPage() {
   }
 
   function resetForm() {
-    setForm(emptyForm)
+    setForm({ ...emptyForm, projectId: projects.length === 1 ? projects[0]!.id : '' })
     setEditingId(null)
     setParams({}, { replace: true })
   }
@@ -142,16 +212,44 @@ export function ContentPage() {
       occasionId: item.occasionId || '',
       caption: item.caption || '',
       hashtagText: formatHashtags(item.hashtags),
+      firstComment: item.firstComment || '',
       notes: item.notes || '',
     })
     setError(null)
     setMsg(null)
   }
 
+  function applyDate(date: string) {
+    const matches = occasions.filter((o) => o.dateInYear === date)
+    setForm((f) => ({
+      ...f,
+      publishDate: date,
+      occasionId: f.occasionId || (matches.length === 1 ? matches[0]!.id : f.occasionId),
+    }))
+  }
+
+  function applyOccasion(id: string) {
+    const o = occasions.find((x) => x.id === id)
+    setForm((f) => ({
+      ...f,
+      occasionId: id,
+      publishDate: o?.dateInYear || f.publishDate,
+    }))
+  }
+
   async function save() {
     if (!workspaceId) return
     if (!form.title.trim()) {
       setError('عنوان را بنویس')
+      return
+    }
+    const tags = parseHashtags(form.hashtagText)
+    if (form.caption.length > IG_CAPTION_LIMIT) {
+      setError(`کپشن اینستاگرام حداکثر ${IG_CAPTION_LIMIT} کاراکتر است`)
+      return
+    }
+    if (tags.length > IG_HASHTAG_LIMIT) {
+      setError(`اینستاگرام حداکثر ${IG_HASHTAG_LIMIT} هشتگ می‌پذیرد — بقیه را در کامنت اول بگذار`)
       return
     }
     setBusy(true)
@@ -162,16 +260,17 @@ export function ContentPage() {
       contentType: form.contentType,
       platforms: ['instagram'],
       status: form.publishDate ? 'scheduled' : 'planned',
-      publishDate: form.publishDate || undefined,
-      publishTime: form.windowStart || undefined,
-      windowStart: form.windowStart || undefined,
-      windowEnd: form.windowEnd || undefined,
+      publishDate: form.publishDate || '',
+      publishTime: form.windowStart || '',
+      windowStart: form.windowStart || '',
+      windowEnd: form.windowEnd || '',
       projectId: form.projectId || undefined,
       campaignId: form.campaignId || undefined,
-      occasionId: form.occasionId || undefined,
-      caption: form.caption.trim() || undefined,
-      hashtags: parseHashtags(form.hashtagText),
-      notes: form.notes.trim() || undefined,
+      occasionId: form.occasionId || '',
+      caption: form.caption.trim(),
+      hashtags: tags,
+      firstComment: form.firstComment.trim(),
+      notes: form.notes.trim(),
     }
     try {
       if (editingId) {
@@ -215,6 +314,29 @@ export function ContentPage() {
     }
   }
 
+  async function detach(contentId: string, linkId: string) {
+    try {
+      await api.detachAsset(contentId, linkId)
+      setAttached((prev) => ({
+        ...prev,
+        [contentId]: (prev[contentId] || []).filter((a) => a.linkId !== linkId),
+      }))
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+  async function duplicateItem(item: ContentDto) {
+    try {
+      const res = await api.duplicateContent(item.id)
+      setItems((prev) => [res.item, ...prev.filter((i) => i.id !== res.item.id)])
+      startEdit(res.item)
+      setMsg('کپی ساخته شد — تاریخ را عوض کن و ذخیره کن')
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
   async function removeItem(id: string) {
     if (!workspaceId || !window.confirm('این محتوا حذف شود؟')) return
     try {
@@ -243,14 +365,25 @@ export function ContentPage() {
       <header className="ops-page-head">
         <div>
           <h1>محتوا</h1>
-          <p>کپشن، هشتگ، مناسبت و زمان انتشار را اینجا بنویس — اگر نگذاری، تلگرام یادآوری می‌کند</p>
+          <p>کپشن، هشتگ، کامنت اول و زمان انتشار را اینجا بنویس — اگر نگذاری، تلگرام یادآوری می‌کند</p>
         </div>
-        {canRemind && (
-          <button type="button" className="btn btn-outline btn-sm" onClick={() => void runReminders()}>
-            چک یادآوری‌ها الان
-          </button>
-        )}
+        <div className="form-actions">
+          <Link to="/studio" className="btn btn-outline btn-sm">
+            ساخت کپشن در استودیو
+          </Link>
+          {canRemind && (
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => void runReminders()}>
+              چک یادآوری‌ها الان
+            </button>
+          )}
+        </div>
       </header>
+      {projects.length === 0 && (
+        <div className="form-banner error">
+          اول پیج اینستاگرام را اضافه کن.{' '}
+          <Link to="/projects">رفتن به پیج‌ها</Link>
+        </div>
+      )}
       {remindMsg && <div className="form-banner ok">{remindMsg}</div>}
       {error && <div className="form-banner error">{error}</div>}
       {msg && <div className="form-banner ok">{msg}</div>}
@@ -273,14 +406,14 @@ export function ContentPage() {
             />
           </div>
           <div className="field">
-            <label>نوع</label>
+            <label>نوع اینستاگرام</label>
             <select
               value={form.contentType}
               onChange={(e) => patchForm({ contentType: e.target.value as ContentType })}
             >
-              {Object.entries(CONTENT_TYPE_LABELS).map(([k, v]) => (
+              {typeOptions.map((k) => (
                 <option key={k} value={k}>
-                  {v}
+                  {CONTENT_TYPE_LABELS[k] || k}
                 </option>
               ))}
             </select>
@@ -316,7 +449,7 @@ export function ContentPage() {
           </div>
           <div className="field">
             <label>مناسبت</label>
-            <select value={form.occasionId} onChange={(e) => patchForm({ occasionId: e.target.value })}>
+            <select value={form.occasionId} onChange={(e) => applyOccasion(e.target.value)}>
               <option value="">— بدون مناسبت</option>
               {occasionOptions.map((o) => (
                 <option key={o.id} value={o.id}>
@@ -327,11 +460,24 @@ export function ContentPage() {
           </div>
           <div className="field">
             <label>تاریخ انتشار</label>
-            <input
-              type="date"
-              value={form.publishDate}
-              onChange={(e) => patchForm({ publishDate: e.target.value })}
-            />
+            <input type="date" value={form.publishDate} onChange={(e) => applyDate(e.target.value)} />
+            {form.publishDate && (
+              <span className="field-hint">شمسی: {formatJalaliFromIso(form.publishDate)}</span>
+            )}
+            {dateOccasions.length > 0 && (
+              <div className="chip-row" style={{ marginTop: '0.4rem' }}>
+                {dateOccasions.map((o) => (
+                  <button
+                    key={o.id}
+                    type="button"
+                    className={`chip ${form.occasionId === o.id ? 'active' : ''}`}
+                    onClick={() => applyOccasion(o.id)}
+                  >
+                    {o.nameFa}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div className="ops-filters" style={{ gridTemplateColumns: '1fr 1fr' }}>
             <div className="field" style={{ margin: 0 }}>
@@ -354,15 +500,32 @@ export function ContentPage() {
               onChange={(e) => patchForm({ caption: e.target.value })}
               placeholder="متن آماده انتشار..."
             />
+            <span className={`field-hint ${captionLen > IG_CAPTION_LIMIT ? 'warn' : ''}`}>
+              {captionLen} / {IG_CAPTION_LIMIT} کاراکتر
+            </span>
           </div>
           <div className="field">
-            <label>هشتگ‌ها</label>
+            <label>هشتگ‌ها (کپشن)</label>
             <input
               value={form.hashtagText}
               onChange={(e) => patchForm({ hashtagText: e.target.value })}
               placeholder="#cafe #tehran"
               dir="ltr"
             />
+            <span className={`field-hint ${tagCount > IG_HASHTAG_LIMIT ? 'warn' : ''}`}>
+              {tagCount} / {IG_HASHTAG_LIMIT} هشتگ — بقیه را در کامنت اول بگذار
+            </span>
+          </div>
+          <div className="field">
+            <label>کامنت اول (هشتگ اضافه)</label>
+            <textarea
+              value={form.firstComment}
+              onChange={(e) => patchForm({ firstComment: e.target.value })}
+              placeholder="#more #tags"
+            />
+            <span className={`field-hint ${firstLen > IG_FIRST_COMMENT_LIMIT ? 'warn' : ''}`}>
+              {firstLen} / {IG_FIRST_COMMENT_LIMIT} — جدا کپی می‌شود
+            </span>
           </div>
           <div className="field">
             <label>یادداشت داخلی</label>
@@ -372,6 +535,13 @@ export function ContentPage() {
               placeholder="ایده بصری، لوکیشن، نکات تولید..."
             />
           </div>
+          <InstagramPreview
+            handle={selectedPage?.handle || selectedPage?.clientName || selectedPage?.name}
+            caption={form.caption}
+            hashtags={parseHashtags(form.hashtagText)}
+            firstComment={form.firstComment}
+            contentType={form.contentType}
+          />
           <p className="section-sub">
             اگر تا پایان این بازه وضعیت «منتشر شده» نشود، پیام «اوستا اینو نذاشتی» به تلگرام می‌رود.
           </p>
@@ -389,6 +559,17 @@ export function ContentPage() {
 
         <section className="panel panel-pad">
           <h2 className="section-title">لیست محتوا</h2>
+          <div className="ops-filters" style={{ gridTemplateColumns: '1fr 1fr', marginBottom: '0.65rem' }}>
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="جستجوی عنوان یا کپشن..." />
+            <select value={filterType} onChange={(e) => setFilterType(e.target.value)}>
+              <option value="">همه انواع</option>
+              {IG_CONTENT_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {CONTENT_TYPE_LABELS[t]}
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="ops-filters" style={{ gridTemplateColumns: '1fr 1fr', marginBottom: '0.85rem' }}>
             <select value={filterProject} onChange={(e) => setFilterProject(e.target.value)}>
               <option value="">همه پیج‌ها</option>
@@ -410,7 +591,7 @@ export function ContentPage() {
           <div className="page-list">
             {filtered.length === 0 && <p className="section-sub">موردی نیست</p>}
             {filtered.map((item) => {
-              const copyText = [item.caption, formatHashtags(item.hashtags)].filter(Boolean).join('\n\n')
+              const copyCaption = [item.caption, formatHashtags(item.hashtags)].filter(Boolean).join('\n\n')
               return (
                 <article key={item.id} className="list-item content-card">
                   <div className="list-meta">
@@ -425,7 +606,9 @@ export function ContentPage() {
                     {item.occasionId
                       ? ` · ${occasions.find((o) => o.id === item.occasionId)?.nameFa || 'مناسبت'}`
                       : ''}
-                    {item.publishDate ? ` · ${item.publishDate}` : ''}
+                    {item.publishDate
+                      ? ` · ${item.publishDate} (${formatJalaliFromIso(item.publishDate)})`
+                      : ''}
                     {item.windowStart || item.windowEnd
                       ? ` · ${item.windowStart || '—'} تا ${item.windowEnd || '—'}`
                       : item.publishTime
@@ -443,30 +626,54 @@ export function ContentPage() {
                       ))}
                     </div>
                   )}
+                  {item.firstComment && <p className="section-sub">کامنت اول: {item.firstComment}</p>}
                   <div className="chip-row">
                     {(attached[item.id] || []).map((a) => (
-                      <span className="tag" key={a.linkId}>
-                        {a.type}: {a.filename}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="chip-row">
-                    {CONTENT_STATUS_FLOW.map((s) => (
                       <button
-                        key={s}
                         type="button"
-                        className={`chip ${item.status === s ? 'active' : ''}`}
-                        onClick={() => void moveStatus(item, s)}
+                        className="tag tag-btn"
+                        key={a.linkId}
+                        onClick={() => void detach(item.id, a.linkId)}
+                        title="جدا کردن فایل"
                       >
-                        {CONTENT_STATUS_LABELS[s]}
+                        {a.type}: {a.filename} ×
                       </button>
                     ))}
+                  </div>
+                  <div className="form-actions">
+                    <select
+                      value={item.status}
+                      onChange={(e) => void moveStatus(item, e.target.value as ContentStatus)}
+                    >
+                      {CONTENT_STATUS_FLOW.map((s) => (
+                        <option key={s} value={s}>
+                          {CONTENT_STATUS_LABELS[s]}
+                        </option>
+                      ))}
+                    </select>
+                    {item.status !== 'published' && (
+                      <button
+                        type="button"
+                        className="btn btn-solid btn-sm"
+                        onClick={() => void moveStatus(item, 'published')}
+                      >
+                        منتشر شد
+                      </button>
+                    )}
                   </div>
                   <div className="form-actions">
                     <button type="button" className="btn btn-outline btn-sm" onClick={() => startEdit(item)}>
                       ویرایش
                     </button>
-                    {copyText && <CopyButton text={copyText} label="کپی کپشن" />}
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      onClick={() => void duplicateItem(item)}
+                    >
+                      کپی برای روز دیگر
+                    </button>
+                    {copyCaption && <CopyButton text={copyCaption} label="کپی کپشن" />}
+                    {item.firstComment && <CopyButton text={item.firstComment} label="کپی کامنت اول" />}
                     <button
                       type="button"
                       className="btn btn-outline btn-sm"
@@ -485,16 +692,18 @@ export function ContentPage() {
                   {attachFor === item.id && (
                     <div className="attach-panel">
                       {assets.length === 0 && <p className="section-sub">فایلی برای اتصال نیست</p>}
-                      {assets.map((asset) => (
-                        <button
-                          key={asset.id}
-                          type="button"
-                          className="btn btn-outline btn-sm"
-                          onClick={() => void attach(asset.id, item.id)}
-                        >
-                          {asset.filename}
-                        </button>
-                      ))}
+                      {assets
+                        .filter((asset) => !(attached[item.id] || []).some((a) => a.id === asset.id))
+                        .map((asset) => (
+                          <button
+                            key={asset.id}
+                            type="button"
+                            className="btn btn-outline btn-sm"
+                            onClick={() => void attach(asset.id, item.id)}
+                          >
+                            {asset.filename}
+                          </button>
+                        ))}
                     </div>
                   )}
                 </article>

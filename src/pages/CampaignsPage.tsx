@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api, type CampaignDto, type ProjectDto } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 
@@ -133,9 +134,17 @@ export function CampaignsPage() {
                   {c.startDate || '—'} تا {c.endDate || '—'}
                   {c.projectId ? ` · ${projects.find((p) => p.id === c.projectId)?.name || ''}` : ''}
                 </p>
-                <button type="button" className="btn btn-outline btn-sm" onClick={() => void remove(c.id)}>
-                  حذف
-                </button>
+                <div className="form-actions">
+                  <Link
+                    className="btn btn-outline btn-sm"
+                    to={`/content?campaignId=${c.id}${c.projectId ? `&projectId=${c.projectId}` : ''}`}
+                  >
+                    برنامه‌ریزی محتوا
+                  </Link>
+                  <button type="button" className="btn btn-outline btn-sm" onClick={() => void remove(c.id)}>
+                    حذف
+                  </button>
+                </div>
               </article>
             ))}
           </div>

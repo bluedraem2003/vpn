@@ -13,6 +13,7 @@ import { IdeasView } from '../components/IdeasView'
 import { api, type ProjectDto } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { normalizeHandle } from '../lib/handle'
+import { parseHashtags } from '../lib/hashtags'
 
 function mapProject(p: ProjectDto): InstagramPage {
   return {
@@ -63,6 +64,7 @@ export function StudioPage() {
   const [toast, setToast] = useState<string | null>(null)
   const [calBusy, setCalBusy] = useState(false)
   const [calMsg, setCalMsg] = useState<string | null>(null)
+  const [scheduleDate, setScheduleDate] = useState(() => new Date().toISOString().slice(0, 10))
 
   async function reloadPages(id: string) {
     const res = await api.listProjects(id)
@@ -173,21 +175,30 @@ export function StudioPage() {
     const typeMap = { feed: 'post', reel: 'reel', story: 'story', carousel: 'carousel' } as const
     try {
       const page = pages.find((p) => p.id === activePageId)
-      await api.createContent({
+      const tags = parseHashtags([...(result.hashtags || []), ...(page?.hashtags || [])])
+      const captionTags = tags.slice(0, 30)
+      const extraTags = tags.slice(30)
+      const res = await api.createContent({
         workspaceId,
         title: result.input.topic.trim() || result.hook.slice(0, 80),
         contentType: typeMap[result.input.format] || 'post',
         platforms: ['instagram'],
-        status: 'planned',
+        status: scheduleDate ? 'scheduled' : 'planned',
+        publishDate: scheduleDate || undefined,
+        publishTime: page?.windowStart || undefined,
         projectId: activePageId || undefined,
         caption: result.caption,
-        hashtags: [...result.hashtags, ...(page?.hashtags || [])],
-        notes: [result.visualIdea, result.reelScript].filter(Boolean).join('\n\n'),
+        hashtags: captionTags,
+        firstComment: extraTags.join(' '),
+        notes: [result.visualIdea, result.reelScript, result.carouselSlides?.map((s, i) => `${i + 1}. ${s}`).join('\n')]
+          .filter(Boolean)
+          .join('\n\n'),
         windowStart: page?.windowStart || undefined,
         windowEnd: page?.windowEnd || undefined,
       })
-      setCalMsg('به تقویم/محتوا ارسال شد')
+      setCalMsg('به تقویم ارسال شد — در حال باز کردن محتوا...')
       notify('به بخش محتوا فرستاده شد')
+      navigate(`/content?edit=${res.item.id}`)
     } catch (e) {
       setCalMsg((e as Error).message)
     } finally {
@@ -255,6 +266,8 @@ export function StudioPage() {
             onSaveToCalendar={() => void saveToCalendar()}
             saveBusy={calBusy}
             saveMsg={calMsg}
+            scheduleDate={scheduleDate}
+            onScheduleDateChange={setScheduleDate}
           />
         </motion.div>
       )}

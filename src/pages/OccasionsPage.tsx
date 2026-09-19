@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api, type OccasionDto, type ProjectDto } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 
@@ -201,9 +202,14 @@ export function OccasionsPage() {
         <div className="chip-row" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
           {upcoming.length === 0 && <p className="section-sub">موردی در ادامه سال نیست</p>}
           {upcoming.map((o) => (
-            <span key={o.id} className="tag" title={o.nameEn}>
+            <Link
+              key={o.id}
+              className="tag tag-link"
+              title={o.nameEn}
+              to={`/content?date=${o.dateInYear}&occasionId=${o.id}${projectId ? `&projectId=${projectId}` : ''}`}
+            >
               {o.dateInYear} — {o.nameFa}
-            </span>
+            </Link>
           ))}
         </div>
       </section>
@@ -231,6 +237,14 @@ export function OccasionsPage() {
                 >
                   {linked ? 'وصل است — حذف' : 'وصل به پیج'}
                 </button>
+              )}
+              {o.dateInYear && (
+                <Link
+                  className="btn btn-outline btn-sm"
+                  to={`/content?date=${o.dateInYear}&occasionId=${o.id}${projectId ? `&projectId=${projectId}` : ''}`}
+                >
+                  برنامه‌ریزی محتوا
+                </Link>
               )}
               {o.custom && (
                 <button

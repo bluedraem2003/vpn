@@ -230,6 +230,7 @@ export function migrate() {
   ensureColumn('contents', 'window_end', 'TEXT')
   ensureColumn('contents', 'occasion_id', 'TEXT')
   ensureColumn('contents', 'reminded_at', 'TEXT')
+  ensureColumn('contents', 'first_comment', 'TEXT')
   ensureColumn('projects', 'niche', 'TEXT')
   ensureColumn('projects', 'audience', 'TEXT')
   ensureColumn('projects', 'voice', 'TEXT')

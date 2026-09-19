@@ -3,13 +3,20 @@ import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { CONTENT_STATUS_LABELS, type ContentStatus } from '../domain/types'
-import { formatJalaliDate } from '../lib/jalaali'
+import { formatJalaliDate, formatJalaliFromIso } from '../lib/jalaali'
 
 export function DashboardPage() {
   const { workspaceId } = useAuth()
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<Record<string, unknown> | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+
+  async function reload() {
+    if (!workspaceId) return
+    const dash = await api.dashboard(workspaceId)
+    setData(dash)
+  }
 
   useEffect(() => {
     if (!workspaceId) return
@@ -59,6 +66,16 @@ export function DashboardPage() {
   const pageCount = Number(data?.pageCount || 0)
   const scheduledCount = Number(data?.scheduledCount || 0)
 
+  async function markPublished(id: string) {
+    setActionError(null)
+    try {
+      await api.updateContent(id, { status: 'published' })
+      await reload()
+    } catch (e) {
+      setActionError((e as Error).message)
+    }
+  }
+
   return (
     <div className="ops-page">
       <header className="ops-page-head">
@@ -79,6 +96,14 @@ export function DashboardPage() {
         </div>
       </header>
 
+      {actionError && <div className="form-banner error">{actionError}</div>}
+      {pageCount === 0 && (
+        <div className="form-banner error">
+          هنوز پیجی ثبت نشده.{' '}
+          <Link to="/projects">پیج اینستاگرام را اضافه کن</Link>
+        </div>
+      )}
+
       <div className="ops-stat-grid">
         {[
           ['پیج‌ها', pageCount],
@@ -96,15 +121,19 @@ export function DashboardPage() {
       <div className="ops-split">
         <section className="panel panel-pad">
           <h2 className="section-title">امروز</h2>
-          <ItemList items={today} empty="محتوایی برای امروز نیست" />
+          <ItemList
+            items={today}
+            empty="محتوایی برای امروز نیست"
+            onPublished={markPublished}
+          />
         </section>
         <section className="panel panel-pad">
           <h2 className="section-title">پیش‌رو</h2>
-          <ItemList items={upcoming} empty="مورد آینده‌ای نیست" />
+          <ItemList items={upcoming} empty="مورد آینده‌ای نیست" onPublished={markPublished} />
         </section>
         <section className="panel panel-pad">
           <h2 className="section-title">عقب‌افتاده</h2>
-          <ItemList items={overdue} empty="عقب‌افتاده‌ای نیست" />
+          <ItemList items={overdue} empty="عقب‌افتاده‌ای نیست" onPublished={markPublished} />
         </section>
         <section className="panel panel-pad">
           <h2 className="section-title">مناسبت‌های نزدیک</h2>
@@ -114,8 +143,13 @@ export function DashboardPage() {
             <ul className="ops-list">
               {upcomingOccasions.map((o) => (
                 <li key={String(o.id)}>
-                  <strong>{String(o.nameFa)}</strong>
-                  <span>{String(o.dateInYear)}</span>
+                  <Link to={`/content?date=${String(o.dateInYear)}&occasionId=${String(o.id)}`}>
+                    <strong>{String(o.nameFa)}</strong>
+                  </Link>
+                  <span>
+                    {String(o.dateInYear)}
+                    {o.dateInYear ? ` · ${formatJalaliFromIso(String(o.dateInYear))}` : ''}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -160,9 +194,11 @@ export function DashboardPage() {
 function ItemList({
   items,
   empty,
+  onPublished,
 }: {
   items: Array<Record<string, unknown>>
   empty: string
+  onPublished?: (id: string) => void
 }) {
   if (!items.length) return <p className="section-sub">{empty}</p>
   return (
@@ -174,8 +210,16 @@ function ItemList({
           </Link>
           <span>
             {CONTENT_STATUS_LABELS[item.status as ContentStatus] || String(item.status)}
-            {item.publish_date ? ` · ${String(item.publish_date)}` : ''}
+            {item.publish_date
+              ? ` · ${String(item.publish_date)} (${formatJalaliFromIso(String(item.publish_date))})`
+              : ''}
+            {item.publish_time ? ` · ${String(item.publish_time)}` : ''}
           </span>
+          {onPublished && item.status !== 'published' && (
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => onPublished(String(item.id))}>
+              منتشر شد
+            </button>
+          )}
         </li>
       ))}
     </ul>

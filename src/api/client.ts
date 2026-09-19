@@ -87,10 +87,12 @@ export const api = {
   workspaces: () =>
     request<{ items: Array<{ id: string; name: string; slug: string; role?: string }> }>('/api/workspaces'),
   dashboard: (workspaceId: string) => request<Record<string, unknown>>(`/api/workspaces/${workspaceId}/dashboard`),
-  listContent: (workspaceId: string, params?: { status?: string; projectId?: string }) => {
+  listContent: (workspaceId: string, params?: { status?: string; projectId?: string; q?: string; type?: string }) => {
     const sp = new URLSearchParams({ workspaceId })
     if (params?.status) sp.set('status', params.status)
     if (params?.projectId) sp.set('projectId', params.projectId)
+    if (params?.q) sp.set('q', params.q)
+    if (params?.type) sp.set('type', params.type)
     return request<{ items: ContentDto[] }>(`/api/content?${sp}`)
   },
   createContent: (body: Partial<ContentDto> & { workspaceId: string; title: string; contentType: string }) =>
@@ -98,6 +100,13 @@ export const api = {
   updateContent: (id: string, body: Partial<ContentDto>) =>
     request<{ item: ContentDto }>(`/api/content/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   deleteContent: (id: string) => request<{ ok: boolean }>(`/api/content/${id}`, { method: 'DELETE' }),
+  duplicateContent: (id: string, body?: { publishDate?: string; title?: string }) =>
+    request<{ item: ContentDto }>(`/api/content/${id}/duplicate`, {
+      method: 'POST',
+      body: JSON.stringify(body || {}),
+    }),
+  detachAsset: (contentId: string, linkId: string) =>
+    request<{ ok: boolean }>(`/api/content/${contentId}/assets/${linkId}`, { method: 'DELETE' }),
   contentAssets: (contentId: string) =>
     request<{ items: Array<AssetDto & { linkId: string; role?: string }> }>(`/api/content/${contentId}/assets`),
   listAssets: (workspaceId: string, params?: { type?: string; q?: string; sort?: string }) => {
@@ -167,8 +176,11 @@ export const api = {
     priority?: string
     platforms?: string[]
   }) => request<{ item: IdeaDto }>('/api/ideas', { method: 'POST', body: JSON.stringify(body) }),
-  convertIdea: (id: string) =>
-    request<{ ok: boolean; contentId: string }>(`/api/ideas/${id}/convert`, { method: 'POST' }),
+  convertIdea: (id: string, body?: { projectId?: string }) =>
+    request<{ ok: boolean; contentId: string }>(`/api/ideas/${id}/convert`, {
+      method: 'POST',
+      body: JSON.stringify(body || {}),
+    }),
   deleteIdea: (id: string) => request<{ ok: boolean }>(`/api/ideas/${id}`, { method: 'DELETE' }),
   team: () =>
     request<{ items: Array<{ id: string; email: string; name: string; role: string }> }>('/api/team'),
@@ -228,6 +240,7 @@ export interface ContentDto {
   occasionId?: string
   remindedAt?: string
   caption?: string
+  firstComment?: string
   hashtags: string[]
   notes?: string
   projectId?: string

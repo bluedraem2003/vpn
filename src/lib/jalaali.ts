@@ -30,3 +30,13 @@ export function formatJalaliDate(d: Date) {
   const j = toJalali(d.getFullYear(), d.getMonth() + 1, d.getDate())
   return `${j.jy}/${String(j.jm).padStart(2, '0')}/${String(j.jd).padStart(2, '0')}`
 }
+
+/** Gregorian ISO `YYYY-MM-DD` → Jalali display, using local calendar date. */
+export function formatJalaliFromIso(iso: string) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso.trim())
+  if (!m) return ''
+  const y = Number(m[1])
+  const mo = Number(m[2])
+  const d = Number(m[3])
+  return formatJalaliDate(new Date(y, mo - 1, d))
+}

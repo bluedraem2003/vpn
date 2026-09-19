@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type MouseEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { api, type ContentDto, type OccasionDto, type ProjectDto } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import {
@@ -71,15 +71,27 @@ export function CalendarPage() {
 
   const todayKey = formatDate(new Date())
 
-  function openDay(date: string) {
+  function openDay(date: string, occasionId?: string) {
     const qs = new URLSearchParams({ date })
     if (projectId) qs.set('projectId', projectId)
+    if (occasionId) qs.set('occasionId', occasionId)
     navigate(`/content?${qs}`)
   }
 
   function openItem(id: string, e: MouseEvent) {
     e.stopPropagation()
     navigate(`/content?edit=${id}`)
+  }
+
+  function openOccasion(date: string, occasionId: string, e: MouseEvent) {
+    e.stopPropagation()
+    openDay(date, occasionId)
+  }
+
+  function shift(n: number) {
+    if (view === 'week') setCursor(addDays(cursor, n * 7))
+    else if (view === 'day') setCursor(addDays(cursor, n))
+    else setCursor(addMonths(cursor, n))
   }
 
   return (
@@ -104,6 +116,12 @@ export function CalendarPage() {
       </header>
 
       {error && <div className="form-banner error">{error}</div>}
+      {projects.length === 0 && (
+        <div className="form-banner error">
+          اول پیج اینستاگرام را اضافه کن.{' '}
+          <Link to="/projects">رفتن به پیج‌ها</Link>
+        </div>
+      )}
 
       <div className="panel panel-pad">
         <div className="result-head" style={{ marginBottom: '1rem' }}>
@@ -119,13 +137,13 @@ export function CalendarPage() {
                 </option>
               ))}
             </select>
-            <button type="button" className="btn btn-outline btn-sm" onClick={() => setCursor(addMonths(cursor, -1))}>
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => shift(-1)}>
               قبلی
             </button>
             <button type="button" className="btn btn-outline btn-sm" onClick={() => setCursor(new Date())}>
               امروز
             </button>
-            <button type="button" className="btn btn-outline btn-sm" onClick={() => setCursor(addMonths(cursor, 1))}>
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => shift(1)}>
               بعدی
             </button>
           </div>
@@ -151,7 +169,13 @@ export function CalendarPage() {
             ))}
             {occasions.map((o) => (
               <li key={o.id}>
-                <strong>🎉 {o.nameFa}</strong>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={() => o.dateInYear && openDay(o.dateInYear, o.id)}
+                >
+                  🎉 {o.nameFa}
+                </button>
                 <span>
                   {o.dateInYear} · {o.region === 'ir' ? 'ایرانی' : o.region === 'custom' ? 'اختصاصی' : 'جهانی'}
                 </span>
@@ -187,7 +211,12 @@ export function CalendarPage() {
                     </div>
                   )}
                   {dayOcc.slice(0, 2).map((o) => (
-                    <div key={o.id} className="cal-pill cal-pill-occasion" title={o.nameEn || o.nameFa}>
+                    <div
+                      key={o.id}
+                      className="cal-pill cal-pill-occasion"
+                      title={o.nameEn || o.nameFa}
+                      onClick={(e) => openOccasion(key, o.id, e)}
+                    >
                       {o.nameFa}
                     </div>
                   ))}
@@ -201,6 +230,7 @@ export function CalendarPage() {
                       {i.title}
                     </div>
                   ))}
+                  {dayItems.length > 3 && <div className="cal-more">+{dayItems.length - 3} مورد دیگر</div>}
                 </button>
               )
             })}
@@ -234,7 +264,7 @@ function WeekDayView({
   view: 'week' | 'day'
   items: ContentDto[]
   occasions: Map<string, OccasionDto[]>
-  onDay: (date: string) => void
+  onDay: (date: string, occasionId?: string) => void
   onItem: (id: string, e: MouseEvent) => void
 }) {
   const days =
@@ -262,7 +292,14 @@ function WeekDayView({
           >
             <strong>{d.toLocaleDateString('fa-IR', { weekday: 'short', day: 'numeric' })}</strong>
             {dayOcc.map((o) => (
-              <div key={o.id} className="cal-pill cal-pill-occasion">
+              <div
+                key={o.id}
+                className="cal-pill cal-pill-occasion"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onDay(key, o.id)
+                }}
+              >
                 {o.nameFa}
               </div>
             ))}
@@ -285,6 +322,12 @@ function formatDate(d: Date) {
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
+}
+
+function addDays(d: Date, n: number) {
+  const x = new Date(d)
+  x.setDate(x.getDate() + n)
+  return x
 }
 
 function addMonths(d: Date, n: number) {

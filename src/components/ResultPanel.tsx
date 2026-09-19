@@ -1,6 +1,8 @@
 import type { GeneratedContent } from '../types'
 import { CopyButton } from './CopyButton'
 import { formatLabels, toneLabels } from '../lib/generator'
+import { IG_CAPTION_LIMIT, IG_HASHTAG_LIMIT, parseHashtags } from '../lib/hashtags'
+import { formatJalaliFromIso } from '../lib/jalaali'
 import { motion } from 'framer-motion'
 
 interface ResultPanelProps {
@@ -8,9 +10,18 @@ interface ResultPanelProps {
   onSaveToCalendar?: () => void
   saveBusy?: boolean
   saveMsg?: string | null
+  scheduleDate?: string
+  onScheduleDateChange?: (value: string) => void
 }
 
-export function ResultPanel({ result, onSaveToCalendar, saveBusy, saveMsg }: ResultPanelProps) {
+export function ResultPanel({
+  result,
+  onSaveToCalendar,
+  saveBusy,
+  saveMsg,
+  scheduleDate,
+  onScheduleDateChange,
+}: ResultPanelProps) {
   if (!result) {
     return (
       <div className="panel panel-pad">
@@ -54,13 +65,24 @@ export function ResultPanel({ result, onSaveToCalendar, saveBusy, saveMsg }: Res
         </div>
         <div className="form-actions">
           <CopyButton text={allText} label="کپی همه" />
-          {onSaveToCalendar && (
-            <button type="button" className="btn btn-solid btn-sm" disabled={saveBusy} onClick={onSaveToCalendar}>
-              {saveBusy ? 'در حال ارسال...' : 'ارسال به تقویم'}
-            </button>
-          )}
         </div>
       </div>
+      {onSaveToCalendar && (
+        <div className="studio-schedule">
+          <div className="field" style={{ margin: 0 }}>
+            <label>تاریخ انتشار</label>
+            <input
+              type="date"
+              value={scheduleDate || ''}
+              onChange={(e) => onScheduleDateChange?.(e.target.value)}
+            />
+            {scheduleDate && <span className="field-hint">شمسی: {formatJalaliFromIso(scheduleDate)}</span>}
+          </div>
+          <button type="button" className="btn btn-solid" disabled={saveBusy} onClick={onSaveToCalendar}>
+            {saveBusy ? 'در حال ارسال...' : scheduleDate ? 'ارسال به تقویم' : 'ذخیره بدون تاریخ'}
+          </button>
+        </div>
+      )}
       {saveMsg && <p className="form-banner ok">{saveMsg}</p>}
 
       <div className="result-block">
@@ -77,6 +99,9 @@ export function ResultPanel({ result, onSaveToCalendar, saveBusy, saveMsg }: Res
           <CopyButton text={result.caption} />
         </div>
         <p className="pre">{result.caption}</p>
+        <span className={`field-hint ${result.caption.length > IG_CAPTION_LIMIT ? 'warn' : ''}`}>
+          {result.caption.length} / {IG_CAPTION_LIMIT} کاراکتر
+        </span>
       </div>
 
       <div className="result-block">
@@ -84,6 +109,9 @@ export function ResultPanel({ result, onSaveToCalendar, saveBusy, saveMsg }: Res
           <h3>هشتگ‌ها</h3>
           <CopyButton text={result.hashtags.join(' ')} />
         </div>
+        <span className={`field-hint ${parseHashtags(result.hashtags).length > IG_HASHTAG_LIMIT ? 'warn' : ''}`}>
+          {parseHashtags(result.hashtags).length} / {IG_HASHTAG_LIMIT} هشتگ
+        </span>
         <div className="tags">
           {result.hashtags.map((t) => (
             <span className="tag" key={t}>
