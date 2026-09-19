@@ -124,21 +124,30 @@ workspaceRoutes.get('/:id/dashboard', (c) => {
   const recentEvents = (
     db
       .prepare(
-        `SELECT id, project_id, handle, kind, title, body, url, read_at, created_at
+        `SELECT id, project_id, handle, kind, title, body, url, meta, read_at, created_at
          FROM notifications WHERE workspace_id = ? ORDER BY created_at DESC LIMIT 8`,
       )
       .all(workspaceId) as Array<Record<string, unknown>>
-  ).map((r) => ({
-    id: r.id,
-    projectId: r.project_id || null,
-    handle: r.handle || null,
-    kind: r.kind,
-    title: r.title,
-    body: r.body || null,
-    url: r.url || null,
-    readAt: r.read_at || null,
-    createdAt: r.created_at,
-  }))
+  ).map((r) => {
+    let meta: Record<string, unknown> = {}
+    try {
+      meta = JSON.parse(String(r.meta || '{}'))
+    } catch {
+      meta = {}
+    }
+    return {
+      id: r.id,
+      projectId: r.project_id || null,
+      handle: r.handle || null,
+      kind: r.kind,
+      title: r.title,
+      body: r.body || null,
+      url: r.url || null,
+      meta,
+      readAt: r.read_at || null,
+      createdAt: r.created_at,
+    }
+  })
   const unreadNotifications = (
     db
       .prepare(`SELECT COUNT(*) AS c FROM notifications WHERE workspace_id = ? AND read_at IS NULL`)

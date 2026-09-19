@@ -18,6 +18,11 @@ Copy `.env.example` to `.env` and fill values.
 | `TELEGRAM_API_BASE` | Bot API or Local Bot API base |
 | `TELEGRAM_NOTIFY_CHAT_ID` | Optional chat for ops alerts (defaults to `TELEGRAM_CHAT_ID`) |
 | `REMINDER_INTERVAL_MS` | Missed-schedule reminder poll interval (default 60000) |
+| `IG_SYNC_TICK_MS` | How often the live-page scheduler wakes up (default 300000 = 5 min, min 60000). Each tick syncs at most one due page |
+| `IG_SYNC_INTERVAL_MS` | Minimum gap between two automatic syncs of the same page (default 1800000 = 30 min, min 5 min) |
+| `IG_SYNC_DISABLED` | `1` = turn off automatic page sync (manual “Sync now” still works) |
+| `MEDIA_PROXY_SECRET` | HMAC secret for the signed Instagram media proxy (falls back to `TELEGRAM_WEBHOOK_SECRET`) |
+| `INSTAGRAM_SESSION_COOKIE` | Optional Instagram web cookie (`sessionid=`) to reduce public-endpoint throttling. Never required |
 | `VITE_API_URL` | Leave empty when UI is same-origin with API |
 | `STATIC_DIR` | Optional override for Vite `dist/` folder |
 

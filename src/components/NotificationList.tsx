@@ -42,6 +42,7 @@ export function notificationBody(
   n: (v: number, d?: number) => string,
 ) {
   const m = item.meta || {}
+  if (!Object.keys(m).length) return item.body || ''
   switch (item.kind) {
     case 'page_connected':
       return t('notif.connectedBody', { followers: n(Number(m.followers) || 0), posts: n(Number(m.posts) || 0) })
