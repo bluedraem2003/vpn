@@ -46,13 +46,13 @@ export function ProjectsPage() {
 
   async function save() {
     if (!workspaceId) {
-      setError('وارد حساب نشده‌اید')
+      setError(t('projects.notSignedIn'))
       return
     }
     const handle = normalizeHandle(form.handle) || undefined
     const name = form.name.trim() || handle || ''
     if (!name) {
-      setError('پیج را از لیست انتخاب کن یا نام را بنویس')
+      setError(t('projects.needName'))
       return
     }
     setBusy(true)
@@ -74,12 +74,12 @@ export function ProjectsPage() {
       if (editingId) {
         const res = await api.updateProject(editingId, body)
         setItems((prev) => prev.map((p) => (p.id === editingId ? res.item : p)))
-        setMsg('پیج به‌روزرسانی شد')
+        setMsg(t('projects.updated'))
         resetForm()
       } else {
         const res = await api.createProject({ workspaceId, ...body })
         setItems((prev) => [res.item, ...prev.filter((p) => p.id !== res.item.id)])
-        setMsg('پیج ذخیره شد')
+        setMsg(t('projects.saved'))
         resetForm()
       }
       await reload()
@@ -108,13 +108,13 @@ export function ProjectsPage() {
   }
 
   async function remove(id: string) {
-    if (!window.confirm('این پیج حذف شود؟')) return
+    if (!window.confirm(t('projects.confirmDelete'))) return
     setError(null)
     try {
       await api.deleteProject(id)
       setItems((prev) => prev.filter((p) => p.id !== id))
       if (editingId === id) resetForm()
-      setMsg('پیج حذف شد')
+      setMsg(t('projects.deleted'))
     } catch (e) {
       setError((e as Error).message)
     }
@@ -138,15 +138,15 @@ export function ProjectsPage() {
             void save()
           }}
         >
-          <h2 className="section-title">{editingId ? 'ویرایش پیج' : 'افزودن پیج'}</h2>
-          <p className="section-sub">پیج‌های داخل اینستاگرام را جستجو کن و از لیست انتخاب کن</p>
+          <h2 className="section-title">{editingId ? t('projects.editTitle') : t('projects.addTitle')}</h2>
+          <p className="section-sub">{t('projects.searchHint')}</p>
           <div className="field">
-            <label htmlFor="prj-name">نام پیج</label>
+            <label htmlFor="prj-name">{t('projects.name')}</label>
             <input
               id="prj-name"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="اگر از لیست انتخاب کنی، خودش پر می‌شود"
+              placeholder={t('projects.namePh')}
               disabled={busy}
             />
           </div>
@@ -165,38 +165,38 @@ export function ProjectsPage() {
             }
           />
           <div className="field">
-            <label htmlFor="prj-niche">حوزه / نیچ</label>
+            <label htmlFor="prj-niche">{t('projects.niche')}</label>
             <input
               id="prj-niche"
               value={form.niche}
               onChange={(e) => setForm({ ...form, niche: e.target.value })}
-              placeholder="کافه، زیبایی، آموزش..."
+              placeholder={t('projects.nichePh')}
               disabled={busy}
             />
           </div>
           <div className="field">
-            <label htmlFor="prj-audience">مخاطب هدف</label>
+            <label htmlFor="prj-audience">{t('projects.audience')}</label>
             <input
               id="prj-audience"
               value={form.audience}
               onChange={(e) => setForm({ ...form, audience: e.target.value })}
-              placeholder="مثلاً جوانان ۲۰–۳۵"
+              placeholder={t('projects.audiencePh')}
               disabled={busy}
             />
           </div>
           <div className="field">
-            <label htmlFor="prj-voice">صدای برند</label>
+            <label htmlFor="prj-voice">{t('projects.voice')}</label>
             <textarea
               id="prj-voice"
               value={form.voice}
               onChange={(e) => setForm({ ...form, voice: e.target.value })}
-              placeholder="صمیمی، آموزشی، لوکس..."
+              placeholder={t('projects.voicePh')}
               disabled={busy}
             />
           </div>
           <div className="ops-filters" style={{ gridTemplateColumns: '1fr 1fr' }}>
             <div className="field" style={{ margin: 0 }}>
-              <label htmlFor="prj-ws">ساعت انتشار از</label>
+              <label htmlFor="prj-ws">{t('projects.windowFrom')}</label>
               <input
                 id="prj-ws"
                 type="time"
@@ -206,7 +206,7 @@ export function ProjectsPage() {
               />
             </div>
             <div className="field" style={{ margin: 0 }}>
-              <label htmlFor="prj-we">تا</label>
+              <label htmlFor="prj-we">{t('common.toHour')}</label>
               <input
                 id="prj-we"
                 type="time"
@@ -217,7 +217,7 @@ export function ProjectsPage() {
             </div>
           </div>
           <div className="field">
-            <label htmlFor="prj-tags">هشتگ‌های پیش‌فرض</label>
+            <label htmlFor="prj-tags">{t('projects.defaultTags')}</label>
             <input
               id="prj-tags"
               value={form.hashtagText}
@@ -228,54 +228,54 @@ export function ProjectsPage() {
             />
           </div>
           <div className="field">
-            <label htmlFor="prj-notes">یادداشت پیج</label>
+            <label htmlFor="prj-notes">{t('projects.notes')}</label>
             <textarea
               id="prj-notes"
               value={form.notes}
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              placeholder="قوانین برند، چیزهایی که نباید بگوییم..."
+              placeholder={t('projects.notesPh')}
               disabled={busy}
             />
           </div>
           <div className="form-actions">
             <button type="submit" className="btn btn-solid" disabled={busy}>
-              {busy ? 'در حال ذخیره...' : editingId ? 'به‌روزرسانی پیج' : 'ذخیره پیج'}
+              {busy ? t('common.saving') : editingId ? t('projects.update') : t('projects.save')}
             </button>
             {editingId && (
               <button type="button" className="btn btn-outline" disabled={busy} onClick={resetForm}>
-                انصراف
+                {t('common.cancel')}
               </button>
             )}
           </div>
         </form>
         <section className="panel panel-pad">
-          <h2 className="section-title">پیج‌های من</h2>
+          <h2 className="section-title">{t('projects.mine')}</h2>
           <div className="page-list">
             {items.length === 0 && (
               <div className="empty">
-                <strong>هنوز پیجی نیست</strong>
-                از فرم روبه‌رو پیج اینستاگرامت را اضافه کن.
+                <strong>{t('projects.emptyTitle')}</strong>
+                {t('projects.emptySub')}
               </div>
             )}
             {items.map((p) => (
               <article key={p.id} className="list-item">
                 <h3>{p.name}</h3>
                 {(p.handle || p.clientName) && <p>@{String(p.handle || p.clientName).replace(/^@/, '')}</p>}
-                {p.niche && <p>حوزه: {p.niche}</p>}
-                {p.audience && <p>مخاطب: {p.audience}</p>}
-                {p.voice && <p>صدا: {p.voice}</p>}
+                {p.niche && <p>{t('projects.nicheLine', { v: p.niche })}</p>}
+                {p.audience && <p>{t('projects.audienceLine', { v: p.audience })}</p>}
+                {p.voice && <p>{t('projects.voiceLine', { v: p.voice })}</p>}
                 {(p.windowStart || p.windowEnd) && (
                   <p>
-                    بازه انتشار: {p.windowStart || '—'} تا {p.windowEnd || '—'}
+                    {t('projects.windowLine', { start: p.windowStart || '—', end: p.windowEnd || '—' })}
                   </p>
                 )}
                 {p.hashtags && p.hashtags.length > 0 && <p>{p.hashtags.join(' ')}</p>}
                 <div className="form-actions">
                   <button type="button" className="btn btn-outline btn-sm" onClick={() => startEdit(p)}>
-                    ویرایش
+                    {t('common.edit')}
                   </button>
                   <button type="button" className="btn btn-outline btn-sm" onClick={() => void remove(p.id)}>
-                    حذف
+                    {t('common.delete')}
                   </button>
                 </div>
               </article>
