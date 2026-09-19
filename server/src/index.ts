@@ -20,7 +20,9 @@ import { teamRoutes } from './routes/team.js'
 import { analyticsRoutes } from './routes/analytics.js'
 import { occasionRoutes } from './routes/occasions.js'
 import { instagramRoutes } from './routes/instagram.js'
+import { notificationRoutes } from './routes/notifications.js'
 import { runMissedScheduleReminders } from './jobs/reminders.js'
+import { pageSyncIntervalMs, syncDueConnectedPages } from './lib/pageSync.js'
 
 migrate()
 seedIfEmpty()
@@ -103,6 +105,7 @@ app.route('/api/team', teamRoutes)
 app.route('/api/analytics', analyticsRoutes)
 app.route('/api/occasions', occasionRoutes)
 app.route('/api/instagram', instagramRoutes)
+app.route('/api/notifications', notificationRoutes)
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const distCandidates = [
@@ -134,8 +137,9 @@ if (staticRoot) {
 
 app.onError((err, c) => {
   console.error('[API]', err.message)
-  const status = err.message.includes('مجاز نیست') ? 403 : 500
-  return c.json({ error: err.message || 'خطای سرور' }, status)
+  const forbidden = err.message.includes('مجاز نیست')
+  const status = forbidden ? 403 : 500
+  return c.json({ error: err.message || 'خطای سرور', code: forbidden ? 'forbidden' : 'server_error' }, status)
 })
 
 const port = Number(process.env.PORT || 8787)
@@ -154,6 +158,19 @@ serve({ fetch: app.fetch, port, hostname }, () => {
       .catch((err) => console.error('[Reminders]', (err as Error).message))
   }, tickMs)
   console.log(`[Reminders] interval ${tickMs}ms`)
+
+  // Live page sync: one connected page per tick, never while Instagram is cooling down.
+  const syncTickMs = Math.max(60_000, Number(process.env.IG_SYNC_TICK_MS || 5 * 60_000))
+  if (process.env.IG_SYNC_DISABLED !== '1') {
+    setInterval(() => {
+      void syncDueConnectedPages()
+        .then((r) => {
+          if (r.synced > 0) console.log('[PageSync] synced', r.synced)
+        })
+        .catch((err) => console.error('[PageSync]', (err as Error).message))
+    }, syncTickMs)
+    console.log(`[PageSync] tick ${syncTickMs}ms · per-page interval ${pageSyncIntervalMs()}ms`)
+  }
 })
 
 export default app

@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { db } from '../db/index.js'
 import { requireAuth } from '../middleware/auth.js'
 import { occasionDateInYear } from '../lib/jalaali.js'
+import { mapProject } from './projects.js'
 
 export const workspaceRoutes = new Hono()
 workspaceRoutes.use('*', requireAuth)
@@ -114,6 +115,36 @@ workspaceRoutes.get('/:id/dashboard', (c) => {
     .sort((a, b) => String(a.dateInYear).localeCompare(String(b.dateInYear)))
     .slice(0, 8)
 
+  const pages = (
+    db
+      .prepare(`SELECT * FROM projects WHERE workspace_id = ? ORDER BY created_at ASC`)
+      .all(workspaceId) as Array<Record<string, unknown>>
+  ).map(mapProject)
+
+  const recentEvents = (
+    db
+      .prepare(
+        `SELECT id, project_id, handle, kind, title, body, url, read_at, created_at
+         FROM notifications WHERE workspace_id = ? ORDER BY created_at DESC LIMIT 8`,
+      )
+      .all(workspaceId) as Array<Record<string, unknown>>
+  ).map((r) => ({
+    id: r.id,
+    projectId: r.project_id || null,
+    handle: r.handle || null,
+    kind: r.kind,
+    title: r.title,
+    body: r.body || null,
+    url: r.url || null,
+    readAt: r.read_at || null,
+    createdAt: r.created_at,
+  }))
+  const unreadNotifications = (
+    db
+      .prepare(`SELECT COUNT(*) AS c FROM notifications WHERE workspace_id = ? AND read_at IS NULL`)
+      .get(workspaceId) as { c: number }
+  ).c
+
   return c.json({
     byStatus,
     today: todayItems,
@@ -121,6 +152,9 @@ workspaceRoutes.get('/:id/dashboard', (c) => {
     overdue,
     recentAssets,
     pageCount,
+    pages,
+    recentEvents,
+    unreadNotifications,
     scheduledCount,
     upcomingOccasions,
     progress: {

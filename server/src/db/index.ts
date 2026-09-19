@@ -245,7 +245,30 @@ export function migrate() {
       fetched_at TEXT NOT NULL,
       payload TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS notifications (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+      project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
+      handle TEXT,
+      kind TEXT NOT NULL,
+      title TEXT NOT NULL,
+      body TEXT,
+      url TEXT,
+      meta TEXT NOT NULL DEFAULT '{}',
+      read_at TEXT,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_notifications_ws ON notifications(workspace_id, created_at);
+    CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications(workspace_id, read_at);
   `)
+
+  ensureColumn('projects', 'ig_connected_at', 'TEXT')
+  ensureColumn('projects', 'ig_last_synced_at', 'TEXT')
+  ensureColumn('projects', 'ig_last_attempt_at', 'TEXT')
+  ensureColumn('projects', 'ig_sync_status', 'TEXT')
+  ensureColumn('projects', 'ig_sync_error', 'TEXT')
+  ensureColumn('projects', 'ig_state', 'TEXT')
 
   ensureColumn('contents', 'window_start', 'TEXT')
   ensureColumn('contents', 'window_end', 'TEXT')
