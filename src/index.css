@@ -1446,6 +1446,11 @@ a {
   display: flex;
   text-decoration: none;
   color: inherit;
+  width: 100%;
+  font: inherit;
+  text-align: inherit;
+  cursor: pointer;
+  padding: 0;
 }
 
 .ig-post-card {
@@ -1529,6 +1534,39 @@ a {
   padding: 0.4rem 0.5rem;
   border-bottom: 1px solid var(--line);
   white-space: nowrap;
+}
+
+.ig-post-modal-backdrop {
+  z-index: 120;
+}
+
+.ig-post-modal {
+  width: min(520px, 100%);
+  max-height: min(90vh, 860px);
+  overflow: auto;
+}
+
+.ig-post-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.ig-post-modal-img {
+  width: 100%;
+  border-radius: 14px;
+  object-fit: cover;
+  background: #111;
+}
+
+.ig-post-modal-stats,
+.ig-post-modal-caption {
+  margin: 0.65rem 0 0;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
 }
 
 @media (max-width: 980px) {

@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   BadgeCheck,
   Clapperboard,
-  ExternalLink,
   Eye,
   Heart,
   Images,
@@ -10,6 +9,7 @@ import {
   PlugZap,
   RefreshCw,
   Users,
+  X,
 } from 'lucide-react'
 import {
   api,
@@ -163,19 +163,8 @@ export function AnalyticsPage() {
       <header className="ops-page-head">
         <div>
           <h1>آنالیتیکس پیج</h1>
-          <p>تحلیل زنده از اینستاگرام داخل پست‌یار — بدون پسورد. برای Reach و Impressions، Supermetrics یا Meta را وصل کن.</p>
+          <p>تحلیل زنده از اینستاگرام داخل پست‌یار — پست‌ها را همین‌جا باز کن. صفحه کوکی اینستاگرام لازم نیست.</p>
         </div>
-        {page ? (
-          <a
-            className="btn btn-outline btn-sm"
-            href={`https://www.instagram.com/${page.handle}/`}
-            target="_blank"
-            rel="noreferrer"
-          >
-            <ExternalLink size={14} />
-            باز کردن پیج
-          </a>
-        ) : null}
       </header>
 
       <section className="panel panel-pad ig-insight-panel">
@@ -315,6 +304,7 @@ function ConnectorCards({
 
 function PageReport({ page }: { page: PageInsights }) {
   const mixTotal = Math.max(1, page.mix.reel + page.mix.carousel + page.mix.post)
+  const [openPost, setOpenPost] = useState<PagePostInsight | null>(null)
   return (
     <>
       <section className="panel panel-pad ig-profile-card">
@@ -391,7 +381,7 @@ function PageReport({ page }: { page: PageInsights }) {
         <section className="panel panel-pad">
           <h2 className="section-title">بهترین پست</h2>
           {page.bestPost ? (
-            <PostRow post={page.bestPost} />
+            <PostRow post={page.bestPost} onOpen={setOpenPost} />
           ) : (
             <p className="section-sub">پست عمومی برای مقایسه نیست</p>
           )}
@@ -405,22 +395,23 @@ function PageReport({ page }: { page: PageInsights }) {
         ) : (
           <div className="ig-post-grid">
             {page.recentPosts.map((post) => (
-              <PostCard key={post.shortcode || post.url} post={post} />
+              <PostCard key={post.shortcode || post.url} post={post} onOpen={setOpenPost} />
             ))}
           </div>
         )}
         <p className="section-sub" style={{ marginTop: '0.85rem' }}>
           به‌روز شده {faDate(page.fetchedAt)} — لایک و کامنت از پست‌های عمومی است؛ Reach و Impressions فقط با
-          Supermetrics یا Meta می‌آید.
+          Supermetrics یا Meta می‌آید. برای دیدن پست لازم نیست Allow all cookies اینستاگرام را بزنی.
         </p>
       </section>
+      {openPost ? <IgPostModal post={openPost} onClose={() => setOpenPost(null)} /> : null}
     </>
   )
 }
 
-function PostRow({ post }: { post: PagePostInsight }) {
+function PostRow({ post, onOpen }: { post: PagePostInsight; onOpen: (post: PagePostInsight) => void }) {
   return (
-    <a className="ig-post-row" href={post.url} target="_blank" rel="noreferrer">
+    <button type="button" className="ig-post-row" onClick={() => onOpen(post)}>
       {post.thumbUrl ? (
         <img src={post.thumbUrl} alt="" referrerPolicy="no-referrer" />
       ) : (
@@ -437,13 +428,13 @@ function PostRow({ post }: { post: PagePostInsight }) {
         </em>
         {post.caption ? <em className="ig-caption">{post.caption}</em> : null}
       </span>
-    </a>
+    </button>
   )
 }
 
-function PostCard({ post }: { post: PagePostInsight }) {
+function PostCard({ post, onOpen }: { post: PagePostInsight; onOpen: (post: PagePostInsight) => void }) {
   return (
-    <a className="ig-post-card" href={post.url} target="_blank" rel="noreferrer">
+    <button type="button" className="ig-post-card" onClick={() => onOpen(post)}>
       {post.thumbUrl ? (
         <img src={post.thumbUrl} alt="" referrerPolicy="no-referrer" />
       ) : (
@@ -459,7 +450,50 @@ function PostCard({ post }: { post: PagePostInsight }) {
           </>
         ) : null}
       </span>
-    </a>
+    </button>
+  )
+}
+
+function IgPostModal({ post, onClose }: { post: PagePostInsight; onClose: () => void }) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return (
+    <div className="modal-backdrop ig-post-modal-backdrop" role="presentation" onClick={onClose}>
+      <div
+        className="panel panel-pad ig-post-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="پیش‌نمایش پست"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="ig-post-modal-head">
+          <strong>
+            {POST_TYPE[post.type]} · تعامل {faNum(post.engagement, 2)}٪
+          </strong>
+          <button type="button" className="btn btn-outline btn-sm" onClick={onClose} aria-label="بستن">
+            <X size={16} />
+          </button>
+        </header>
+        {post.thumbUrl ? (
+          <img className="ig-post-modal-img" src={post.thumbUrl} alt="" referrerPolicy="no-referrer" />
+        ) : (
+          <span className="ig-thumb-fallback">{POST_TYPE[post.type]}</span>
+        )}
+        <p className="ig-post-modal-stats">
+          {faNum(post.likes)} لایک · {faNum(post.comments)} کامنت
+          {post.views != null ? ` · ${faNum(post.views)} بازدید` : ''}
+          {post.takenAt ? ` · ${faDate(post.takenAt)}` : ''}
+        </p>
+        {post.caption ? <p className="ig-post-modal-caption">{post.caption}</p> : null}
+        <p className="section-sub">این پیش‌نمایش داخل پست‌یار است. صفحه کوکی اینستاگرام را لازم نداری.</p>
+      </div>
+    </div>
   )
 }
 
