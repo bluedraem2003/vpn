@@ -14,6 +14,7 @@ import {
 import { formatHashtags, IG_CAPTION_LIMIT, IG_FIRST_COMMENT_LIMIT, IG_HASHTAG_LIMIT, parseHashtags } from '../lib/hashtags'
 import { formatJalaliFromIso } from '../lib/jalaali'
 import { occasionLabel } from '../lib/occasionLabel'
+import { occasionHint, occasionSpanDays, pickOccasionForDate, publishDateForOccasion } from '../lib/occasionSpan'
 import { useI18n } from '../prefs/PrefsProvider'
 
 const emptyForm = {
@@ -52,9 +53,26 @@ export function ContentPage() {
   const [busy, setBusy] = useState(false)
   const [attachFor, setAttachFor] = useState<string | null>(null)
   const [remindMsg, setRemindMsg] = useState<string | null>(null)
+  const [linkedOccasionIds, setLinkedOccasionIds] = useState<Set<string>>(new Set())
+
+  async function loadLinkedIds(workspace: string, projectId: string | null) {
+    if (!projectId) {
+      setLinkedOccasionIds(new Set())
+      return new Set<string>()
+    }
+    const year = new Date().getFullYear()
+    const [a, b] = await Promise.all([
+      api.listOccasions(workspace, { year, projectId }),
+      api.listOccasions(workspace, { year: year + 1, projectId }),
+    ])
+    const ids = new Set([...(a.items || []), ...(b.items || [])].map((o) => o.id))
+    setLinkedOccasionIds(ids)
+    return ids
+  }
 
   async function reload(id: string) {
     const year = new Date().getFullYear()
+    const projectHint = params.get('projectId')
     const [contentRes, assetRes, projectRes, campaignRes, occRes, occNext] = await Promise.all([
       api.listContent(id),
       api.listAssets(id),
@@ -73,6 +91,7 @@ export function ContentPage() {
       if (!prev || String(o.dateInYear) < String(prev.dateInYear)) byId.set(o.id, o)
     }
     setOccasions([...byId.values()])
+    const linkedIds = await loadLinkedIds(id, projectHint)
 
     const map: Record<string, Array<AssetDto & { linkId: string }>> = {}
     await Promise.all(
@@ -86,10 +105,16 @@ export function ContentPage() {
       items: contentRes.items || [],
       projects: projectRes.items || [],
       occasions: [...byId.values()],
+      linkedIds,
     }
   }
 
-  function applyQuery(loaded: ContentDto[], pages: ProjectDto[], occs: OccasionDto[] = occasions) {
+  function applyQuery(
+    loaded: ContentDto[],
+    pages: ProjectDto[],
+    occs: OccasionDto[] = occasions,
+    linkedIds: Set<string> = linkedOccasionIds,
+  ) {
     const date = params.get('date')
     const edit = params.get('edit')
     const project = params.get('projectId')
@@ -105,10 +130,21 @@ export function ContentPage() {
       if (date) next.publishDate = date
       if (project) next.projectId = project
       if (campaign) next.campaignId = campaign
+      const prevSelected = occs.find((o) => o.id === next.occasionId)
+      const prevHint = prevSelected ? occasionHint(prevSelected, lang) : ''
+      const prevLabel = prevSelected ? occasionLabel(prevSelected, lang) : ''
       if (occasion) next.occasionId = occasion
-      else if (!f.occasionId && date) {
-        const match = occs.find((o) => o.dateInYear === date)
+      else if (date) {
+        const match = pickOccasionForDate(occs, date, linkedIds)
         if (match) next.occasionId = match.id
+      }
+      const selected = occs.find((o) => o.id === next.occasionId)
+      if (selected) {
+        const hint = occasionHint(selected, lang)
+        const label = occasionLabel(selected, lang)
+        if (!next.notes.trim() || next.notes.trim() === prevHint) next.notes = hint
+        if (!next.title.trim() || next.title.trim() === prevLabel) next.title = label
+        next.publishDate = publishDateForOccasion(selected, next.publishDate)
       }
       if (!next.projectId && pages.length === 1) next.projectId = pages[0]!.id
       const page = pages.find((p) => p.id === next.projectId)
@@ -124,7 +160,9 @@ export function ContentPage() {
   useEffect(() => {
     if (!workspaceId) return
     void reload(workspaceId)
-      .then(({ items: loaded, projects: pages, occasions: occs }) => applyQuery(loaded, pages, occs))
+      .then(({ items: loaded, projects: pages, occasions: occs, linkedIds }) =>
+        applyQuery(loaded, pages, occs, linkedIds),
+      )
       .catch((e) => setError((e as Error).message))
   }, [workspaceId])
 
@@ -135,7 +173,7 @@ export function ContentPage() {
     const occasion = params.get('occasionId')
     const campaign = params.get('campaignId')
     if (!edit && !date && !project && !occasion && !campaign) return
-    applyQuery(items, projects)
+    applyQuery(items, projects, occasions, linkedOccasionIds)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.get('edit'), params.get('date'), params.get('projectId'), params.get('occasionId'), params.get('campaignId')])
 
@@ -160,13 +198,20 @@ export function ContentPage() {
     return [...occasions]
       .filter((o) => o.dateInYear)
       .sort((a, b) => String(a.dateInYear).localeCompare(String(b.dateInYear)))
-      .filter((o) => String(o.dateInYear) >= today || o.id === form.occasionId || o.dateInYear === form.publishDate)
+      .filter((o) => {
+        if (o.id === form.occasionId) return true
+        const days = occasionSpanDays(o)
+        if (form.publishDate && days.includes(form.publishDate)) return true
+        return days.some((d) => d >= today)
+      })
   }, [occasions, form.occasionId, form.publishDate])
 
   const dateOccasions = useMemo(
-    () => (form.publishDate ? occasions.filter((o) => o.dateInYear === form.publishDate) : []),
+    () => (form.publishDate ? occasions.filter((o) => occasionSpanDays(o).includes(form.publishDate)) : []),
     [occasions, form.publishDate],
   )
+  const selectedOccasion = occasions.find((o) => o.id === form.occasionId)
+  const selectedHint = selectedOccasion ? occasionHint(selectedOccasion, lang) : ''
 
   const selectedPage = projects.find((p) => p.id === form.projectId)
   const captionLen = form.caption.length
@@ -182,6 +227,7 @@ export function ContentPage() {
 
   function applyPageDefaults(projectId: string) {
     const page = projects.find((p) => p.id === projectId)
+    if (workspaceId) void loadLinkedIds(workspaceId, projectId || null)
     if (!page) {
       patchForm({ projectId })
       return
@@ -222,20 +268,24 @@ export function ContentPage() {
   }
 
   function applyDate(date: string) {
-    const matches = occasions.filter((o) => o.dateInYear === date)
+    const match = pickOccasionForDate(occasions, date, linkedOccasionIds)
     setForm((f) => ({
       ...f,
       publishDate: date,
-      occasionId: f.occasionId || (matches.length === 1 ? matches[0]!.id : f.occasionId),
+      occasionId: f.occasionId || match?.id || '',
     }))
   }
 
   function applyOccasion(id: string) {
     const o = occasions.find((x) => x.id === id)
+    const hint = o ? occasionHint(o, lang) : ''
+    const label = o ? occasionLabel(o, lang) : ''
     setForm((f) => ({
       ...f,
       occasionId: id,
-      publishDate: o?.dateInYear || f.publishDate,
+      publishDate: publishDateForOccasion(o, f.publishDate),
+      notes: f.notes.trim() ? f.notes : hint,
+      title: f.title.trim() ? f.title : label,
     }))
   }
 
@@ -460,6 +510,7 @@ export function ContentPage() {
                 </option>
               ))}
             </select>
+            {selectedHint && <span className="field-hint">{selectedHint}</span>}
           </div>
           <div className="field">
             <label>{t('content.publishDate')}</label>

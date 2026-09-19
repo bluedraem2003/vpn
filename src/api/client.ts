@@ -356,9 +356,16 @@ export interface OccasionDto {
   month: number
   day: number
   kind: string
+  hintFa?: string | null
+  hintEn?: string | null
+  angle?: string | null
+  priority?: number
+  endMonth?: number | null
+  endDay?: number | null
   workspaceId?: string | null
   custom?: boolean
   dateInYear?: string | null
+  dateEndInYear?: string | null
   createdAt: string
 }
 

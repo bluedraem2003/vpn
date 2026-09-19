@@ -2,7 +2,7 @@ import { mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import Database from 'better-sqlite3'
-import { OCCASION_SEEDS } from '../data/occasions-seed.js'
+import { KARALAND_OCCASION_SLUGS, OCCASION_SEEDS } from '../data/occasions-seed.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 export const DATA_DIR = join(__dirname, '../../data')
@@ -315,6 +315,12 @@ export function migrate() {
   ensureColumn('projects', 'window_end', 'TEXT')
   ensureColumn('projects', 'hashtags', 'TEXT')
   ensureColumn('occasions', 'workspace_id', 'TEXT')
+  ensureColumn('occasions', 'hint_fa', 'TEXT')
+  ensureColumn('occasions', 'hint_en', 'TEXT')
+  ensureColumn('occasions', 'angle', 'TEXT')
+  ensureColumn('occasions', 'priority', 'INTEGER')
+  ensureColumn('occasions', 'end_month', 'INTEGER')
+  ensureColumn('occasions', 'end_day', 'INTEGER')
 }
 
 function ensureColumn(table: string, column: string, typeSql: string) {
@@ -349,14 +355,30 @@ export function seedIfEmpty() {
   }
 
   seedOccasions()
+  linkKaralandOccasions()
 }
 
 export function seedOccasions() {
   const now = new Date().toISOString()
   const insert = db.prepare(
-    `INSERT OR IGNORE INTO occasions
-      (id, slug, name_fa, name_en, region, calendar, month, day, kind, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO occasions (
+      id, slug, name_fa, name_en, region, calendar, month, day, kind, created_at,
+      hint_fa, hint_en, angle, priority, end_month, end_day
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(slug) DO UPDATE SET
+      name_fa = excluded.name_fa,
+      name_en = excluded.name_en,
+      region = excluded.region,
+      calendar = excluded.calendar,
+      month = excluded.month,
+      day = excluded.day,
+      kind = excluded.kind,
+      hint_fa = excluded.hint_fa,
+      hint_en = excluded.hint_en,
+      angle = excluded.angle,
+      priority = excluded.priority,
+      end_month = excluded.end_month,
+      end_day = excluded.end_day`,
   )
   const tx = db.transaction(() => {
     for (const o of OCCASION_SEEDS) {
@@ -371,7 +393,35 @@ export function seedOccasions() {
         o.day,
         o.kind,
         now,
+        o.hintFa || null,
+        o.hintEn || null,
+        o.angle || null,
+        o.priority ?? 0,
+        o.endMonth || null,
+        o.endDay || null,
       )
+    }
+  })
+  tx()
+}
+
+export function linkKaralandOccasions() {
+  const project = db
+    .prepare(
+      `SELECT id FROM projects
+       WHERE lower(replace(coalesce(handle, ''), '.', '_')) LIKE '%karaland%'
+       ORDER BY created_at ASC LIMIT 1`,
+    )
+    .get() as { id: string } | undefined
+  if (!project) return
+  const insert = db.prepare(
+    `INSERT OR IGNORE INTO project_occasions (id, project_id, occasion_id) VALUES (?, ?, ?)`,
+  )
+  const tx = db.transaction(() => {
+    for (const slug of KARALAND_OCCASION_SLUGS) {
+      const occ = db.prepare(`SELECT id FROM occasions WHERE slug = ?`).get(slug) as { id: string } | undefined
+      if (!occ) continue
+      insert.run(uid('poc'), project.id, occ.id)
     }
   })
   tx()
