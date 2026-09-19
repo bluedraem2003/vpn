@@ -1853,6 +1853,7 @@ html[data-theme='dark'] .field-hint.warn {
 .ig-health {
   margin-inline-start: auto;
   min-width: 92px;
+  flex: 0 0 auto;
   text-align: center;
   background: var(--accent-soft);
   border-radius: 18px;

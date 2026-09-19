@@ -33,6 +33,80 @@ export function downloadPageReportJson(report: PageAnalyticsResponse) {
   downloadBlob(`postyar-${report.page.handle}-analytics.json`, blob)
 }
 
+function fillUi(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  rtl: boolean,
+) {
+  ctx.direction = rtl ? 'rtl' : 'ltr'
+  ctx.textAlign = rtl ? 'right' : 'left'
+  ctx.fillText(text, x, y)
+}
+
+function fillHandle(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  rtl: boolean,
+) {
+  ctx.save()
+  ctx.direction = 'ltr'
+  ctx.textAlign = 'left'
+  const width = ctx.measureText(text).width
+  ctx.fillText(text, rtl ? x - width : x, y)
+  ctx.restore()
+}
+
+function drawListBox(
+  ctx: CanvasRenderingContext2D,
+  opts: {
+    x: number
+    y: number
+    w: number
+    h: number
+    title: string
+    empty: string
+    rows: Array<{ label: string; meta: string; ltr?: boolean }>
+    rtl: boolean
+    panel: string
+    line: string
+    ink: string
+    muted: string
+  },
+) {
+  const { x, y, w, h, rtl } = opts
+  roundRect(ctx, x, y, w, h, 22)
+  ctx.fillStyle = opts.panel
+  ctx.fill()
+  ctx.strokeStyle = opts.line
+  ctx.lineWidth = 1.5
+  ctx.stroke()
+  const start = rtl ? x + w - 22 : x + 22
+  const end = rtl ? x + 22 : x + w - 22
+  ctx.fillStyle = opts.ink
+  ctx.font = '700 18px Vazirmatn, sans-serif'
+  fillUi(ctx, opts.title, start, y + 36, rtl)
+  ctx.font = '400 16px Vazirmatn, sans-serif'
+  if (!opts.rows.length) {
+    ctx.fillStyle = opts.muted
+    fillUi(ctx, opts.empty, start, y + 70, rtl)
+    return
+  }
+  opts.rows.forEach((row, i) => {
+    const yy = y + 70 + i * 32
+    ctx.fillStyle = opts.ink
+    if (row.ltr) fillHandle(ctx, row.label, start, yy, rtl)
+    else fillUi(ctx, row.label, start, yy, rtl)
+    ctx.fillStyle = opts.muted
+    ctx.direction = rtl ? 'rtl' : 'ltr'
+    ctx.textAlign = rtl ? 'left' : 'right'
+    ctx.fillText(row.meta, end, yy)
+  })
+}
+
 function wrapLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
   const clean = (text || '').replace(/\s+/g, ' ').trim()
   if (!clean) return []
@@ -238,7 +312,10 @@ export async function downloadPageReportPng(page: PageInsights, theme: ExportThe
         : '—',
     ],
     [theme.t('analytics.lastPost'), page.lastPostedAt ? theme.d(page.lastPostedAt) : '—'],
-    [theme.t('analytics.sourcePublic'), ''],
+    [
+      theme.t('analytics.playRate'),
+      page.reelPlayRate != null ? pct(theme.n, page.reelPlayRate, 1) : '—',
+    ],
   ]
 
   const cols = 4
@@ -258,15 +335,12 @@ export async function downloadPageReportPng(page: PageInsights, theme: ExportThe
     ctx.stroke()
     ctx.fillStyle = muted
     ctx.font = '500 14px Vazirmatn, sans-serif'
-    ctx.textAlign = rtl ? 'right' : 'left'
-    ctx.direction = rtl ? 'rtl' : 'ltr'
-    ctx.fillText(stat[0], rtl ? x + cardW - 16 : x + 16, y + 32)
+    fillUi(ctx, stat[0], rtl ? x + cardW - 16 : x + 16, y + 32, rtl)
     ctx.fillStyle = ink
     ctx.font = '700 22px Vazirmatn, sans-serif'
-    const val = stat[1] || '·'
-    wrapLines(ctx, val, cardW - 28)
+    wrapLines(ctx, stat[1], cardW - 28)
       .slice(0, 2)
-      .forEach((line, li) => ctx.fillText(line, rtl ? x + cardW - 16 : x + 16, y + 62 + li * 20))
+      .forEach((line, li) => fillUi(ctx, line, rtl ? x + cardW - 16 : x + 16, y + 62 + li * 20, rtl))
   })
 
   const mixTop = statsTop + 3 * (cardH + gap) + 8
@@ -277,7 +351,7 @@ export async function downloadPageReportPng(page: PageInsights, theme: ExportThe
   ctx.stroke()
   ctx.fillStyle = ink
   ctx.font = '700 18px Vazirmatn, sans-serif'
-  ctx.fillText(theme.t('analytics.typePerf'), startX, mixTop + 34)
+  fillUi(ctx, theme.t('analytics.typePerf'), startX, mixTop + 34, rtl)
   const mixTotal = Math.max(1, page.mix.reel + page.mix.carousel + page.mix.post)
   const mixLine = theme.t('analytics.mixLine', {
     n: theme.n(mixTotal),
@@ -287,7 +361,7 @@ export async function downloadPageReportPng(page: PageInsights, theme: ExportThe
   })
   ctx.font = '400 16px Vazirmatn, sans-serif'
   ctx.fillStyle = muted
-  ctx.fillText(mixLine, startX, mixTop + 62)
+  fillUi(ctx, mixLine, startX, mixTop + 62, rtl)
 
   const barY = mixTop + 80
   const barW = W - pad * 2 - 40
@@ -303,69 +377,45 @@ export async function downloadPageReportPng(page: PageInsights, theme: ExportThe
   })
 
   const tagsTop = mixTop + 140
-  roundRect(ctx, pad, tagsTop, (W - pad * 2 - 16) / 2, 280, 22)
-  ctx.fillStyle = panel
-  ctx.fill()
-  ctx.strokeStyle = line
-  ctx.stroke()
-  const tagsX = rtl ? pad + (W - pad * 2 - 16) / 2 + 16 : pad
-  ctx.fillStyle = ink
-  ctx.font = '700 18px Vazirmatn, sans-serif'
-  ctx.fillText(theme.t('analytics.hashtags'), rtl ? tagsX + (W - pad * 2 - 16) / 2 - 22 : tagsX + 22, tagsTop + 36)
-  ctx.font = '400 16px Vazirmatn, sans-serif'
-  const tags = (page.topHashtags || []).slice(0, 6)
-  if (!tags.length) {
-    ctx.fillStyle = muted
-    ctx.fillText(theme.t('analytics.emptyTags'), rtl ? tagsX + (W - pad * 2 - 16) / 2 - 22 : tagsX + 22, tagsTop + 70)
-  } else {
-    tags.forEach((tag, i) => {
-      ctx.fillStyle = ink
-      ctx.fillText(
-        `#${tag.key}`,
-        rtl ? tagsX + (W - pad * 2 - 16) / 2 - 22 : tagsX + 22,
-        tagsTop + 70 + i * 32,
-      )
-      ctx.fillStyle = muted
-      ctx.fillText(
-        theme.t('analytics.times', { n: theme.n(tag.count), er: theme.n(tag.avgEngagement, 1) }),
-        rtl ? tagsX + 22 : tagsX + (W - pad * 2 - 16) / 2 - 22,
-        tagsTop + 70 + i * 32,
-      )
-    })
-  }
-
-  const collabBoxX = rtl ? pad : pad + (W - pad * 2 - 16) / 2 + 16
-  roundRect(ctx, collabBoxX, tagsTop, (W - pad * 2 - 16) / 2, 280, 22)
-  ctx.fillStyle = panel
-  ctx.fill()
-  ctx.strokeStyle = line
-  ctx.stroke()
-  ctx.fillStyle = ink
-  ctx.font = '700 18px Vazirmatn, sans-serif'
-  ctx.fillText(
-    theme.t('analytics.collabs'),
-    rtl ? collabBoxX + (W - pad * 2 - 16) / 2 - 22 : collabBoxX + 22,
-    tagsTop + 36,
-  )
-  ctx.font = '400 16px Vazirmatn, sans-serif'
-  const collabs = (page.collaborators || []).slice(0, 6)
-  if (!collabs.length) {
-    ctx.fillStyle = muted
-    ctx.fillText(
-      theme.t('analytics.emptyTags'),
-      rtl ? collabBoxX + (W - pad * 2 - 16) / 2 - 22 : collabBoxX + 22,
-      tagsTop + 70,
-    )
-  } else {
-    collabs.forEach((item, i) => {
-      ctx.fillStyle = ink
-      ctx.fillText(
-        `@${item.key}`,
-        rtl ? collabBoxX + (W - pad * 2 - 16) / 2 - 22 : collabBoxX + 22,
-        tagsTop + 70 + i * 32,
-      )
-    })
-  }
+  const boxW = (W - pad * 2 - 16) / 2
+  const hashX = rtl ? pad + boxW + 16 : pad
+  const collabX = rtl ? pad : pad + boxW + 16
+  drawListBox(ctx, {
+    x: hashX,
+    y: tagsTop,
+    w: boxW,
+    h: 280,
+    title: theme.t('analytics.hashtags'),
+    empty: theme.t('analytics.emptyTags'),
+    rows: (page.topHashtags || []).slice(0, 6).map((tag) => ({
+      label: tag.key.startsWith('#') ? tag.key : `#${tag.key}`,
+      meta: theme.t('analytics.times', { n: theme.n(tag.count), er: theme.n(tag.avgEngagement, 1) }),
+      ltr: true,
+    })),
+    rtl,
+    panel,
+    line,
+    ink,
+    muted,
+  })
+  drawListBox(ctx, {
+    x: collabX,
+    y: tagsTop,
+    w: boxW,
+    h: 280,
+    title: theme.t('analytics.collabs'),
+    empty: theme.t('analytics.emptyTags'),
+    rows: (page.collaborators || []).slice(0, 6).map((item) => ({
+      label: item.key.startsWith('@') ? item.key : `@${item.key}`,
+      meta: theme.t('analytics.times', { n: theme.n(item.count), er: theme.n(item.avgEngagement, 1) }),
+      ltr: true,
+    })),
+    rtl,
+    panel,
+    line,
+    ink,
+    muted,
+  })
 
   const hintsTop = tagsTop + 304
   roundRect(ctx, pad, hintsTop, W - pad * 2, 220, 22)
@@ -375,7 +425,7 @@ export async function downloadPageReportPng(page: PageInsights, theme: ExportThe
   ctx.stroke()
   ctx.fillStyle = ink
   ctx.font = '700 18px Vazirmatn, sans-serif'
-  ctx.fillText(theme.t('analytics.posterHints'), startX, hintsTop + 36)
+  fillUi(ctx, theme.t('analytics.posterHints'), startX, hintsTop + 36, rtl)
   ctx.font = '400 16px Vazirmatn, sans-serif'
   const hintLines = (page.hints || [])
     .slice(0, 5)
@@ -386,14 +436,14 @@ export async function downloadPageReportPng(page: PageInsights, theme: ExportThe
     })
   if (!hintLines.length) {
     ctx.fillStyle = muted
-    ctx.fillText(theme.t('analytics.emptyTags'), startX, hintsTop + 70)
+    fillUi(ctx, theme.t('analytics.emptyTags'), startX, hintsTop + 70, rtl)
   } else {
     hintLines.forEach((line, i) => {
       wrapLines(ctx, `• ${line}`, W - pad * 2 - 40)
         .slice(0, 1)
         .forEach((w) => {
           ctx.fillStyle = ink
-          ctx.fillText(w, startX, hintsTop + 70 + i * 28)
+          fillUi(ctx, w, startX, hintsTop + 70 + i * 28, rtl)
         })
     })
   }
@@ -407,29 +457,20 @@ export async function downloadPageReportPng(page: PageInsights, theme: ExportThe
   ctx.stroke()
   ctx.fillStyle = ink
   ctx.font = '700 18px Vazirmatn, sans-serif'
-  ctx.fillText(theme.t('analytics.related'), startX, relTop + 36)
+  fillUi(ctx, theme.t('analytics.related'), startX, relTop + 36, rtl)
   ctx.font = '500 16px Vazirmatn, sans-serif'
   ctx.fillStyle = muted
-  const relatedText = related.length
-    ? related.map((r) => `@${r.username}`).join('   ')
-    : theme.t('analytics.emptyTags')
-  wrapLines(ctx, relatedText, W - pad * 2 - 40)
-    .slice(0, 3)
-    .forEach((line, i) => {
-      ctx.direction = 'ltr'
-      ctx.textAlign = rtl ? 'right' : 'left'
-      ctx.fillText(line, startX, relTop + 70 + i * 24)
-    })
+  if (!related.length) {
+    fillUi(ctx, theme.t('analytics.emptyTags'), startX, relTop + 70, rtl)
+  } else {
+    wrapLines(ctx, related.map((r) => `@${r.username}`).join('   '), W - pad * 2 - 40)
+      .slice(0, 3)
+      .forEach((line, i) => fillHandle(ctx, line, startX, relTop + 70 + i * 24, rtl))
+  }
 
-  ctx.direction = rtl ? 'rtl' : 'ltr'
-  ctx.textAlign = rtl ? 'right' : 'left'
   ctx.font = '400 14px Vazirmatn, sans-serif'
   ctx.fillStyle = muted
-  ctx.fillText(
-    theme.t('analytics.posterFooter', { date: theme.d(page.fetchedAt) }),
-    startX,
-    relTop + 186,
-  )
+  fillUi(ctx, theme.t('analytics.posterFooter', { date: theme.d(page.fetchedAt) }), startX, relTop + 186, rtl)
 
   const usedHeight = Math.min(2400, relTop + 230)
   const out = document.createElement('canvas')

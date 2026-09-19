@@ -619,7 +619,12 @@ function PageReport({
             {isCollab ? <span>{t('analytics.collabChip')}</span> : null}
             <span>{t('analytics.sourcePublic')}</span>
           </div>
-          <div className="ig-profile-actions">
+        </div>
+        <div className="ig-health" title={t('analytics.healthTitle')}>
+          <strong>{n(page.health.score)}</strong>
+          <span>{t('analytics.health')}</span>
+        </div>
+        <div className="ig-profile-actions">
             {canWrite ? (
               isCollab ? (
                 <>
@@ -648,11 +653,6 @@ function PageReport({
               {t('analytics.exportJson')}
             </button>
           </div>
-        </div>
-        <div className="ig-health" title={t('analytics.healthTitle')}>
-          <strong>{n(page.health.score)}</strong>
-          <span>{t('analytics.health')}</span>
-        </div>
       </section>
 
       <div className="ops-stat-grid ig-insight-stats">
