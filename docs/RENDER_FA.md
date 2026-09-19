@@ -48,7 +48,7 @@
 | Key | Value |
 |-----|--------|
 | `TELEGRAM_BOT_TOKEN` | توکن بات |
-| `TELEGRAM_CHAT_ID` | آیدی کانال/گروه |
+| `TELEGRAM_CHAT_ID` | آیدی گروه اعلان‌ها (فایل از همه گروه‌های بات ایندکس می‌شود) |
 | `TELEGRAM_WEBHOOK_SECRET` | رمز تصادفی |
 | `AUTH_PUBLIC_URL` | آدرس نهایی سایت Render (بعد از ساخته شدن می‌فهمی) |
 | `SHARE_INVITE_LINKS` | `1` |
@@ -103,7 +103,7 @@ export AUTH_PUBLIC_URL="https://YOUR-APP.onrender.com"
 curl "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
   -d "url=$AUTH_PUBLIC_URL/api/telegram/webhook" \
   -d "secret_token=$TELEGRAM_WEBHOOK_SECRET" \
-  -d 'allowed_updates=["message","channel_post"]'
+     -d 'allowed_updates=["message","channel_post","my_chat_member"]'
 ```
 
 باید `"ok": true` بیاید.
@@ -142,7 +142,7 @@ curl "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
 | `/api/health` خطا می‌دهد | Envها و `PORT=8080` را چک کن |
 | فایل‌ها بعد از چند ساعت نیستند | Disk وصل نیست یا پلن Free داده را نگه نمی‌دارد |
 | همکار نمی‌تواند وارد شود | لینک دعوت منقضی شده؛ دوباره دعوت بساز |
-| تلگرام فایل نمی‌آورد | Webhook و `TELEGRAM_CHAT_ID` را دوباره چک کن |
+| تلگرام فایل نمی‌آورد | Webhook و عضویت ربات در گروه را چک کن؛ صفحهٔ تلگرام باید گروه را نشان بدهد |
 | ورود سریع نداری | طبیعی است (`ALLOW_DEV_LOGIN=0`)؛ از Magic Link استفاده کن |
 
 ---

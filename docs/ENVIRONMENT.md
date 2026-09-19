@@ -14,7 +14,7 @@ Copy `.env.example` to `.env` and fill values.
 | `ALLOW_DEV_LOGIN` | `1` = enable passwordless `/api/auth/login` (development only) |
 | `AUTH_OWNER_KEY` | Shared secret that lets workspace **admins** sign in with email + key (`POST /api/auth/owner-key`). Use when there is no SMTP; rotate by changing the value |
 | `TELEGRAM_BOT_TOKEN` | Bot token — server only |
-| `TELEGRAM_CHAT_ID` | Allowed channel/group id |
+| `TELEGRAM_CHAT_ID` | Ops notify chat; also seeds the connected-chats list. File ingest is not limited to this id |
 | `TELEGRAM_WEBHOOK_SECRET` | Webhook header secret |
 | `TELEGRAM_API_BASE` | Bot API or Local Bot API base |
 | `TELEGRAM_NOTIFY_CHAT_ID` | Optional chat for ops alerts (defaults to `TELEGRAM_CHAT_ID`) |
@@ -35,4 +35,4 @@ Never put secrets in the frontend bundle or git.
 - Teammates sign in with one-time login links. An admin/manager creates them from the **Team** page (invite, or “Login link” for an existing member). The public “request a login link” form never reveals the link — it only records the request.
 - Admins can always get back in with `AUTH_OWNER_KEY` (email + key on the login page).
 - Keep `ALLOW_DEV_LOGIN=0` in any shared deployment. Viewers are read-only; managers cannot create admins.
-- Telegram webhook requires both `TELEGRAM_WEBHOOK_SECRET` and `TELEGRAM_CHAT_ID`; otherwise it refuses updates.
+- Telegram webhook requires `TELEGRAM_WEBHOOK_SECRET`. Files are indexed from groups and channels the bot is a member of; private DMs are ignored unless they match `TELEGRAM_CHAT_ID`.

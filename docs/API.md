@@ -79,5 +79,5 @@ Kinds: `page_connected`, `new_post`, `followers_up`, `followers_down`, `bio_chan
 
 | Method | Path | Auth |
 |--------|------|------|
-| POST | `/api/telegram/webhook` | `X-Telegram-Bot-Api-Secret-Token` — refused (503) unless `TELEGRAM_WEBHOOK_SECRET` and `TELEGRAM_CHAT_ID` are set |
-| GET | `/api/telegram/status` | yes |
+| GET | `/api/telegram/status` | yes — bot identity, connected chats, indexed file counts |
+| POST | `/api/telegram/webhook` | `X-Telegram-Bot-Api-Secret-Token` — refused (503) unless `TELEGRAM_WEBHOOK_SECRET` is set. Ingests files from groups/channels the bot is in (private DMs ignored unless they match `TELEGRAM_CHAT_ID`) |

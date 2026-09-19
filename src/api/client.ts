@@ -191,6 +191,9 @@ export const api = {
       chatIdConfigured: boolean
       webhookSecretConfigured?: boolean
       indexedFiles: number
+      bot?: { id: number; username: string | null; name: string | null } | null
+      chats?: TelegramChatDto[]
+      connectedChats?: number
       limits: Record<string, unknown>
     }>('/api/telegram/status'),
   listProjects: (workspaceId: string) =>
@@ -370,6 +373,20 @@ export interface AssetDto {
   height?: number
   tags: string[]
   createdAt: string
+}
+
+export interface TelegramChatDto {
+  chatId: string
+  title: string
+  username: string | null
+  type: string
+  memberStatus: string | null
+  connected: boolean
+  ingesting: boolean
+  fileCount: number
+  lastFileAt: string | null
+  lastSeenAt: string | null
+  notifyChat: boolean
 }
 
 export type AnalyticsConnector = {

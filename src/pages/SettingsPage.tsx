@@ -103,6 +103,10 @@ export function SettingsPage() {
                 <strong>{t('settings.index')}</strong>
                 <span>{String(tg.indexedFiles)}</span>
               </li>
+              <li>
+                <strong>{t('settings.tgGroups')}</strong>
+                <span>{String(tg.connectedChats ?? (Array.isArray(tg.chats) ? tg.chats.length : 0))}</span>
+              </li>
             </ul>
           ) : (
             <p className="section-sub">{t('settings.tgLoading')}</p>
