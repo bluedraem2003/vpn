@@ -186,7 +186,6 @@ export const fa = {
     analyzing: 'در حال تحلیل...',
     fetching: 'در حال گرفتن آمار پیج از اینستاگرام...',
     needHandle: 'آیدی پیج را بنویس یا از لیست انتخاب کن',
-    sample: 'نمونه',
     health: 'امتیاز سلامت',
     healthTitle: 'جمع چند سیگنال عمومی، نه Insight رسمی',
     sourcePublic: 'منبع: اینستاگرام عمومی',
@@ -273,7 +272,6 @@ export const fa = {
     lastPublished: 'آخرین انتشارها',
     missingAssets: 'محتوای بدون Asset',
     allCovered: 'همه پوشش داده شده‌اند',
-    aiReady: 'آماده AI',
     emptyTags: 'در این نمونه چیزی نبود',
     times: '{n}× · تعامل {er}٪',
     postEng: '{type} · تعامل {er}٪',
@@ -791,9 +789,6 @@ export const fa = {
     postRemoved: 'یک پست از @{h} حذف شد',
     syncError: 'همگام‌سازی @{h} ناموفق بود',
   },
-  placeholder: {
-    body: 'این بخش در فازهای بعدی طبق Plan پیاده‌سازی می‌شود. هسته فعلی: داشبورد، تقویم، محتوا، دارایی‌ها، تلگرام و استودیو.',
-  },
 }
 
 type DeepString<T> = T extends string ? string : { [K in keyof T]: DeepString<T[K]> }
@@ -984,7 +979,6 @@ export const en: DeepString<typeof fa> = {
     analyzing: 'Analyzing...',
     fetching: 'Fetching page stats from Instagram...',
     needHandle: 'Enter a handle or pick one from the list',
-    sample: 'Sample',
     health: 'Health score',
     healthTitle: 'Public-signal score, not official Insights',
     sourcePublic: 'Source: public Instagram',
@@ -1071,7 +1065,6 @@ export const en: DeepString<typeof fa> = {
     lastPublished: 'Latest publishes',
     missingAssets: 'Content without assets',
     allCovered: 'Everything is covered',
-    aiReady: 'AI-ready',
     emptyTags: 'Nothing in this sample',
     times: '{n}× · ER {er}%',
     postEng: '{type} · ER {er}%',
@@ -1587,9 +1580,6 @@ export const en: DeepString<typeof fa> = {
     wentPublic: '@{h} went public',
     postRemoved: 'A post was removed from @{h}',
     syncError: 'Sync failed for @{h}',
-  },
-  placeholder: {
-    body: 'This section ships in later phases. Current core: dashboard, calendar, content, assets, Telegram, and studio.',
   },
 }
 

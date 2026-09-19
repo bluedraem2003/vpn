@@ -40,7 +40,6 @@ docker compose up -d --build
 ## مستندات
 
 - [DEPLOY.md](./docs/DEPLOY.md) — استقرار دائمی + دعوت تیم
-- [PRODUCT_AUDIT.md](./docs/PRODUCT_AUDIT.md)
 - [ENVIRONMENT.md](./docs/ENVIRONMENT.md)
 - [TELEGRAM_SETUP.md](./docs/TELEGRAM_SETUP.md)
 
