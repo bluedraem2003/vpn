@@ -276,6 +276,7 @@ async function igGetJson(
       headers,
       timeout: { request: ms },
       throwHttpErrors: false,
+      retry: { limit: 0 },
     })
     const status = res.statusCode
     const wait = retryAfterMs(res.headers as Record<string, unknown>)
@@ -309,6 +310,7 @@ async function fetchProfileFromHtml(
       headers,
       timeout: { request: 5500 },
       throwHttpErrors: false,
+      retry: { limit: 0 },
     })
     const wait = retryAfterMs(res.headers as Record<string, unknown>)
     if (res.statusCode < 200 || res.statusCode >= 300) {
