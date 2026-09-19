@@ -389,8 +389,8 @@ async function fetchInstagramWebProfileUncached(handle: string): Promise<{
   let feedEdges: Array<{ node: Record<string, unknown> }> = []
 
   if (!isInstagramCoolingDown()) {
-    const appUrl = `https://i.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(handle)}`
-    const first = await igGetJson(appUrl, 5500, 'app')
+    const appUrl = `https://www.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(handle)}`
+    const first = await igGetJson(appUrl, 5500, 'web')
     user = userFromPayload(first.data)
     if (user?.username && hasTimelineEdges(user)) {
       profileCache.set(handle.toLowerCase(), { at: Date.now(), user })
