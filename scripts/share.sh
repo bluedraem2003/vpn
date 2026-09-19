@@ -84,7 +84,7 @@ if [[ -n "${TELEGRAM_BOT_TOKEN:-}" && -n "${TELEGRAM_WEBHOOK_SECRET:-}" ]]; then
   curl -sS "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook" \
     -d "url=${PUBLIC_URL}/api/telegram/webhook" \
     -d "secret_token=${TELEGRAM_WEBHOOK_SECRET}" \
-    -d "allowed_updates=[\"message\",\"channel_post\"]" | python3 -m json.tool
+    -d "allowed_updates=[\"message\",\"channel_post\",\"my_chat_member\"]" | python3 -m json.tool
 fi
 
 cat <<EOF

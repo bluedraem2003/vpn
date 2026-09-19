@@ -26,7 +26,8 @@ docker run -d --name postyar -p 8080:8080 \
 ```bash
 curl "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
   -d "url=$AUTH_PUBLIC_URL/api/telegram/webhook" \
-  -d "secret_token=$TELEGRAM_WEBHOOK_SECRET"
+  -d "secret_token=$TELEGRAM_WEBHOOK_SECRET" \
+  -d 'allowed_updates=["message","channel_post","my_chat_member"]'
 ```
 
 ## گزینه ۲ — Render (رایگان/ارزان)

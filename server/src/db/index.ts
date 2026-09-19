@@ -279,6 +279,19 @@ export function migrate() {
     );
     CREATE UNIQUE INDEX IF NOT EXISTS idx_collab_ws_handle ON collaborations(workspace_id, handle);
     CREATE INDEX IF NOT EXISTS idx_collab_ws ON collaborations(workspace_id, updated_at);
+
+    CREATE TABLE IF NOT EXISTS telegram_chats (
+      chat_id TEXT PRIMARY KEY,
+      title TEXT,
+      username TEXT,
+      type TEXT NOT NULL DEFAULT 'supergroup',
+      member_status TEXT,
+      ingesting INTEGER NOT NULL DEFAULT 1,
+      last_seen_at TEXT,
+      last_file_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
   `)
 
   ensureColumn('projects', 'ig_connected_at', 'TEXT')

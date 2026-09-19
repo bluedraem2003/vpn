@@ -1,22 +1,46 @@
 import { Hono } from 'hono'
 import { db, uid } from '../db/index.js'
 import { notifyAssetIndexed } from '../jobs/reminders.js'
+import {
+  canIngestFromChat,
+  ensureTelegramChatsFresh,
+  extractTelegramUpdate,
+  getBotIdentity,
+  getTelegramChat,
+  listTelegramChats,
+  telegramChatTitle,
+  upsertTelegramChat,
+} from '../lib/telegramChats.js'
 import { requireAuth } from '../middleware/auth.js'
 import { safeEqual } from '../lib/secrets.js'
 
 export const telegramRoutes = new Hono()
 
-telegramRoutes.get('/status', requireAuth, (c) => {
+telegramRoutes.get('/status', requireAuth, async (c) => {
   const configured = Boolean(process.env.TELEGRAM_BOT_TOKEN)
   const chatId = process.env.TELEGRAM_CHAT_ID || null
   const count = (
     db.prepare(`SELECT COUNT(*) AS c FROM telegram_sources`).get() as { c: number }
   ).c
+  await ensureTelegramChatsFresh().catch((err) =>
+    console.warn('[Telegram] chat refresh', (err as Error).message),
+  )
+  const bot = await getBotIdentity().catch(() => null)
+  const chats = listTelegramChats()
   return c.json({
     configured,
     chatIdConfigured: Boolean(chatId),
     webhookSecretConfigured: Boolean(process.env.TELEGRAM_WEBHOOK_SECRET),
     indexedFiles: count,
+    bot: bot
+      ? {
+          id: bot.id,
+          username: bot.username || null,
+          name: bot.name || null,
+        }
+      : null,
+    chats,
+    connectedChats: chats.filter((chat) => chat.connected).length,
     limits: {
       botApiMaxDownloadMb: 20,
       historicalSync: 'limited — Bot API cannot fully crawl private channel history',
@@ -27,7 +51,6 @@ telegramRoutes.get('/status', requireAuth, (c) => {
 telegramRoutes.post('/webhook', async (c) => {
   console.log('[Telegram] Webhook received')
 
-  // Refuse to index anything unless the webhook is authenticated.
   const secret = (process.env.TELEGRAM_WEBHOOK_SECRET || '').trim()
   if (!secret) {
     console.warn('[Telegram] webhook rejected — TELEGRAM_WEBHOOK_SECRET not set')
@@ -38,20 +61,45 @@ telegramRoutes.post('/webhook', async (c) => {
     return c.json({ error: 'unauthorized' }, 401)
   }
 
-  const allowedChat = (process.env.TELEGRAM_CHAT_ID || '').trim()
-  if (!allowedChat) {
-    console.warn('[Telegram] webhook rejected — TELEGRAM_CHAT_ID not set')
-    return c.json({ error: 'chat allowlist not configured' }, 503)
-  }
   const update = (await c.req.json().catch(() => ({}))) as Record<string, unknown>
-  const message = update.channel_post || update.message
-  if (!message) return c.json({ ok: true, ignored: true })
+  const parsed = extractTelegramUpdate(update)
+  if (!parsed) return c.json({ ok: true, ignored: true })
 
-  const chatId = String(message.chat?.id ?? '')
-  if (chatId !== allowedChat) {
-    console.log('[Telegram] Unauthorized chat', chatId)
-    return c.json({ error: 'chat not allowed' }, 403)
+  const chatId = String(parsed.chat.id ?? '')
+  if (!chatId) return c.json({ ok: true, ignored: true })
+
+  const now = new Date().toISOString()
+  const type = String(parsed.chat.type || '')
+  upsertTelegramChat({
+    chatId,
+    type: type || undefined,
+    title: telegramChatTitle(parsed.chat),
+    username: parsed.chat.username ? String(parsed.chat.username) : undefined,
+    memberStatus: parsed.memberStatus,
+    lastSeenAt: now,
+  })
+
+  if (parsed.kind === 'membership') {
+    console.log('[Telegram] Membership', chatId, parsed.memberStatus)
+    return c.json({ ok: true, membership: true, chatId })
   }
+
+  const stored = getTelegramChat(chatId)
+  if (
+    !canIngestFromChat({
+      chatId,
+      type: type || stored?.type || '',
+      memberStatus: parsed.memberStatus ?? stored?.member_status,
+      allowedChatId: (process.env.TELEGRAM_CHAT_ID || '').trim(),
+    })
+  ) {
+    console.log('[Telegram] Ignored chat', chatId, type)
+    // 200 so Telegram does not retry forever (403s stay in pending_update_count).
+    return c.json({ ok: true, ignored: true, reason: 'chat_not_allowed' })
+  }
+
+  const message = parsed.message
+  if (!message) return c.json({ ok: true, ignored: true })
 
   const file = extractTelegramFile(message)
   if (!file) {
@@ -61,6 +109,7 @@ telegramRoutes.post('/webhook', async (c) => {
   console.log('[Telegram] File detected', {
     type: file.type,
     uniqueId: file.fileUniqueId,
+    chatId,
   })
 
   const existing = db
@@ -78,69 +127,68 @@ telegramRoutes.post('/webhook', async (c) => {
       | undefined)
   if (!workspace) return c.json({ error: 'no workspace' }, 500)
 
-  const now = new Date().toISOString()
   const assetId = uid('asset')
   const sourceId = uid('tgs')
 
   const insertAll = db.transaction(() => {
-  db.prepare(
-    `INSERT INTO assets (
-      id, workspace_id, type, status, virtual_folder, filename, mime_type, file_size,
-      width, height, duration, storage_provider, tags, created_at, updated_at
-    ) VALUES (?, ?, ?, 'raw', 'raw', ?, ?, ?, ?, ?, ?, 'telegram', '[]', ?, ?)`,
-  ).run(
-    assetId,
-    workspace.id,
-    file.type,
-    file.filename,
-    file.mimeType || null,
-    file.fileSize || null,
-    file.width || null,
-    file.height || null,
-    file.duration || null,
-    now,
-    now,
-  )
+    db.prepare(
+      `INSERT INTO assets (
+        id, workspace_id, type, status, virtual_folder, filename, mime_type, file_size,
+        width, height, duration, storage_provider, tags, created_at, updated_at
+      ) VALUES (?, ?, ?, 'raw', 'raw', ?, ?, ?, ?, ?, ?, 'telegram', '[]', ?, ?)`,
+    ).run(
+      assetId,
+      workspace.id,
+      file.type,
+      file.filename,
+      file.mimeType || null,
+      file.fileSize || null,
+      file.width || null,
+      file.height || null,
+      file.duration || null,
+      now,
+      now,
+    )
 
-  db.prepare(
-    `INSERT INTO telegram_sources (
-      id, asset_id, telegram_file_id, telegram_file_unique_id, telegram_message_id,
-      telegram_chat_id, filename, mime_type, file_size, width, height, duration,
-      caption, thumbnail_file_id, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    sourceId,
-    assetId,
-    file.fileId,
-    file.fileUniqueId,
-    message.message_id,
-    chatId,
-    file.filename,
-    file.mimeType || null,
-    file.fileSize || null,
-    file.width || null,
-    file.height || null,
-    file.duration || null,
-    message.caption || null,
-    file.thumbFileId || null,
-    now,
-    now,
-  )
+    db.prepare(
+      `INSERT INTO telegram_sources (
+        id, asset_id, telegram_file_id, telegram_file_unique_id, telegram_message_id,
+        telegram_chat_id, filename, mime_type, file_size, width, height, duration,
+        caption, thumbnail_file_id, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      sourceId,
+      assetId,
+      file.fileId,
+      file.fileUniqueId,
+      message.message_id,
+      chatId,
+      file.filename,
+      file.mimeType || null,
+      file.fileSize || null,
+      file.width || null,
+      file.height || null,
+      file.duration || null,
+      message.caption || null,
+      file.thumbFileId || null,
+      now,
+      now,
+    )
   })
   insertAll()
+  upsertTelegramChat({ chatId, lastFileAt: now, lastSeenAt: now })
 
   console.log('[Telegram] Asset indexed', assetId)
 
-  // Notify ops chat that new media landed (story/reel uploads to channel)
   void notifyAssetIndexed({
     workspaceId: workspace.id,
     assetId,
     filename: file.filename,
     type: file.type,
-    caption: message.caption || null,
+    caption: message.caption ? String(message.caption) : null,
   }).catch((err) => console.error('[Telegram] notify asset', (err as Error).message))
 
-  return c.json({ ok: true, assetId })
+  return c.json({ ok: true, assetId, chatId })
 })
 
 function extractTelegramFile(message: Record<string, unknown>) {
