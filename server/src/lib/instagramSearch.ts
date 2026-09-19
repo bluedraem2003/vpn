@@ -196,6 +196,12 @@ export function igProbePolicy(status: number): 'ok' | 'rate_limit' | 'not_found'
   return 'fallback'
 }
 
+function payloadSaysWait(data: unknown) {
+  if (!data || typeof data !== 'object') return false
+  const msg = String((data as { message?: string }).message || '')
+  return /please wait a few minutes/i.test(msg)
+}
+
 function retryAfterMs(headers: Record<string, unknown> | undefined) {
   const raw = headers?.['retry-after']
   const value = Array.isArray(raw) ? raw[0] : raw
@@ -274,13 +280,13 @@ async function igGetJson(
     const status = res.statusCode
     const wait = retryAfterMs(res.headers as Record<string, unknown>)
     const body = String(res.body || '')
-    if (status === 404) return { status, data: null, retryAfterMs: wait }
-    if (status < 200 || status >= 300) return { status, data: null, retryAfterMs: wait }
+    let data: unknown = null
     try {
-      return { status, data: JSON.parse(body), retryAfterMs: wait }
+      data = JSON.parse(body)
     } catch {
-      return { status, data: null, retryAfterMs: wait }
+      data = null
     }
+    return { status, data, retryAfterMs: wait }
   } catch {
     return { status: 0, data: null }
   }
@@ -349,6 +355,7 @@ async function fetchInstagramWebProfileUncached(handle: string): Promise<{
   }
 
   const policy = igProbePolicy(first.status)
+  const jsonWait = payloadSaysWait(first.data)
   if (policy === 'rate_limit') {
     markInstagramRateLimit(first.retryAfterMs)
     console.warn('[instagram] rate-limited', handle, first.status)
@@ -358,6 +365,10 @@ async function fetchInstagramWebProfileUncached(handle: string): Promise<{
   }
   if (policy === 'not_found') {
     return { user: null, error: { code: 'not_found', status: first.status } }
+  }
+  if (jsonWait) {
+    markInstagramRateLimit(first.retryAfterMs)
+    console.warn('[instagram] asked to wait', handle, first.status)
   }
 
   const html = await fetchProfileFromHtml(handle)
@@ -375,7 +386,8 @@ async function fetchInstagramWebProfileUncached(handle: string): Promise<{
 
   const lastStatus = html.status || first.status
   if (lastStatus === 404) return { user: null, error: { code: 'not_found', status: lastStatus } }
-  if (lastStatus === 401 || first.status === 401) {
+  if (jsonWait || lastStatus === 401 || first.status === 401) {
+    if (jsonWait) markInstagramRateLimit(first.retryAfterMs)
     const stale = cachedProfile(handle)
     if (stale?.user) return { user: stale.user }
     return { user: null, error: { code: 'rate_limit', status: lastStatus || first.status } }
