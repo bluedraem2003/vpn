@@ -14,6 +14,7 @@ import {
 import { formatHashtags, IG_CAPTION_LIMIT, IG_FIRST_COMMENT_LIMIT, IG_HASHTAG_LIMIT, parseHashtags } from '../lib/hashtags'
 import { formatJalaliFromIso } from '../lib/jalaali'
 import { occasionLabel } from '../lib/occasionLabel'
+import { occasionHint, occasionSpanDays } from '../lib/occasionSpan'
 import { useI18n } from '../prefs/PrefsProvider'
 
 const emptyForm = {
@@ -164,9 +165,11 @@ export function ContentPage() {
   }, [occasions, form.occasionId, form.publishDate])
 
   const dateOccasions = useMemo(
-    () => (form.publishDate ? occasions.filter((o) => o.dateInYear === form.publishDate) : []),
+    () => (form.publishDate ? occasions.filter((o) => occasionSpanDays(o).includes(form.publishDate)) : []),
     [occasions, form.publishDate],
   )
+  const selectedOccasion = occasions.find((o) => o.id === form.occasionId)
+  const selectedHint = selectedOccasion ? occasionHint(selectedOccasion, lang) : ''
 
   const selectedPage = projects.find((p) => p.id === form.projectId)
   const captionLen = form.caption.length
@@ -232,10 +235,12 @@ export function ContentPage() {
 
   function applyOccasion(id: string) {
     const o = occasions.find((x) => x.id === id)
+    const hint = o ? occasionHint(o, lang) : ''
     setForm((f) => ({
       ...f,
       occasionId: id,
       publishDate: o?.dateInYear || f.publishDate,
+      notes: f.notes.trim() ? f.notes : hint,
     }))
   }
 
@@ -460,6 +465,7 @@ export function ContentPage() {
                 </option>
               ))}
             </select>
+            {selectedHint && <span className="field-hint">{selectedHint}</span>}
           </div>
           <div className="field">
             <label>{t('content.publishDate')}</label>

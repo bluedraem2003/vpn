@@ -8,6 +8,7 @@ import {
 } from '../domain/types'
 import { toJalali } from '../lib/jalaali'
 import { occasionLabel } from '../lib/occasionLabel'
+import { occasionSpanDays } from '../lib/occasionSpan'
 import { useI18n } from '../prefs/PrefsProvider'
 
 type CalView = 'month' | 'week' | 'day' | 'list'
@@ -62,10 +63,11 @@ export function CalendarPage() {
   const occByDate = useMemo(() => {
     const map = new Map<string, OccasionDto[]>()
     for (const o of occasions) {
-      if (!o.dateInYear) continue
-      const list = map.get(o.dateInYear) || []
-      list.push(o)
-      map.set(o.dateInYear, list)
+      for (const day of occasionSpanDays(o)) {
+        const list = map.get(day) || []
+        list.push(o)
+        map.set(day, list)
+      }
     }
     return map
   }, [occasions])
@@ -179,7 +181,9 @@ export function CalendarPage() {
                   🎉 {occasionLabel(o, lang)}
                 </button>
                 <span>
-                  {o.dateInYear} · {t(`occ.${o.region === 'ir' ? 'ir' : o.region === 'custom' ? 'custom' : 'global'}`)}
+                  {o.dateInYear}
+                  {o.dateEndInYear ? ` – ${o.dateEndInYear}` : ''} ·{' '}
+                  {t(`occ.${o.region === 'ir' ? 'ir' : o.region === 'custom' ? 'custom' : 'global'}`)}
                 </span>
               </li>
             ))}

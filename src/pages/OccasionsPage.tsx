@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { api, type OccasionDto, type ProjectDto } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { occasionLabel } from '../lib/occasionLabel'
+import { occasionHint } from '../lib/occasionSpan'
 import { useI18n } from '../prefs/PrefsProvider'
 
 export function OccasionsPage() {
@@ -13,6 +14,7 @@ export function OccasionsPage() {
   const [projects, setProjects] = useState<ProjectDto[]>([])
   const [linkedIds, setLinkedIds] = useState<Set<string>>(new Set())
   const [region, setRegion] = useState<'all' | 'ir' | 'global' | 'custom'>('all')
+  const [fit, setFit] = useState<'all' | 'content'>('content')
   const [projectId, setProjectId] = useState('')
   const [year, setYear] = useState(new Date().getFullYear())
   const [error, setError] = useState<string | null>(null)
@@ -44,13 +46,27 @@ export function OccasionsPage() {
     void reload().catch((e) => setError((e as Error).message))
   }, [workspaceId, region, year, projectId])
 
+  const visible = useMemo(() => {
+    return [...items]
+      .filter((o) => (fit === 'content' ? (o.priority || 0) >= 3 || Boolean(o.custom) : true))
+      .sort((a, b) => {
+        if (projectId) {
+          const al = linkedIds.has(a.id) ? 0 : 1
+          const bl = linkedIds.has(b.id) ? 0 : 1
+          if (al !== bl) return al - bl
+        }
+        const dateA = String(a.dateInYear || `${a.month}-${String(a.day).padStart(2, '0')}`)
+        const dateB = String(b.dateInYear || `${b.month}-${String(b.day).padStart(2, '0')}`)
+        return dateA.localeCompare(dateB)
+      })
+  }, [items, fit, linkedIds, projectId])
+
   const upcoming = useMemo(() => {
     const today = localToday()
-    return items
+    return visible
       .filter((o) => o.dateInYear && o.dateInYear >= today)
-      .sort((a, b) => String(a.dateInYear).localeCompare(String(b.dateInYear)))
-      .slice(0, 10)
-  }, [items])
+      .slice(0, 12)
+  }, [visible])
 
   async function toggleLink(occasionId: string) {
     if (!projectId) {
@@ -128,12 +144,16 @@ export function OccasionsPage() {
       </header>
 
       <div className="panel panel-pad" style={{ marginBottom: '1rem' }}>
-        <div className="ops-filters">
+        <div className="ops-filters" style={{ gridTemplateColumns: '1fr 1fr 0.7fr 1.3fr' }}>
           <select value={region} onChange={(e) => setRegion(e.target.value as typeof region)}>
             <option value="all">{t('occ.allRegions')}</option>
             <option value="ir">{t('occ.ir')}</option>
             <option value="global">{t('occ.global')}</option>
             <option value="custom">{t('occ.custom')}</option>
+          </select>
+          <select value={fit} onChange={(e) => setFit(e.target.value as typeof fit)}>
+            <option value="content">{t('occ.fitContent')}</option>
+            <option value="all">{t('occ.fitAll')}</option>
           </select>
           <select value={year} onChange={(e) => setYear(Number(e.target.value))}>
             {[year - 1, year, year + 1].map((y) => (
@@ -156,6 +176,11 @@ export function OccasionsPage() {
         {!projectId && (
           <p className="section-sub" style={{ marginTop: '0.65rem' }}>
             {t('occ.pickToLink')}
+          </p>
+        )}
+        {projectId && projects.find((p) => p.id === projectId)?.handle?.toLowerCase().includes('karaland') && (
+          <p className="section-sub" style={{ marginTop: '0.65rem' }}>
+            {t('occ.karalandHint')}
           </p>
         )}
       </div>
@@ -220,20 +245,28 @@ export function OccasionsPage() {
       </section>
 
       <div className="asset-grid">
-        {items.map((o) => {
+        {visible.map((o) => {
           const linked = linkedIds.has(o.id)
+          const hint = occasionHint(o, lang)
           return (
-            <article key={o.id} className="panel panel-pad">
+            <article key={o.id} className={`panel panel-pad occ-card${linked ? ' is-linked' : ''}`}>
               <div className="list-meta">
                 <h3 style={{ margin: 0 }}>{occasionLabel(o, lang)}</h3>
                 <span className="meta-badge">
                   {t(`occ.${o.region === 'ir' ? 'ir' : o.region === 'custom' ? 'custom' : 'global'}`)}
                 </span>
               </div>
+              <div className="chip-row occ-angles">
+                {o.angle && <span className="meta-badge">{t(`occ.angle.${o.angle}`)}</span>}
+                {linked && <span className="meta-badge">{t('occ.linkedBadge')}</span>}
+                {(o.priority || 0) >= 5 && <span className="meta-badge">{t('occ.priorityHigh')}</span>}
+              </div>
               <p className="section-sub" style={{ margin: '0.45rem 0' }}>
-                {o.dateInYear || `${o.month}/${o.day}`} · {o.nameEn} · {o.kind}
+                {o.dateInYear || `${o.month}/${o.day}`}
+                {o.dateEndInYear ? ` – ${o.dateEndInYear}` : ''}
                 {o.calendar === 'jalali' ? ` · ${t('occ.jalaliDate', { date: `${o.month}/${o.day}` })}` : ''}
               </p>
+              {hint && <p className="occ-hint">{hint}</p>}
               {projectId && (
                 <button
                   type="button"

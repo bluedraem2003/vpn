@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { db } from '../db/index.js'
 import { requireAuth } from '../middleware/auth.js'
-import { occasionDateInYear } from '../lib/jalaali.js'
+import { mapOccasion } from './occasions.js'
 import { mapProject } from './projects.js'
 
 export const workspaceRoutes = new Hono()
@@ -100,20 +100,10 @@ workspaceRoutes.get('/:id/dashboard', (c) => {
     )
     .all(workspaceId) as Array<Record<string, unknown>>
   const upcomingOccasions = occRows
-    .map((r) => {
-      const calendar = String(r.calendar) as 'jalali' | 'gregorian'
-      const dateInYear = occasionDateInYear(calendar, Number(r.month), Number(r.day), year)
-      return {
-        id: r.id,
-        nameFa: r.name_fa,
-        nameEn: r.name_en,
-        region: r.region,
-        dateInYear,
-      }
-    })
-    .filter((o) => o.dateInYear && o.dateInYear >= today)
+    .map((r) => mapOccasion(r, year))
+    .filter((o) => o.dateInYear && o.dateInYear >= today && (o.priority >= 3 || o.custom))
     .sort((a, b) => String(a.dateInYear).localeCompare(String(b.dateInYear)))
-    .slice(0, 8)
+    .slice(0, 10)
 
   const pages = (
     db

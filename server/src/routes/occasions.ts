@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { db, uid } from '../db/index.js'
 import { assertWorkspaceAccess, requireAuth } from '../middleware/auth.js'
-import { occasionDateInYear } from '../lib/jalaali.js'
+import { occasionDateInYear, pad2 } from '../lib/jalaali.js'
 
 export const occasionRoutes = new Hono()
 occasionRoutes.use('*', requireAuth)
@@ -67,7 +67,7 @@ occasionRoutes.get('/calendar', (c) => {
     .filter((o) => o.dateInYear)
     .filter((o) => {
       if (!month) return true
-      return o.dateInYear!.slice(5, 7) === String(month).padStart(2, '0')
+      return rangeOverlapsMonth(o.dateInYear, o.dateEndInYear, year, Number(month))
     })
     .sort((a, b) => String(a.dateInYear).localeCompare(String(b.dateInYear)))
 
@@ -188,11 +188,22 @@ function listVisibleOccasions(workspaceId: string, region?: string | undefined) 
     .all(workspaceId)
 }
 
-function mapOccasion(row: unknown, year: number) {
+function rangeOverlapsMonth(start: string | null, end: string | null, year: number, month: number) {
+  if (!start) return false
+  const monthStart = `${year}-${pad2(month)}-01`
+  const last = new Date(Date.UTC(year, month, 0)).getUTCDate()
+  const monthEnd = `${year}-${pad2(month)}-${pad2(last)}`
+  const finish = end && end >= start ? end : start
+  return start <= monthEnd && finish >= monthStart
+}
+
+export function mapOccasion(row: unknown, year: number) {
   const r = row as Record<string, unknown>
   const calendar = String(r.calendar) as 'jalali' | 'gregorian'
   const month = Number(r.month)
   const day = Number(r.day)
+  const endMonth = r.end_month != null ? Number(r.end_month) : null
+  const endDay = r.end_day != null ? Number(r.end_day) : null
   return {
     id: r.id,
     slug: r.slug,
@@ -203,9 +214,17 @@ function mapOccasion(row: unknown, year: number) {
     month,
     day,
     kind: r.kind,
+    hintFa: r.hint_fa ? String(r.hint_fa) : null,
+    hintEn: r.hint_en ? String(r.hint_en) : null,
+    angle: r.angle ? String(r.angle) : null,
+    priority: Number(r.priority || 0),
+    endMonth,
+    endDay,
     workspaceId: r.workspace_id || null,
     custom: Boolean(r.workspace_id),
     dateInYear: occasionDateInYear(calendar, month, day, year),
+    dateEndInYear:
+      endMonth && endDay ? occasionDateInYear(calendar, endMonth, endDay, year) : null,
     createdAt: r.created_at,
   }
 }
