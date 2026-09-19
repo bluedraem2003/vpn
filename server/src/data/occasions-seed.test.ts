@@ -34,5 +34,10 @@ assert.equal(
   (KARALAND_OCCASION_SLUGS as readonly string[]).includes('rumi-commemoration'),
   false,
 )
+assert.match(bySlug['international-day-of-sign-languages']?.nameFa || '', /ناشنوایان/)
+assert.equal(bySlug['sattar-khan-birthday']?.priority, 2)
+assert.ok(bySlug['firefighting-safety-day']?.hintFa?.includes('آتش‌نشان'))
+assert.ok(bySlug['national-childrens-day']?.hintFa?.includes('کودک بودن یعنی'))
+assert.ok(bySlug['world-space-week']?.hintFa?.includes('مینی‌کمپین'))
 
 console.log('karaland mehr occasions ok')

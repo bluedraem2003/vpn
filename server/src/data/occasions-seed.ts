@@ -185,6 +185,8 @@ export const OCCASION_SEEDS: OccasionSeed[] = [
     kind: 'occasion',
     angle: 'heritage',
     priority: 2,
+    hintFa: 'محتوای تاریخی کودکانه؛ اولویت پایین برای کارالند.',
+    hintEn: 'Gentle historical story for kids — low priority for Karaland.',
   },
   {
     slug: 'iran-mountaineer-day',
@@ -221,7 +223,7 @@ export const OCCASION_SEEDS: OccasionSeed[] = [
   { slug: 'photography-day', nameFa: 'روز جهانی عکاسی', nameEn: 'World Photography Day', region: 'global', calendar: 'gregorian', month: 8, day: 19, kind: 'marketing', priority: 2 },
   {
     slug: 'international-day-of-sign-languages',
-    nameFa: 'روز جهانی زبان اشاره',
+    nameFa: 'روز جهانی ناشنوایان / زبان اشاره',
     nameEn: 'International Day of Sign Languages',
     region: 'global',
     calendar: 'gregorian',
