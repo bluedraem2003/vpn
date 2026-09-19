@@ -389,44 +389,34 @@ async function fetchInstagramWebProfileUncached(handle: string): Promise<{
   let feedEdges: Array<{ node: Record<string, unknown> }> = []
 
   if (!isInstagramCoolingDown()) {
-    const appUrl = `https://www.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(handle)}`
-    const first = await igGetJson(appUrl, 5500, 'web')
-    user = userFromPayload(first.data)
-    if (user?.username && hasTimelineEdges(user)) {
-      profileCache.set(handle.toLowerCase(), { at: Date.now(), user })
-      return { user }
-    }
-
-    if (igShouldStopFollowup(first.status, first.data)) {
-      markInstagramRateLimit(first.retryAfterMs)
-      console.warn('[instagram] stopping after error — no HTML retry', handle, first.status)
-    } else if (shouldTryFeedFallback(first.status, first.data, user)) {
-      // Business/pro accounts 400 on web_profile_info; the public feed still has posts.
-      const feedUrl =
-        `https://www.instagram.com/api/v1/feed/user/${encodeURIComponent(handle)}/username/?count=12`
-      const feed = await igGetJson(feedUrl, 8000, 'web')
-      if (igShouldStopFollowup(feed.status, feed.data)) {
-        markInstagramRateLimit(feed.retryAfterMs)
-        console.warn('[instagram] stopping after feed error', handle, feed.status)
-      } else {
-        feedEdges = feedItemsToGraphEdges(feed.data)
-        const fromFeed = userFromFeedPayload(feed.data, handle)
-        if (feedEdges.length) {
-          user = user ? attachTimelineEdges(user, feedEdges) : fromFeed
-          console.log('[instagram] feed-by-username', handle, feedEdges.length)
-        } else if (!user && fromFeed?.username) {
-          user = fromFeed
+    // web_profile_info 400s on business/pro accounts (deleted schema field) and
+    // often 401s from datacenter IPs — either one would block a follow-up.
+    // The public feed-by-username endpoint is the one that still returns posts.
+    const feedUrl =
+      `https://www.instagram.com/api/v1/feed/user/${encodeURIComponent(handle)}/username/?count=12`
+    const feed = await igGetJson(feedUrl, 8000, 'web')
+    if (igShouldStopFollowup(feed.status, feed.data)) {
+      markInstagramRateLimit(feed.retryAfterMs)
+      console.warn('[instagram] stopping after feed error — no follow-up', handle, feed.status)
+    } else if (igProbePolicy(feed.status) === 'not_found') {
+      return { user: null, error: { code: 'not_found' } }
+    } else {
+      feedEdges = feedItemsToGraphEdges(feed.data)
+      const fromFeed = userFromFeedPayload(feed.data, handle)
+      if (feedEdges.length) {
+        user = fromFeed
+        console.log('[instagram] feed-by-username', handle, feedEdges.length)
+      } else if (fromFeed?.username) {
+        user = fromFeed
+      } else if (instagramCookie()) {
+        const html = await fetchProfileFromHtml(handle)
+        if (html.user?.username) {
+          profileCache.set(handle.toLowerCase(), { at: Date.now(), user: html.user })
+          return { user: html.user }
         }
-      }
-    } else if (instagramCookie() && igProbePolicy(first.status) !== 'not_found') {
-      // HTML only helps when we have a session; datacenter IPs get a login wall.
-      const html = await fetchProfileFromHtml(handle)
-      if (html.user?.username) {
-        profileCache.set(handle.toLowerCase(), { at: Date.now(), user: html.user })
-        return { user: html.user }
-      }
-      if (igShouldStopFollowup(html.status)) {
-        markInstagramRateLimit(html.retryAfterMs)
+        if (igShouldStopFollowup(html.status)) {
+          markInstagramRateLimit(html.retryAfterMs)
+        }
       }
     }
   }

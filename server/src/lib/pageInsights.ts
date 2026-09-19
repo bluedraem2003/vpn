@@ -308,6 +308,13 @@ async function analyzeInstagramPageUncached(
     return { ok: false, error: fetched.error || { code: 'unavailable' } }
   }
 
+  const previous = loadIgPageReport(handle)
+  if (previous) {
+    if (!String(user.biography || '').trim() && previous.biography) user.biography = previous.biography
+    if ((!user.full_name || user.full_name === user.username) && previous.name) user.full_name = previous.name
+    if (!user.external_url && previous.website) user.external_url = previous.website
+  }
+
   const followers = num((user.edge_followed_by as { count?: number } | undefined)?.count)
   const following = num((user.edge_follow as { count?: number } | undefined)?.count)
   const posts = num((user.edge_owner_to_timeline_media as { count?: number } | undefined)?.count)
