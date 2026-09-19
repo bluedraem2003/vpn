@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useI18n } from '../prefs/PrefsProvider'
 
 export function PlaceholderPage({
   title,
@@ -7,6 +8,7 @@ export function PlaceholderPage({
   title: string
   description: string
 }) {
+  const { t } = useI18n()
   return (
     <div className="ops-page">
       <header className="ops-page-head">
@@ -16,16 +18,13 @@ export function PlaceholderPage({
         </div>
       </header>
       <div className="panel panel-pad">
-        <p className="section-sub">
-          این بخش در فازهای بعدی طبق Plan پیاده‌سازی می‌شود. هسته فعلی: داشبورد، تقویم، محتوا، دارایی‌ها،
-          تلگرام و استودیو.
-        </p>
+        <p className="section-sub">{t('placeholder.body')}</p>
         <div className="form-actions">
           <Link to="/" className="btn btn-solid btn-sm">
-            داشبورد
+            {t('nav.dashboard')}
           </Link>
           <Link to="/content" className="btn btn-outline btn-sm">
-            محتوا
+            {t('nav.content')}
           </Link>
         </div>
       </div>

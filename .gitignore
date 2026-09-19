@@ -29,3 +29,6 @@ data
 *.njsproj
 *.sln
 *.sw?
+.playwright-mcp/
+asset-preview-open.png
+team-invite-ready.png

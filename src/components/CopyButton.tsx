@@ -1,12 +1,14 @@
 import { Copy, Check } from 'lucide-react'
 import { useState } from 'react'
+import { useI18n } from '../prefs/PrefsProvider'
 
 interface CopyButtonProps {
   text: string
   label?: string
 }
 
-export function CopyButton({ text, label = 'کپی' }: CopyButtonProps) {
+export function CopyButton({ text, label }: CopyButtonProps) {
+  const { t } = useI18n()
   const [done, setDone] = useState(false)
 
   async function onCopy() {
@@ -29,7 +31,7 @@ export function CopyButton({ text, label = 'کپی' }: CopyButtonProps) {
   return (
     <button type="button" className="btn btn-outline btn-sm" onClick={onCopy}>
       {done ? <Check size={14} /> : <Copy size={14} />}
-      {done ? 'کپی شد' : label}
+      {done ? t('common.copied') : label || t('common.copy')}
     </button>
   )
 }

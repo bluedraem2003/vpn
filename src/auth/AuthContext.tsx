@@ -16,7 +16,7 @@ type AuthContextValue = {
   error: string | null
   login: (email?: string) => Promise<void>
   loginWithMagic: (token: string) => Promise<void>
-  requestMagicLink: (email: string) => Promise<{ message: string; devMagicUrl?: string }>
+  requestMagicLink: (email: string) => Promise<{ message: string; inviteUrl?: string; devMagicUrl?: string }>
   logout: () => Promise<void>
   workspaceId: string | null
   applySession: (res: {

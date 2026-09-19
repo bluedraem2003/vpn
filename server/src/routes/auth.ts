@@ -5,6 +5,20 @@ import { hitRateLimit } from '../middleware/rateLimit.js'
 
 export const authRoutes = new Hono()
 
+function shareInviteLinks() {
+  // Without SMTP, invite/magic URLs must be copy-pasteable for small teams.
+  if (process.env.SHARE_INVITE_LINKS === '0') return false
+  if (process.env.SHARE_INVITE_LINKS === '1') return true
+  // Default: share links (team of 2 without mailer)
+  return true
+}
+
+function allowDevLogin() {
+  if (process.env.ALLOW_DEV_LOGIN === '1') return true
+  if (process.env.ALLOW_DEV_LOGIN === '0') return false
+  return process.env.NODE_ENV !== 'production'
+}
+
 function issueSessionForEmail(email: string, preferredWorkspaceId?: string | null) {
   const user = db.prepare(`SELECT * FROM users WHERE lower(email) = ?`).get(email) as
     | Record<string, unknown>
@@ -34,8 +48,11 @@ function issueSessionForEmail(email: string, preferredWorkspaceId?: string | nul
   }
 }
 
-/** Kept for local bootstrap / smoke tests. Prefer magic-link in UI. */
+/** Local bootstrap only — disabled in production unless ALLOW_DEV_LOGIN=1. */
 authRoutes.post('/login', async (c) => {
+  if (!allowDevLogin()) {
+    return c.json({ error: 'ورود سریع در این محیط غیرفعال است. از Magic Link استفاده کنید.' }, 403)
+  }
   const body = await c.req.json().catch(() => ({} as Record<string, unknown>))
   const email = String(body.email || 'owner@postyar.local').trim().toLowerCase()
   if (hitRateLimit(`login:${email}`, 20, 60_000)) {
@@ -47,10 +64,9 @@ authRoutes.post('/login', async (c) => {
 })
 
 /**
- * Magic-link request (free-tier):
- * - No paid email provider required.
- * - In development, returns `devMagicUrl` and logs the link.
- * - In production set AUTH_PUBLIC_URL; deliver via your mailer later.
+ * Magic-link request:
+ * - Creates a one-time link under AUTH_PUBLIC_URL
+ * - Without SMTP, inviteUrl is returned so owner can share with teammate
  */
 authRoutes.post('/magic-link', async (c) => {
   const body = await c.req.json().catch(() => ({} as Record<string, unknown>))
@@ -64,7 +80,7 @@ authRoutes.post('/magic-link', async (c) => {
   const user = db.prepare(`SELECT * FROM users WHERE lower(email) = ?`).get(email) as
     | Record<string, unknown>
     | undefined
-  if (!user) return c.json({ error: 'این ایمیل در ورک‌اسپیس ثبت نشده' }, 404)
+  if (!user) return c.json({ error: 'این ایمیل در ورک‌اسپیس ثبت نشده — از صفحه تیم دعوت شوید' }, 404)
 
   const membership = db
     .prepare(`SELECT * FROM memberships WHERE user_id = ? ORDER BY rowid ASC LIMIT 1`)
@@ -87,17 +103,20 @@ authRoutes.post('/magic-link', async (c) => {
     expires.toISOString(),
   )
 
-  const publicUrl = process.env.AUTH_PUBLIC_URL || 'http://127.0.0.1:5173'
-  const magicUrl = `${publicUrl}/?magic=${token}`
+  const base = process.env.AUTH_PUBLIC_URL || 'http://127.0.0.1:8080'
+  const magicUrl = `${base.replace(/\/$/, '')}/?magic=${token}`
   console.log('[Auth] Magic link for', email, magicUrl)
 
   return c.json({
     ok: true,
-    message: 'لینک ورود ساخته شد. در حالت توسعه لینک در پاسخ و لاگ سرور است.',
+    message: shareInviteLinks()
+      ? 'لینک ورود آماده است — برای هم‌تیمی بفرستید یا خودتان باز کنید.'
+      : 'اگر ایمیل پیکربندی شده باشد لینک ارسال می‌شود.',
     expiresAt: expires.toISOString(),
-    // Free-tier / local: expose link so UI can complete without SMTP
-    devMagicUrl: process.env.NODE_ENV === 'production' && process.env.HIDE_DEV_MAGIC !== '0' ? undefined : magicUrl,
-    magicToken: process.env.NODE_ENV === 'production' ? undefined : token,
+    inviteUrl: shareInviteLinks() ? magicUrl : undefined,
+    // Back-compat with older UI
+    devMagicUrl: shareInviteLinks() ? magicUrl : undefined,
+    magicToken: allowDevLogin() ? token : undefined,
   })
 })
 
@@ -155,5 +174,8 @@ authRoutes.get('/bootstrap', (c) => {
     authenticated: Boolean(session),
     defaultEmail: owner?.email || 'owner@postyar.local',
     magicLinkEnabled: true,
+    allowDevLogin: allowDevLogin(),
+    shareInviteLinks: shareInviteLinks(),
+    publicUrl: process.env.AUTH_PUBLIC_URL || null,
   })
 })

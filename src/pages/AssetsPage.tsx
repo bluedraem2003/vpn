@@ -2,8 +2,23 @@ import { useEffect, useState } from 'react'
 import { api, type AssetDto } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { AssetPreviewModal } from '../components/AssetPreviewModal'
+import { AssetThumb } from '../components/AssetThumb'
+import { useI18n } from '../prefs/PrefsProvider'
+
+function resolveDownloadMime(asset: AssetDto, headerType: string | null) {
+  if (headerType && !headerType.includes('octet-stream') && !headerType.includes('application/json')) {
+    return headerType.split(';')[0]!.trim()
+  }
+  if (asset.mimeType && !asset.mimeType.includes('octet-stream')) return asset.mimeType
+  if (asset.type === 'image') return 'image/jpeg'
+  if (asset.type === 'video') return 'video/mp4'
+  if (asset.type === 'audio') return 'audio/mpeg'
+  if (asset.type === 'pdf') return 'application/pdf'
+  return headerType || 'application/octet-stream'
+}
 
 export function AssetsPage() {
+  const { t } = useI18n()
   const { workspaceId, session } = useAuth()
   const [items, setItems] = useState<AssetDto[]>([])
   const [q, setQ] = useState('')
@@ -34,37 +49,56 @@ export function AssetsPage() {
     }
   }, [workspaceId, type, q, sort])
 
+  async function downloadAsset(asset: AssetDto) {
+    const res = await fetch(`/api/assets/${asset.id}/download`, {
+      headers: api.authHeaders(),
+    })
+    if (!res.ok) {
+      setError(t('assets.downloadFail'))
+      return
+    }
+    const raw = await res.arrayBuffer()
+    const mime = resolveDownloadMime(asset, res.headers.get('content-type'))
+    const blob = new Blob([raw], { type: mime })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = asset.filename
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div className="ops-page">
       <header className="ops-page-head">
         <div>
-          <h1>دارایی‌ها</h1>
-          <p>مرور فایل‌های ایندکس‌شده از تلگرام و اتصال به محتوا</p>
+          <h1>{t('pages.assetsTitle')}</h1>
+          <p>{t('pages.assetsSub')}</p>
         </div>
       </header>
 
       <div className="panel panel-pad" style={{ marginBottom: '1rem' }}>
         <div className="ops-filters">
           <input
-            placeholder="جستجو نام فایل / کپشن..."
+            placeholder={t('assets.searchPh')}
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
           <select value={type} onChange={(e) => setType(e.target.value)}>
-            <option value="all">همه</option>
-            <option value="image">تصویر</option>
-            <option value="video">ویدیو</option>
-            <option value="audio">صوت</option>
-            <option value="document">سند</option>
+            <option value="all">{t('common.all')}</option>
+            <option value="image">{t('assets.image')}</option>
+            <option value="video">{t('assets.video')}</option>
+            <option value="audio">{t('assets.audio')}</option>
+            <option value="document">{t('assets.document')}</option>
             <option value="pdf">PDF</option>
-            <option value="archive">آرشیو</option>
+            <option value="archive">{t('assets.archive')}</option>
           </select>
           <select value={sort} onChange={(e) => setSort(e.target.value)}>
-            <option value="newest">جدیدترین</option>
-            <option value="oldest">قدیمی‌ترین</option>
-            <option value="largest">بزرگ‌ترین</option>
-            <option value="smallest">کوچک‌ترین</option>
-            <option value="name">نام</option>
+            <option value="newest">{t('assets.newest')}</option>
+            <option value="oldest">{t('assets.oldest')}</option>
+            <option value="largest">{t('assets.largest')}</option>
+            <option value="smallest">{t('assets.smallest')}</option>
+            <option value="name">{t('assets.byName')}</option>
           </select>
         </div>
       </div>
@@ -78,13 +112,27 @@ export function AssetsPage() {
       <div className="asset-grid">
         {items.length === 0 && !error && (
           <div className="panel panel-pad empty">
-            <strong>فایلی نیست</strong>
-            از صفحه تلگرام Webhook را وصل کنید یا فایلی به کانال بفرستید.
+            <strong>{t('assets.emptyTitle')}</strong>
+            {t('assets.emptySub')}
           </div>
         )}
         {items.map((asset) => (
-          <article key={asset.id} className="panel asset-card">
-            <div className="asset-thumb">{asset.type}</div>
+          <article
+            key={asset.id}
+            className="panel asset-card asset-card-openable"
+            role="button"
+            tabIndex={0}
+            onClick={() => setPreview(asset)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                setPreview(asset)
+              }
+            }}
+          >
+            <div className="asset-thumb">
+              <AssetThumb asset={asset} />
+            </div>
             <div className="asset-body">
               <h3>{asset.filename}</h3>
               <p>
@@ -93,41 +141,19 @@ export function AssetsPage() {
                 {asset.width && asset.height ? ` · ${asset.width}×${asset.height}` : ''}
               </p>
               <div className="chip-row">
-                {asset.tags.map((t) => (
-                  <span className="tag" key={t}>
-                    #{t}
+                {asset.tags.map((tag) => (
+                  <span className="tag" key={tag}>
+                    #{tag}
                   </span>
                 ))}
               </div>
-              <div className="form-actions">
-                  <button type="button" className="btn btn-solid btn-sm" onClick={() => setPreview(asset)}>
-                    Preview
-                  </button>
-                  <a
-                  className="btn btn-outline btn-sm"
-                  href={`/api/assets/${asset.id}/download`}
-                  onClick={(e) => {
-                    e.preventDefault()
-                    void (async () => {
-                      const res = await fetch(`/api/assets/${asset.id}/download`, {
-                        headers: session?.token ? { Authorization: `Bearer ${session.token}` } : {},
-                      })
-                      if (!res.ok) {
-                        setError('دانلود ناموفق بود')
-                        return
-                      }
-                      const blob = await res.blob()
-                      const url = URL.createObjectURL(blob)
-                      const a = document.createElement('a')
-                      a.href = url
-                      a.download = asset.filename
-                      a.click()
-                      URL.revokeObjectURL(url)
-                    })()
-                  }}
-                >
-                  دانلود
-                </a>
+              <div className="form-actions" onClick={(e) => e.stopPropagation()}>
+                <button type="button" className="btn btn-solid btn-sm" onClick={() => setPreview(asset)}>
+                  {t('common.open')}
+                </button>
+                <button type="button" className="btn btn-outline btn-sm" onClick={() => void downloadAsset(asset)}>
+                  {t('common.download')}
+                </button>
                 <span className="meta-badge">{asset.status}</span>
               </div>
             </div>
@@ -138,7 +164,7 @@ export function AssetsPage() {
       {preview && (
         <AssetPreviewModal
           asset={preview}
-          authToken={session?.token}
+          authToken={session?.token || api.getToken() || undefined}
           onClose={() => {
             setPreview(null)
             void reload().catch(() => null)
