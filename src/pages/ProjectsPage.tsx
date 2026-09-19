@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { RefreshCw } from 'lucide-react'
 import { api, type IgPageHit, type ProjectDto } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { normalizeHandle } from '../lib/handle'
 import { formatHashtags, parseHashtags } from '../lib/hashtags'
 import { InstagramPageSearch } from '../components/InstagramPageSearch'
+import { SyncStatusChip, relativeTime } from '../components/ConnectedPageCard'
 import { useI18n } from '../prefs/PrefsProvider'
 
 const emptyForm = {
@@ -19,7 +22,7 @@ const emptyForm = {
 }
 
 export function ProjectsPage() {
-  const { t } = useI18n()
+  const { t, n, lang } = useI18n()
   const { workspaceId } = useAuth()
   const [items, setItems] = useState<ProjectDto[]>([])
   const [form, setForm] = useState(emptyForm)
@@ -27,6 +30,7 @@ export function ProjectsPage() {
   const [error, setError] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [syncingId, setSyncingId] = useState<string | null>(null)
 
   async function reload() {
     if (!workspaceId) return
@@ -79,7 +83,18 @@ export function ProjectsPage() {
       } else {
         const res = await api.createProject({ workspaceId, ...body })
         setItems((prev) => [res.item, ...prev.filter((p) => p.id !== res.item.id)])
-        setMsg(t('projects.saved'))
+        const sync = res.sync
+        setMsg(
+          !sync
+            ? t('projects.saved')
+            : sync.ok
+              ? t('projects.connected', { followers: res.item.live ? res.item.live.followers : 0 })
+              : sync.code === 'rate_limit'
+                ? t('projects.savedCooldown')
+                : sync.code === 'not_found'
+                  ? t('projects.savedNotFound')
+                  : t('projects.savedError'),
+        )
         resetForm()
       }
       await reload()
@@ -105,6 +120,30 @@ export function ProjectsPage() {
     })
     setError(null)
     setMsg(null)
+  }
+
+  async function syncOne(id: string) {
+    setSyncingId(id)
+    setError(null)
+    setMsg(null)
+    try {
+      const res = await api.syncProject(id)
+      setItems((prev) => prev.map((p) => (p.id === id ? res.item : p)))
+      if (res.sync?.ok) setMsg(res.sync.cached ? t('pagesLive.syncCached') : t('pagesLive.syncDone', { n: res.sync.events.length }))
+    } catch (e) {
+      const err = e as Error & { code?: string }
+      setError(
+        err.code === 'ig_busy'
+          ? t('pagesLive.syncBusy')
+          : err.code === 'not_found'
+            ? t('pagesLive.statusNotFound')
+            : err.code === 'busy'
+              ? t('analytics.errBusy')
+              : err.message,
+      )
+    } finally {
+      setSyncingId(null)
+    }
   }
 
   async function remove(id: string) {
@@ -260,8 +299,21 @@ export function ProjectsPage() {
             )}
             {items.map((p) => (
               <article key={p.id} className="list-item">
-                <h3>{p.name}</h3>
-                {(p.handle || p.clientName) && <p>@{String(p.handle || p.clientName).replace(/^@/, '')}</p>}
+                <div className="list-meta">
+                  <h3>{p.name}</h3>
+                  <SyncStatusChip project={p} />
+                </div>
+                {(p.handle || p.clientName) && <p dir="ltr">@{String(p.handle || p.clientName).replace(/^@/, '')}</p>}
+                {p.live && (
+                  <p className="live-line">
+                    {t('projects.liveLine', {
+                      followers: n(p.live.followers),
+                      posts: n(p.live.posts),
+                      er: n(p.live.engagementRate, 2),
+                    })}
+                    {p.igLastSyncedAt ? ` · ${t('pagesLive.syncedAgo', { when: relativeTime(p.igLastSyncedAt, lang) })}` : ''}
+                  </p>
+                )}
                 {p.niche && <p>{t('projects.nicheLine', { v: p.niche })}</p>}
                 {p.audience && <p>{t('projects.audienceLine', { v: p.audience })}</p>}
                 {p.voice && <p>{t('projects.voiceLine', { v: p.voice })}</p>}
@@ -272,6 +324,25 @@ export function ProjectsPage() {
                 )}
                 {p.hashtags && p.hashtags.length > 0 && <p>{p.hashtags.join(' ')}</p>}
                 <div className="form-actions">
+                  {(p.handle || p.clientName) && (
+                    <button
+                      type="button"
+                      className="btn btn-solid btn-sm"
+                      disabled={syncingId === p.id}
+                      onClick={() => void syncOne(p.id)}
+                    >
+                      <RefreshCw size={13} className={syncingId === p.id ? 'spin' : undefined} aria-hidden />
+                      {syncingId === p.id ? t('pagesLive.syncing') : t('pagesLive.syncNow')}
+                    </button>
+                  )}
+                  {(p.handle || p.clientName) && (
+                    <Link
+                      className="btn btn-outline btn-sm"
+                      to={`/analytics?handle=${encodeURIComponent(String(p.handle || p.clientName))}`}
+                    >
+                      {t('nav.analytics')}
+                    </Link>
+                  )}
                   <button type="button" className="btn btn-outline btn-sm" onClick={() => startEdit(p)}>
                     {t('common.edit')}
                   </button>

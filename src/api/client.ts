@@ -162,7 +162,11 @@ export const api = {
     windowStart?: string
     windowEnd?: string
     hashtags?: string[] | string
-  }) => request<{ item: ProjectDto }>('/api/projects', { method: 'POST', body: JSON.stringify(body) }),
+  }) =>
+    request<{ item: ProjectDto; sync: ProjectSyncSummary | null }>('/api/projects', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   updateProject: (
     id: string,
     body: Partial<{
@@ -180,6 +184,21 @@ export const api = {
     }>,
   ) => request<{ item: ProjectDto }>(`/api/projects/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   deleteProject: (id: string) => request<{ ok: boolean }>(`/api/projects/${id}`, { method: 'DELETE' }),
+  syncProject: (id: string) =>
+    request<{ item: ProjectDto; sync: ProjectSyncSummary | null; code?: string }>(`/api/projects/${id}/sync`, {
+      method: 'POST',
+    }),
+  notifications: (workspaceId: string, params?: { unread?: boolean; limit?: number }) => {
+    const sp = new URLSearchParams({ workspaceId })
+    if (params?.unread) sp.set('unread', '1')
+    if (params?.limit) sp.set('limit', String(params.limit))
+    return request<{ items: NotificationDto[]; unreadCount: number }>(`/api/notifications?${sp}`)
+  },
+  markNotificationsRead: (workspaceId: string, body: { ids?: string[]; all?: boolean }) =>
+    request<{ ok: boolean; unreadCount: number }>('/api/notifications/read', {
+      method: 'POST',
+      body: JSON.stringify({ workspaceId, ...body }),
+    }),
   listCampaigns: (workspaceId: string) =>
     request<{ items: CampaignDto[] }>(`/api/campaigns?workspaceId=${workspaceId}`),
   createCampaign: (body: {
@@ -479,7 +498,58 @@ export interface ProjectDto {
   windowEnd?: string
   hashtags?: string[]
   createdAt: string
+  igConnectedAt?: string | null
+  igLastSyncedAt?: string | null
+  igLastAttemptAt?: string | null
+  igSyncStatus?: IgSyncStatus | null
+  igSyncError?: string | null
+  live?: ProjectLive | null
 }
+
+export type IgSyncStatus = 'live' | 'cooldown' | 'error' | 'pending'
+
+export interface ProjectLive {
+  followers: number
+  following: number
+  posts: number
+  name: string
+  biography: string
+  isPrivate: boolean
+  website?: string | null
+  lastPostAt?: string | null
+  engagementRate: number
+  avgLikes: number
+  fetchedAt: string
+}
+
+export type NotificationKind =
+  | 'page_connected'
+  | 'new_post'
+  | 'followers_up'
+  | 'followers_down'
+  | 'bio_changed'
+  | 'name_changed'
+  | 'website_changed'
+  | 'privacy_changed'
+  | 'post_removed'
+  | 'sync_error'
+
+export interface NotificationDto {
+  id: string
+  projectId?: string | null
+  handle?: string | null
+  kind: NotificationKind | string
+  title: string
+  body?: string | null
+  url?: string | null
+  meta: Record<string, unknown>
+  readAt?: string | null
+  createdAt: string
+}
+
+export type ProjectSyncSummary =
+  | { ok: true; status: 'live'; cached: boolean; events: Array<{ kind: string; meta: Record<string, unknown>; url?: string }> }
+  | { ok: false; status: 'cooldown' | 'error'; code: string; retryInSec?: number }
 
 export interface CampaignDto {
   id: string

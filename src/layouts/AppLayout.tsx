@@ -17,12 +17,17 @@ import {
   PartyPopper,
   Menu,
   X,
+  Bell,
+  type LucideIcon,
 } from 'lucide-react'
 import { useAuth } from '../auth/AuthContext'
 import { AppearanceControls } from '../components/AppearanceControls'
 import { useI18n } from '../prefs/PrefsProvider'
+import { useNotifications } from '../notifications/useNotifications'
 
-const groups = [
+type NavLinkDef = { to: string; key: string; icon: LucideIcon; end?: boolean; badge?: boolean }
+
+const groups: Array<{ key: string; links: NavLinkDef[] }> = [
   {
     key: 'nav.groupPlan',
     links: [
@@ -51,6 +56,7 @@ const groups = [
   {
     key: 'nav.groupManage',
     links: [
+      { to: '/notifications', key: 'nav.notifications', icon: Bell, badge: true },
       { to: '/team', key: 'nav.team', icon: Users },
       { to: '/analytics', key: 'nav.analytics', icon: BarChart3 },
       { to: '/settings', key: 'nav.settings', icon: Settings },
@@ -62,6 +68,7 @@ export function AppLayout() {
   const { session, logout } = useAuth()
   const { t, lang } = useI18n()
   const [menuOpen, setMenuOpen] = useState(false)
+  const { unread } = useNotifications({ limit: 1 })
 
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 981px)')
@@ -109,7 +116,7 @@ export function AppLayout() {
             {groups.map((group) => (
               <div key={group.key} className="ops-nav-group">
                 <p className="ops-nav-label">{t(group.key)}</p>
-                {group.links.map(({ to, key, icon: Icon, end }) => (
+                {group.links.map(({ to, key, icon: Icon, end, badge }) => (
                   <NavLink
                     key={to}
                     to={to}
@@ -119,6 +126,11 @@ export function AppLayout() {
                   >
                     <Icon size={16} aria-hidden />
                     {t(key)}
+                    {badge && unread > 0 && (
+                      <span className="nav-badge" aria-label={t('notif.unreadAria', { n: unread })}>
+                        {unread > 99 ? '99+' : unread}
+                      </span>
+                    )}
                   </NavLink>
                 ))}
               </div>

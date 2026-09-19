@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   BadgeCheck,
   Clapperboard,
@@ -19,7 +20,6 @@ import {
   Send,
   TrendingUp,
   Users,
-  X,
 } from 'lucide-react'
 import {
   api,
@@ -37,10 +37,9 @@ import {
 import { useAuth } from '../auth/AuthContext'
 import { InstagramPageSearch } from '../components/InstagramPageSearch'
 import { normalizeHandle } from '../lib/handle'
+import { PostPreviewModal, postTypeLabel } from '../components/PostPreviewModal'
 import { useI18n } from '../prefs/PrefsProvider'
 import type { ContentStatus, ContentType, Platform } from '../domain/types'
-
-const SAMPLE_HANDLE = 'rasta_mini.vogue'
 
 type AnalyticsData = {
   summary: {
@@ -66,22 +65,18 @@ type AnalyticsData = {
     platforms: string[]
   }>
   missingAssets: Array<{ id: string; title: string; status: string }>
-  aiReadyHints: string[]
-}
-
-function postTypeLabel(type: PagePostInsight['type'], t: (key: string) => string) {
-  if (type === 'reel') return t('analytics.reel')
-  if (type === 'carousel') return t('analytics.carousel')
-  return t('analytics.post')
 }
 
 export function AnalyticsPage() {
   const { workspaceId } = useAuth()
   const { t } = useI18n()
+  const [params] = useSearchParams()
+  const deepHandle = normalizeHandle(params.get('handle') || '')
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [draft, setDraft] = useState('')
-  const [handle, setHandle] = useState('')
+  const [draft, setDraft] = useState(deepHandle)
+  // A saved-page deep link opens its cached report immediately (no fresh Instagram hit).
+  const [handle, setHandle] = useState(deepHandle)
   const [fresh, setFresh] = useState(false)
   const [requestId, setRequestId] = useState(0)
   const [pageBusy, setPageBusy] = useState(false)
@@ -104,7 +99,7 @@ export function AnalyticsPage() {
           if (current) return current
           for (const p of items) {
             const h = normalizeHandle(p.handle || p.clientName || '')
-            if (h && h.toLowerCase() !== SAMPLE_HANDLE) return h
+            if (h) return h
           }
           return current
         })
@@ -160,7 +155,7 @@ export function AnalyticsPage() {
       const h = normalizeHandle(p.handle || p.clientName || '')
       if (!h) continue
       const key = h.toLowerCase()
-      if (seen.has(key) || key === SAMPLE_HANDLE) continue
+      if (seen.has(key)) continue
       seen.add(key)
       out.push({ handle: h, name: p.name || h })
     }
@@ -218,13 +213,6 @@ export function AnalyticsPage() {
         </div>
 
         <div className="ig-chip-row" role="list">
-          <button
-            type="button"
-            className={`ig-chip ${handle.toLowerCase() === SAMPLE_HANDLE ? 'active' : ''}`}
-            onClick={() => runAnalysis(SAMPLE_HANDLE, false)}
-          >
-            {t('analytics.sample')} · @{SAMPLE_HANDLE}
-          </button>
           {savedHandles.map((p) => (
             <button
               key={p.handle}
@@ -705,7 +693,7 @@ function PageReport({
           {t('analytics.updated', { date: d(page.fetchedAt) })}
         </p>
       </section>
-      {openPost ? <IgPostModal post={openPost} onClose={() => setOpenPost(null)} /> : null}
+      {openPost ? <PostPreviewModal post={openPost} onClose={() => setOpenPost(null)} /> : null}
     </>
   )
 }
@@ -827,66 +815,6 @@ function PostCard({ post, onOpen }: { post: PagePostInsight; onOpen: (post: Page
         ) : null}
       </span>
     </button>
-  )
-}
-
-function IgPostModal({ post, onClose }: { post: PagePostInsight; onClose: () => void }) {
-  const { t, n, d } = useI18n()
-  const type = postTypeLabel(post.type, t)
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
-  return (
-    <div className="modal-backdrop ig-post-modal-backdrop" role="presentation" onClick={onClose}>
-      <div
-        className="panel panel-pad ig-post-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label={t('analytics.preview')}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <header className="ig-post-modal-head">
-          <strong>{t('analytics.postEng', { type, er: n(post.engagement, 2) })}</strong>
-          <button type="button" className="btn btn-outline btn-sm" onClick={onClose} aria-label={t('common.close')}>
-            <X size={16} />
-          </button>
-        </header>
-        {post.thumbUrl ? (
-          <img className="ig-post-modal-img" src={post.thumbUrl} alt="" referrerPolicy="no-referrer" />
-        ) : (
-          <span className="ig-thumb-fallback">{type}</span>
-        )}
-        <p className="ig-post-modal-stats">
-          {t('analytics.postStats', { likes: n(post.likes), comments: n(post.comments) })}
-          {post.views != null ? t('analytics.withViews', { views: n(post.views) }) : ''}
-          {post.takenAt ? ` · ${d(post.takenAt)}` : ''}
-        </p>
-        {post.locationName ? (
-          <p className="section-sub">
-            <MapPin size={12} /> {post.locationName}
-          </p>
-        ) : null}
-        {post.songName ? (
-          <p className="section-sub">
-            <Music size={12} /> {post.originalAudio ? t('analytics.originalAudio') : post.songName}
-            {post.artistName ? ` · ${post.artistName}` : ''}
-          </p>
-        ) : null}
-        {post.taggedUsers.length > 0 ? (
-          <p className="section-sub">{t('analytics.tagged', { list: post.taggedUsers.map((u) => `@${u}`).join(' · ') })}</p>
-        ) : null}
-        {post.hashtags.length > 0 ? (
-          <p className="section-sub">{post.hashtags.map((h) => `#${h}`).join(' ')}</p>
-        ) : null}
-        {post.caption ? <p className="ig-post-modal-caption">{post.caption}</p> : null}
-        <p className="section-sub">{t('analytics.inAppPreview')}</p>
-      </div>
-    </div>
   )
 }
 
@@ -1032,9 +960,6 @@ function WorkspaceAnalytics({ data, error }: { data: AnalyticsData | null; error
               </li>
             ))}
           </ul>
-          <p className="section-sub" style={{ marginTop: '0.85rem' }}>
-            {t('analytics.aiReady')}: {data.aiReadyHints.join(' · ')}
-          </p>
         </section>
       </div>
     </div>

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { api } from '../api/client'
+import { api, type NotificationDto, type ProjectDto } from '../api/client'
+import { ConnectedPageCard } from '../components/ConnectedPageCard'
+import { NotificationList } from '../components/NotificationList'
 import { useAuth } from '../auth/AuthContext'
 import { type ContentStatus } from '../domain/types'
 import { formatJalaliDate, formatJalaliFromIso } from '../lib/jalaali'
@@ -68,6 +70,10 @@ export function DashboardPage() {
   const upcomingOccasions = (data?.upcomingOccasions || []) as Array<Record<string, unknown>>
   const pageCount = Number(data?.pageCount || 0)
   const scheduledCount = Number(data?.scheduledCount || 0)
+  const pages = (data?.pages || []) as ProjectDto[]
+  const connectedPages = pages.filter((p) => p.handle)
+  const recentEvents = (data?.recentEvents || []) as NotificationDto[]
+  const unreadNotifications = Number(data?.unreadNotifications || 0)
 
   async function markPublished(id: string) {
     setActionError(null)
@@ -112,6 +118,42 @@ export function DashboardPage() {
         </div>
       )}
 
+      <section className="dash-live">
+        <div className="dash-live-head">
+          <div>
+            <h2 className="section-title">{t('dash.liveTitle')}</h2>
+            <p className="section-sub">{t('dash.liveSub')}</p>
+          </div>
+          <Link to="/notifications" className="btn btn-outline btn-sm">
+            {t('nav.notifications')}
+            {unreadNotifications > 0 && <span className="nav-badge inline">{unreadNotifications}</span>}
+          </Link>
+        </div>
+        {connectedPages.length === 0 ? (
+          <div className="panel panel-pad empty quiet">
+            <strong>{t('dash.noConnected')}</strong>
+            <Link to="/projects">{t('dash.addPage')}</Link>
+          </div>
+        ) : (
+          <div className="connected-grid">
+            {connectedPages.map((p) => (
+              <ConnectedPageCard
+                key={p.id}
+                project={p}
+                compact
+                onChange={(next) =>
+                  setData((prev) =>
+                    prev
+                      ? { ...prev, pages: (prev.pages as ProjectDto[]).map((x) => (x.id === next.id ? next : x)) }
+                      : prev,
+                  )
+                }
+              />
+            ))}
+          </div>
+        )}
+      </section>
+
       <div className="ops-stat-grid">
         {[
           [t('dash.pages'), pageCount],
@@ -127,6 +169,15 @@ export function DashboardPage() {
       </div>
 
       <div className="ops-split">
+        <section className="panel panel-pad">
+          <h2 className="section-title">{t('dash.recentEvents')}</h2>
+          <NotificationList items={recentEvents.slice(0, 5)} emptyText={t('dash.noEvents')} />
+          {recentEvents.length > 0 && (
+            <Link to="/notifications" className="btn btn-outline btn-sm" style={{ marginTop: '0.65rem' }}>
+              {t('dash.allEvents')}
+            </Link>
+          )}
+        </section>
         <section className="panel panel-pad">
           <h2 className="section-title">{t('dash.today')}</h2>
           <ItemList items={today} empty={t('dash.noToday')} onPublished={markPublished} />

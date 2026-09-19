@@ -178,10 +178,5 @@ analyticsRoutes.get('/', (c) => {
       }
     }),
     missingAssets,
-    aiReadyHints: [
-      'Detect missing assets before publish',
-      'Suggest schedule from overdue + capacity',
-      'Caption assist using content.ai_meta',
-    ],
   })
 })
