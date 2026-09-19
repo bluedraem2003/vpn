@@ -67,10 +67,6 @@ export function isLikelyIgHandle(raw: string) {
   return /^[A-Za-z0-9._]{1,30}$/.test(h) && !h.startsWith('.') && !h.endsWith('.') && !PATH_SKIP.has(h.toLowerCase())
 }
 
-function hasIgSession(cookie: string) {
-  return /(?:^|;\s*)sessionid=/.test(cookie)
-}
-
 export async function searchInstagramPages(query: string): Promise<IgPageHit[]> {
   const q = query.trim()
   if (q.length < 1) return []
@@ -79,43 +75,18 @@ export async function searchInstagramPages(query: string): Promise<IgPageHit[]> 
   if (hit && Date.now() - hit.at < CACHE_MS) return hit.items
 
   const handle = isLikelyIgHandle(q) ? normalizeHandle(q) : ''
-  const cookie = instagramCookie()
+  const typed: IgPageHit[] = handle ? [{ username: handle, name: handle, source: 'typed' }] : []
 
-  const [indexed, wiki, top] = await Promise.all([
+  // Typeahead must not hit Instagram — web_profile_info / topsearch 429 the analyze path.
+  const [indexed, wiki] = await Promise.all([
     q.length >= 2 ? searchIndexedInstagramProfiles(q) : Promise.resolve([] as Array<{ username: string; name: string }>),
     q.length >= 2 ? searchWikidataUsernames(q) : Promise.resolve([] as Array<{ username: string; name: string }>),
-    hasIgSession(cookie) ? searchInstagramApi(q, cookie) : Promise.resolve([] as IgPageHit[]),
   ])
 
-  const candidates: Array<{ username: string; name: string; fromIndex: boolean }> = []
-  const seen = new Set<string>()
-  const add = (username: string, name?: string, fromIndex = false) => {
-    const u = normalizeHandle(username)
-    if (!isLikelyIgHandle(u)) return
-    const k = u.toLowerCase()
-    if (seen.has(k)) return
-    seen.add(k)
-    candidates.push({ username: u, name: (name || u).trim() || u, fromIndex })
-  }
-
-  if (handle) add(handle, handle, false)
-  for (const row of top) add(row.username, row.name, true)
-  for (const row of indexed) add(row.username, row.name, true)
-  for (const row of wiki) add(row.username, row.name, false)
-
-  const slice = candidates.slice(0, 6)
-  const profiles = await Promise.all(slice.map((c) => lookupInstagramUser(c.username)))
-
   const merged = mergeHits([
-    ...top,
-    ...slice
-      .map((c, i) => {
-        const ig = profiles[i]?.[0]
-        if (ig) return ig
-        if (!c.fromIndex) return null
-        return { username: c.username, name: c.name, source: 'instagram' as const }
-      })
-      .filter((x): x is IgPageHit => Boolean(x)),
+    ...typed,
+    ...indexed.map((row) => ({ username: row.username, name: row.name, source: 'instagram' as const })),
+    ...wiki.map((row) => ({ username: row.username, name: row.name, source: 'wikidata' as const })),
   ])
 
   cache.set(key, { at: Date.now(), items: merged })
@@ -184,14 +155,6 @@ function igHeaders(cookie = ''): Record<string, string> {
   return headers
 }
 
-async function searchInstagramApi(query: string, cookie: string): Promise<IgPageHit[]> {
-  const url =
-    `https://www.instagram.com/api/v1/web/search/topsearch/?context=blended&count=8&query=` +
-    encodeURIComponent(query)
-  const data = await fetchJson(url, { headers: igHeaders(cookie) }, 4000)
-  return parseInstagramSearch(data)
-}
-
 async function gotClient() {
   const mod = await import('got-scraping')
   return mod.gotScraping
@@ -202,8 +165,42 @@ export type IgFetchError = {
   status?: number
 }
 
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
+const profileCache = new Map<string, { at: number; user: Record<string, unknown> }>()
+const PROFILE_CACHE_MS = 15 * 60_000
+const profileInflight = new Map<
+  string,
+  Promise<{ user: Record<string, unknown> | null; error?: IgFetchError }>
+>()
+
+let igCooldownUntil = 0
+const IG_COOLDOWN_MS = 70_000
+
+export function isInstagramCoolingDown() {
+  return Date.now() < igCooldownUntil
+}
+
+export function instagramCooldownRemainingMs() {
+  return Math.max(0, igCooldownUntil - Date.now())
+}
+
+export function markInstagramRateLimit(retryAfterMs?: number) {
+  const wait =
+    retryAfterMs && retryAfterMs > 0 ? Math.min(Math.max(retryAfterMs, 15_000), 5 * 60_000) : IG_COOLDOWN_MS
+  igCooldownUntil = Math.max(igCooldownUntil, Date.now() + wait)
+}
+
+export function igProbePolicy(status: number): 'ok' | 'rate_limit' | 'not_found' | 'fallback' {
+  if (status >= 200 && status < 300) return 'ok'
+  if (status === 429 || status === 401) return 'rate_limit'
+  if (status === 404) return 'not_found'
+  return 'fallback'
+}
+
+function retryAfterMs(headers: Record<string, unknown> | undefined) {
+  const raw = headers?.['retry-after']
+  const value = Array.isArray(raw) ? raw[0] : raw
+  const n = Number(value)
+  return Number.isFinite(n) && n > 0 ? n * 1000 : undefined
 }
 
 function userFromPayload(data: unknown): Record<string, unknown> | null {
@@ -245,7 +242,7 @@ async function igGetJson(
   url: string,
   ms = 5000,
   mode: 'app' | 'web' = 'web',
-): Promise<{ status: number; data: unknown | null }> {
+): Promise<{ status: number; data: unknown | null; retryAfterMs?: number }> {
   try {
     const gotScraping = await gotClient()
     const cookie = instagramCookie()
@@ -275,20 +272,23 @@ async function igGetJson(
       throwHttpErrors: false,
     })
     const status = res.statusCode
+    const wait = retryAfterMs(res.headers as Record<string, unknown>)
     const body = String(res.body || '')
-    if (status === 404) return { status, data: null }
-    if (status < 200 || status >= 300) return { status, data: null }
+    if (status === 404) return { status, data: null, retryAfterMs: wait }
+    if (status < 200 || status >= 300) return { status, data: null, retryAfterMs: wait }
     try {
-      return { status, data: JSON.parse(body) }
+      return { status, data: JSON.parse(body), retryAfterMs: wait }
     } catch {
-      return { status, data: null }
+      return { status, data: null, retryAfterMs: wait }
     }
   } catch {
     return { status: 0, data: null }
   }
 }
 
-async function fetchProfileFromHtml(username: string): Promise<Record<string, unknown> | null> {
+async function fetchProfileFromHtml(
+  username: string,
+): Promise<{ user: Record<string, unknown> | null; status: number; retryAfterMs?: number }> {
   try {
     const gotScraping = await gotClient()
     const cookie = instagramCookie()
@@ -304,7 +304,10 @@ async function fetchProfileFromHtml(username: string): Promise<Record<string, un
       timeout: { request: 5500 },
       throwHttpErrors: false,
     })
-    if (res.statusCode < 200 || res.statusCode >= 300) return null
+    const wait = retryAfterMs(res.headers as Record<string, unknown>)
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      return { user: null, status: res.statusCode, retryAfterMs: wait }
+    }
     const html = String(res.body || '')
     for (const m of html.matchAll(/<script type="application\/json"[^>]*>([\s\S]*?)<\/script>/gi)) {
       const raw = m[1] || ''
@@ -312,99 +315,99 @@ async function fetchProfileFromHtml(username: string): Promise<Record<string, un
       if (!raw.includes(username) && !raw.includes('edge_followed_by')) continue
       try {
         const user = userFromPayload(JSON.parse(raw))
-        if (user?.username) return user
+        if (user?.username) return { user, status: res.statusCode }
       } catch {
         /* next blob */
       }
     }
-    return null
+    return { user: null, status: res.statusCode }
   } catch {
-    return null
+    return { user: null, status: 0 }
   }
 }
 
-export async function fetchInstagramWebProfile(username: string): Promise<{
+function cachedProfile(handle: string) {
+  return profileCache.get(handle.toLowerCase()) || null
+}
+
+async function fetchInstagramWebProfileUncached(handle: string): Promise<{
+  user: Record<string, unknown> | null
+  error?: IgFetchError
+}> {
+  if (isInstagramCoolingDown()) {
+    const stale = cachedProfile(handle)
+    if (stale?.user) return { user: stale.user }
+    return { user: null, error: { code: 'rate_limit' } }
+  }
+
+  const appUrl = `https://i.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(handle)}`
+  const first = await igGetJson(appUrl, 5500, 'app')
+  const user = userFromPayload(first.data)
+  if (user?.username) {
+    profileCache.set(handle.toLowerCase(), { at: Date.now(), user })
+    return { user }
+  }
+
+  const policy = igProbePolicy(first.status)
+  if (policy === 'rate_limit') {
+    markInstagramRateLimit(first.retryAfterMs)
+    console.warn('[instagram] rate-limited', handle, first.status)
+    const stale = cachedProfile(handle)
+    if (stale?.user) return { user: stale.user }
+    return { user: null, error: { code: 'rate_limit', status: first.status } }
+  }
+  if (policy === 'not_found') {
+    return { user: null, error: { code: 'not_found', status: first.status } }
+  }
+
+  const html = await fetchProfileFromHtml(handle)
+  if (html.user?.username) {
+    profileCache.set(handle.toLowerCase(), { at: Date.now(), user: html.user })
+    return { user: html.user }
+  }
+  const htmlPolicy = igProbePolicy(html.status)
+  if (htmlPolicy === 'rate_limit') {
+    markInstagramRateLimit(html.retryAfterMs)
+    const stale = cachedProfile(handle)
+    if (stale?.user) return { user: stale.user }
+    return { user: null, error: { code: 'rate_limit', status: html.status } }
+  }
+
+  const lastStatus = html.status || first.status
+  if (lastStatus === 404) return { user: null, error: { code: 'not_found', status: lastStatus } }
+  return { user: null, error: { code: 'unavailable', status: lastStatus || undefined } }
+}
+
+export async function fetchInstagramWebProfile(
+  username: string,
+  opts?: { skipCache?: boolean },
+): Promise<{
   user: Record<string, unknown> | null
   error?: IgFetchError
 }> {
   const handle = normalizeHandle(username)
   if (!handle) return { user: null, error: { code: 'not_found' } }
+  const key = handle.toLowerCase()
 
-  const urls = [
-    `https://i.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(handle)}`,
-    `https://www.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(handle)}`,
-  ]
-
-  let lastStatus = 0
-  const tryUrl = async (url: string, mode: 'app' | 'web', ms = 5000) => {
-    const { status, data } = await igGetJson(url, ms, mode)
-    lastStatus = status || lastStatus
-    const user = userFromPayload(data)
-    if (user?.username) return { user } as const
-    return null
+  if (!opts?.skipCache) {
+    const hit = profileCache.get(key)
+    if (hit && Date.now() - hit.at < PROFILE_CACHE_MS) return { user: hit.user }
+  }
+  if (isInstagramCoolingDown() && opts?.skipCache) {
+    const stale = cachedProfile(handle)
+    if (stale?.user) return { user: stale.user }
   }
 
-  const first = await tryUrl(urls[0]!, 'app', 5000)
-  if (first) return first
+  const existing = profileInflight.get(key)
+  if (existing) return existing
 
-  if (lastStatus === 429) {
-    await sleep(350)
-    const retry = await tryUrl(urls[0]!, 'app', 5000)
-    if (retry) return retry
+  const job = fetchInstagramWebProfileUncached(handle)
+  profileInflight.set(key, job)
+  try {
+    return await job
+  } finally {
+    profileInflight.delete(key)
   }
-
-  const second = await tryUrl(urls[1]!, 'app', 4500)
-  if (second) return second
-
-  const web = await tryUrl(urls[0]!, 'web', 4500)
-  if (web) return web
-
-  const htmlUser = await fetchProfileFromHtml(handle)
-  if (htmlUser?.username) return { user: htmlUser }
-
-  if (lastStatus === 429 || lastStatus === 401) {
-    return { user: null, error: { code: 'rate_limit', status: lastStatus } }
-  }
-  if (lastStatus === 404) return { user: null, error: { code: 'not_found', status: lastStatus } }
-  return { user: null, error: { code: 'unavailable', status: lastStatus || undefined } }
-}
-
-async function lookupInstagramUser(username: string): Promise<IgPageHit[]> {
-  const { user } = await fetchInstagramWebProfile(username)
-  if (!user?.username) return []
-  const followers = (user.edge_followed_by as { count?: number } | undefined)?.count
-  return [
-    {
-      username: String(user.username),
-      name: String(user.full_name || user.username),
-      biography: user.biography ? String(user.biography) : undefined,
-      avatarUrl: user.profile_pic_url ? String(user.profile_pic_url) : undefined,
-      verified: Boolean(user.is_verified),
-      followers: typeof followers === 'number' ? followers : undefined,
-      source: 'instagram',
-    },
-  ]
-}
-
-function parseInstagramSearch(data: unknown): IgPageHit[] {
-  if (!data || typeof data !== 'object') return []
-  const users = (data as { users?: unknown[] }).users || []
-  const out: IgPageHit[] = []
-  for (const row of users) {
-    const rec = row as Record<string, unknown>
-    const user = (rec.user as Record<string, unknown> | undefined) || rec
-    const username = String(user.username || '').replace(/^@/, '')
-    if (!username) continue
-    out.push({
-      username,
-      name: String(user.full_name || username),
-      biography: user.biography ? String(user.biography) : undefined,
-      avatarUrl: user.profile_pic_url ? String(user.profile_pic_url) : undefined,
-      verified: Boolean(user.is_verified),
-      source: 'instagram',
-    })
-  }
-  return out
 }
 
 function decodeHtml(s: string) {

@@ -448,6 +448,8 @@ export type PageAnalyticsResponse = {
   growth?: PageGrowth
   enrichment?: PageEnrichment
   connectors: AnalyticsConnector[]
+  cached?: boolean
+  staleReason?: 'not_found' | 'rate_limit' | 'unavailable'
   supermetrics: { ok: boolean; error?: string; rows?: unknown[]; fields?: string[] }
   meta: { ok: false; error?: string; data?: unknown } | { ok: boolean; error?: string; data?: unknown }
 }

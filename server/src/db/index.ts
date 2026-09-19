@@ -239,6 +239,12 @@ export function migrate() {
     CREATE INDEX IF NOT EXISTS idx_project_occasions ON project_occasions(project_id);
     CREATE INDEX IF NOT EXISTS idx_tg_notify_ws ON telegram_notifications(workspace_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_page_snapshots_ws_handle ON page_insight_snapshots(workspace_id, handle, fetched_at);
+
+    CREATE TABLE IF NOT EXISTS ig_page_reports (
+      handle TEXT PRIMARY KEY,
+      fetched_at TEXT NOT NULL,
+      payload TEXT NOT NULL
+    );
   `)
 
   ensureColumn('contents', 'window_start', 'TEXT')

@@ -80,8 +80,8 @@ export function AnalyticsPage() {
   const { t } = useI18n()
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [draft, setDraft] = useState(SAMPLE_HANDLE)
-  const [handle, setHandle] = useState(SAMPLE_HANDLE)
+  const [draft, setDraft] = useState('')
+  const [handle, setHandle] = useState('')
   const [fresh, setFresh] = useState(false)
   const [requestId, setRequestId] = useState(0)
   const [pageBusy, setPageBusy] = useState(false)
@@ -97,7 +97,18 @@ export function AnalyticsPage() {
       .catch((e) => setError((e as Error).message))
     api
       .listProjects(workspaceId)
-      .then((res) => setPages(res.items || []))
+      .then((res) => {
+        const items = res.items || []
+        setPages(items)
+        setDraft((current) => {
+          if (current) return current
+          for (const p of items) {
+            const h = normalizeHandle(p.handle || p.clientName || '')
+            if (h && h.toLowerCase() !== SAMPLE_HANDLE) return h
+          }
+          return current
+        })
+      })
       .catch(() => setPages([]))
   }, [workspaceId])
 
@@ -106,6 +117,7 @@ export function AnalyticsPage() {
     let cancelled = false
     setPageBusy(true)
     setPageError(null)
+    setReport((prev) => (prev && prev.page.handle.toLowerCase() === handle.toLowerCase() ? prev : null))
     api
       .pageAnalytics(workspaceId, handle, fresh)
       .then((res) => {
@@ -113,7 +125,10 @@ export function AnalyticsPage() {
       })
       .catch((e) => {
         if (!cancelled) {
-          setReport(null)
+          setReport((prev) => {
+            if (prev && prev.page.handle.toLowerCase() === handle.toLowerCase()) return prev
+            return null
+          })
           const code = (e as { code?: string }).code
           const mapped =
             code === 'busy'
@@ -184,8 +199,9 @@ export function AnalyticsPage() {
             label={t('analytics.searchLabel')}
             hint={t('analytics.searchHint')}
             placeholder={t('analytics.searchPh')}
+            allowRemoteSearch={false}
             onChange={setDraft}
-            onPick={(hit) => runAnalysis(hit.username, true)}
+            onPick={(hit) => runAnalysis(hit.username, false)}
           />
           <button
             type="button"
@@ -219,6 +235,12 @@ export function AnalyticsPage() {
         </div>
 
         {pageError && <p className="field-hint warn">{pageError}</p>}
+        {!pageError && report?.cached && (
+          <p className="form-banner ok ig-cache-banner" role="status">
+            {report.staleReason === 'rate_limit' ? t('analytics.cachedRateLimit') : t('analytics.cachedStale')}
+          </p>
+        )}
+        {!handle && !pageBusy && !pageError && <p className="field-hint">{t('analytics.idleHint')}</p>}
       </section>
 
       <ConnectorCards items={connectors} supermetrics={report?.supermetrics} meta={report?.meta} />
@@ -234,7 +256,7 @@ export function AnalyticsPage() {
           page={page}
           growth={report?.growth}
           enrichment={report?.enrichment}
-          onOpenRelated={(username) => runAnalysis(username, true)}
+          onOpenRelated={(username) => runAnalysis(username, false)}
         />
       )}
 

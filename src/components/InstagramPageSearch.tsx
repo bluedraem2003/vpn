@@ -11,6 +11,7 @@ type Props = {
   label?: string
   hint?: string
   placeholder?: string
+  allowRemoteSearch?: boolean
   onChange: (handle: string) => void
   onPick?: (hit: IgPageHit) => void
 }
@@ -28,6 +29,7 @@ export function InstagramPageSearch({
   label,
   hint,
   placeholder,
+  allowRemoteSearch = true,
   onChange,
   onPick,
 }: Props) {
@@ -57,7 +59,8 @@ export function InstagramPageSearch({
 
   useEffect(() => {
     const query = q.trim()
-    if (!open || query.length < 1) {
+    const skipRemote = !allowRemoteSearch
+    if (!open || query.length < 1 || skipRemote) {
       setItems([])
       setBusy(false)
       return
@@ -82,12 +85,12 @@ export function InstagramPageSearch({
         .finally(() => {
           if (!cancelled) setBusy(false)
         })
-    }, 220)
+    }, 450)
     return () => {
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [q, open])
+  }, [q, open, allowRemoteSearch])
 
   const shown = useMemo(() => {
     const local = typedHit(q)

@@ -20,6 +20,55 @@ export type PageGrowth = {
   history: SnapshotPoint[]
 }
 
+function snapshotHistory(workspaceId: string, handle: string) {
+  const samples = (
+    db
+      .prepare(`SELECT COUNT(*) AS c FROM page_insight_snapshots WHERE workspace_id = ? AND handle = ?`)
+      .get(workspaceId, handle) as { c: number }
+  ).c
+
+  const history = (
+    db
+      .prepare(
+        `SELECT fetched_at, followers, posts, engagement_rate
+         FROM page_insight_snapshots
+         WHERE workspace_id = ? AND handle = ?
+         ORDER BY fetched_at ASC LIMIT 14`,
+      )
+      .all(workspaceId, handle) as Array<{
+      fetched_at: string
+      followers: number
+      posts: number
+      engagement_rate: number
+    }>
+  ).map((row) => ({
+    fetchedAt: row.fetched_at,
+    followers: row.followers,
+    posts: row.posts,
+    engagementRate: row.engagement_rate,
+  }))
+
+  return { samples, history }
+}
+
+export function readPageGrowth(workspaceId: string, page: PageInsights): PageGrowth {
+  const handle = page.handle.toLowerCase()
+  const { samples, history } = snapshotHistory(workspaceId, handle)
+  const prev = [...history].reverse().find((h) => h.fetchedAt !== page.fetchedAt)
+  if (!prev) return { samples, history }
+  return {
+    previousFetchedAt: prev.fetchedAt,
+    previousFollowers: prev.followers,
+    followerDelta: page.followers - prev.followers,
+    previousPosts: prev.posts,
+    postsDelta: page.posts - prev.posts,
+    previousEngagement: prev.engagementRate,
+    engagementDelta: Math.round((page.engagementRate - prev.engagementRate) * 100) / 100,
+    samples,
+    history,
+  }
+}
+
 export function recordPageSnapshot(workspaceId: string, page: PageInsights): PageGrowth {
   const handle = page.handle.toLowerCase()
   const prev = db
@@ -60,44 +109,5 @@ export function recordPageSnapshot(workspaceId: string, page: PageInsights): Pag
     )
   }
 
-  const samples = (
-    db
-      .prepare(`SELECT COUNT(*) AS c FROM page_insight_snapshots WHERE workspace_id = ? AND handle = ?`)
-      .get(workspaceId, handle) as { c: number }
-  ).c
-
-  const history = (
-    db
-      .prepare(
-        `SELECT fetched_at, followers, posts, engagement_rate
-         FROM page_insight_snapshots
-         WHERE workspace_id = ? AND handle = ?
-         ORDER BY fetched_at ASC LIMIT 14`,
-      )
-      .all(workspaceId, handle) as Array<{
-        fetched_at: string
-        followers: number
-        posts: number
-        engagement_rate: number
-      }>
-  ).map((row) => ({
-    fetchedAt: row.fetched_at,
-    followers: row.followers,
-    posts: row.posts,
-    engagementRate: row.engagement_rate,
-  }))
-
-  if (!prev) return { samples, history }
-
-  return {
-    previousFetchedAt: prev.fetched_at,
-    previousFollowers: prev.followers,
-    followerDelta: page.followers - prev.followers,
-    previousPosts: prev.posts,
-    postsDelta: page.posts - prev.posts,
-    previousEngagement: prev.engagement_rate,
-    engagementDelta: Math.round((page.engagementRate - prev.engagement_rate) * 100) / 100,
-    samples,
-    history,
-  }
+  return readPageGrowth(workspaceId, page)
 }

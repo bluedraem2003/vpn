@@ -1082,6 +1082,14 @@ a {
   font-weight: 600;
 }
 
+.ig-cache-banner {
+  margin: 0.75rem 0 0;
+}
+
+html[data-theme='dark'] .field-hint.warn {
+  color: #f0a08c;
+}
+
 .studio-schedule {
   display: grid;
   grid-template-columns: 1fr auto;

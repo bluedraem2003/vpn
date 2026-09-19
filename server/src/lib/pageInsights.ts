@@ -1,5 +1,6 @@
-import { fetchInstagramWebProfile, normalizeHandle, type IgFetchError } from './instagramSearch.js'
+import { fetchInstagramWebProfile, isInstagramCoolingDown, normalizeHandle, type IgFetchError } from './instagramSearch.js'
 import { signInstagramMediaUrl } from './igMedia.js'
+import { loadIgPageReport, saveIgPageReport, resignPageReport } from './igPageReports.js'
 
 export type PagePostInsight = {
   shortcode: string
@@ -107,6 +108,7 @@ export type PageInsights = {
 
 const cache = new Map<string, { at: number; data: PageInsights }>()
 const CACHE_MS = 10 * 60_000
+const FRESH_MIN_MS = 90_000
 
 function num(v: unknown) {
   return typeof v === 'number' && Number.isFinite(v) ? v : 0
@@ -242,21 +244,69 @@ function rollup(items: Array<{ key: string; engagement: number }>, limit = 8): C
 }
 
 export type AnalyzePageResult =
-  | { ok: true; data: PageInsights }
+  | { ok: true; data: PageInsights; cached?: boolean; staleReason?: IgFetchError['code'] }
   | { ok: false; error: IgFetchError }
+
+const analyzeInflight = new Map<string, Promise<AnalyzePageResult>>()
+
+function staleFromStores(
+  handle: string,
+  reason?: IgFetchError['code'],
+): AnalyzePageResult | null {
+  const mem = cache.get(handle.toLowerCase())
+  if (mem) return { ok: true, data: resignPageReport(mem.data), cached: true, staleReason: reason }
+  const stored = loadIgPageReport(handle)
+  if (!stored) return null
+  cache.set(handle.toLowerCase(), { at: Date.parse(stored.fetchedAt) || 0, data: stored })
+  return { ok: true, data: stored, cached: true, staleReason: reason }
+}
 
 export async function analyzeInstagramPage(
   rawHandle: string,
-  opts?: { fresh?: boolean },
+  opts?: { fresh?: boolean; allowNetwork?: boolean },
 ): Promise<AnalyzePageResult> {
   const handle = normalizeHandle(rawHandle)
   if (!handle) return { ok: false, error: { code: 'not_found' } }
-  const hit = cache.get(handle.toLowerCase())
-  if (!opts?.fresh && hit && Date.now() - hit.at < CACHE_MS) return { ok: true, data: hit.data }
+  const key = handle.toLowerCase()
+  const existing = analyzeInflight.get(key)
+  if (existing) return existing
 
-  const fetched = await fetchInstagramWebProfile(handle)
+  const job = analyzeInstagramPageUncached(handle, opts)
+  analyzeInflight.set(key, job)
+  try {
+    return await job
+  } finally {
+    analyzeInflight.delete(key)
+  }
+}
+
+async function analyzeInstagramPageUncached(
+  handle: string,
+  opts?: { fresh?: boolean; allowNetwork?: boolean },
+): Promise<AnalyzePageResult> {
+  const hit = cache.get(handle.toLowerCase())
+  const allowNetwork = opts?.allowNetwork !== false
+  if (!opts?.fresh && hit && Date.now() - hit.at < CACHE_MS) return { ok: true, data: hit.data }
+  if (opts?.fresh && hit && Date.now() - hit.at < FRESH_MIN_MS) return { ok: true, data: hit.data }
+
+  if (!allowNetwork || isInstagramCoolingDown()) {
+    const stale = staleFromStores(handle, 'rate_limit')
+    if (stale) return stale
+    if (!allowNetwork) return { ok: false, error: { code: 'rate_limit' } }
+  }
+
+  const fetched = await fetchInstagramWebProfile(handle, {
+    skipCache: Boolean(opts?.fresh) && allowNetwork && !isInstagramCoolingDown(),
+  })
   const user = fetched.user
-  if (!user) return { ok: false, error: fetched.error || { code: 'unavailable' } }
+  if (!user) {
+    const stale = staleFromStores(handle, fetched.error?.code)
+    if (stale) {
+      console.warn('[instagram] serving cached report', handle, stale.data.fetchedAt, fetched.error?.code)
+      return stale
+    }
+    return { ok: false, error: fetched.error || { code: 'unavailable' } }
+  }
 
   const followers = num((user.edge_followed_by as { count?: number } | undefined)?.count)
   const following = num((user.edge_follow as { count?: number } | undefined)?.count)
@@ -535,6 +585,11 @@ export async function analyzeInstagramPage(
     health: { score: healthScore, parts: healthParts },
   }
   cache.set(handle.toLowerCase(), { at: Date.now(), data })
+  try {
+    saveIgPageReport(data)
+  } catch (err) {
+    console.error('[instagram] persist report', (err as Error).message)
+  }
   return { ok: true, data }
 }
 
