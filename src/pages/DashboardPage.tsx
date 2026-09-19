@@ -4,6 +4,7 @@ import { api } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { type ContentStatus } from '../domain/types'
 import { formatJalaliDate, formatJalaliFromIso } from '../lib/jalaali'
+import { occasionLabel } from '../lib/occasionLabel'
 import { useI18n } from '../prefs/PrefsProvider'
 
 export function DashboardPage() {
@@ -146,7 +147,12 @@ export function DashboardPage() {
               {upcomingOccasions.map((o) => (
                 <li key={String(o.id)}>
                   <Link to={`/content?date=${String(o.dateInYear)}&occasionId=${String(o.id)}`}>
-                    <strong>{String(o.nameFa)}</strong>
+                    <strong>
+                      {occasionLabel(
+                        { nameFa: String(o.nameFa), nameEn: o.nameEn ? String(o.nameEn) : undefined },
+                        lang,
+                      )}
+                    </strong>
                   </Link>
                   <span>
                     {String(o.dateInYear)}

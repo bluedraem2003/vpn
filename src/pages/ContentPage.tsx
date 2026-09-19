@@ -12,6 +12,7 @@ import {
 } from '../domain/types'
 import { formatHashtags, IG_CAPTION_LIMIT, IG_FIRST_COMMENT_LIMIT, IG_HASHTAG_LIMIT, parseHashtags } from '../lib/hashtags'
 import { formatJalaliFromIso } from '../lib/jalaali'
+import { occasionLabel } from '../lib/occasionLabel'
 import { useI18n } from '../prefs/PrefsProvider'
 
 const emptyForm = {
@@ -30,7 +31,7 @@ const emptyForm = {
 }
 
 export function ContentPage() {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const { workspaceId, session } = useAuth()
   const [params, setParams] = useSearchParams()
   const [items, setItems] = useState<ContentDto[]>([])
@@ -240,16 +241,16 @@ export function ContentPage() {
   async function save() {
     if (!workspaceId) return
     if (!form.title.trim()) {
-      setError('عنوان را بنویس')
+      setError(t('content.needTitle'))
       return
     }
     const tags = parseHashtags(form.hashtagText)
     if (form.caption.length > IG_CAPTION_LIMIT) {
-      setError(`کپشن اینستاگرام حداکثر ${IG_CAPTION_LIMIT} کاراکتر است`)
+      setError(t('content.captionLimit', { n: IG_CAPTION_LIMIT }))
       return
     }
     if (tags.length > IG_HASHTAG_LIMIT) {
-      setError(`اینستاگرام حداکثر ${IG_HASHTAG_LIMIT} هشتگ می‌پذیرد — بقیه را در کامنت اول بگذار`)
+      setError(t('content.hashtagLimit', { n: IG_HASHTAG_LIMIT }))
       return
     }
     setBusy(true)
@@ -276,12 +277,12 @@ export function ContentPage() {
       if (editingId) {
         const res = await api.updateContent(editingId, body)
         setItems((prev) => prev.map((i) => (i.id === editingId ? res.item : i)))
-        setMsg('محتوا به‌روزرسانی شد')
+        setMsg(t('content.updated'))
         resetForm()
       } else {
         const res = await api.createContent({ workspaceId, ...body })
         setItems((prev) => [res.item, ...prev.filter((i) => i.id !== res.item.id)])
-        setMsg('محتوا ذخیره شد')
+        setMsg(t('content.saved'))
         setForm((f) => ({ ...emptyForm, projectId: f.projectId }))
       }
       await reload(workspaceId)
@@ -331,14 +332,14 @@ export function ContentPage() {
       const res = await api.duplicateContent(item.id)
       setItems((prev) => [res.item, ...prev.filter((i) => i.id !== res.item.id)])
       startEdit(res.item)
-      setMsg('کپی ساخته شد — تاریخ را عوض کن و ذخیره کن')
+      setMsg(t('content.duplicated'))
     } catch (e) {
       setError((e as Error).message)
     }
   }
 
   async function removeItem(id: string) {
-    if (!workspaceId || !window.confirm('این محتوا حذف شود؟')) return
+    if (!workspaceId || !window.confirm(t('content.confirmDelete'))) return
     try {
       await api.deleteContent(id)
       setItems((prev) => prev.filter((i) => i.id !== id))
@@ -352,7 +353,7 @@ export function ContentPage() {
     setRemindMsg(null)
     try {
       const res = await api.runMissedReminders()
-      setRemindMsg(`یادآوری‌ها: بررسی ${res.checked} · ارسال ${res.sent}`)
+      setRemindMsg(t('content.reminders', { checked: res.checked, sent: res.sent }))
     } catch (e) {
       setRemindMsg((e as Error).message)
     }
@@ -369,19 +370,19 @@ export function ContentPage() {
         </div>
         <div className="form-actions">
           <Link to="/studio" className="btn btn-outline btn-sm">
-            ساخت کپشن در استودیو
+            {t('content.studioCaption')}
           </Link>
           {canRemind && (
             <button type="button" className="btn btn-outline btn-sm" onClick={() => void runReminders()}>
-              چک یادآوری‌ها الان
+              {t('content.checkReminders')}
             </button>
           )}
         </div>
       </header>
       {projects.length === 0 && (
         <div className="form-banner error">
-          اول پیج اینستاگرام را اضافه کن.{' '}
-          <Link to="/projects">رفتن به پیج‌ها</Link>
+          {t('content.needPage')}{' '}
+          <Link to="/projects">{t('content.goPages')}</Link>
         </div>
       )}
       {remindMsg && <div className="form-banner ok">{remindMsg}</div>}
@@ -396,17 +397,17 @@ export function ContentPage() {
             void save()
           }}
         >
-          <h2 className="section-title">{editingId ? 'ویرایش محتوا' : 'ایجاد / اسکجول'}</h2>
+          <h2 className="section-title">{editingId ? t('content.editTitle') : t('content.createTitle')}</h2>
           <div className="field">
-            <label>عنوان</label>
+            <label>{t('common.title')}</label>
             <input
               value={form.title}
               onChange={(e) => patchForm({ title: e.target.value })}
-              placeholder="استوری صبحگاهی محصول"
+              placeholder={t('content.titlePh')}
             />
           </div>
           <div className="field">
-            <label>نوع اینستاگرام</label>
+            <label>{t('content.igType')}</label>
             <select
               value={form.contentType}
               onChange={(e) => patchForm({ contentType: e.target.value as ContentType })}
@@ -419,7 +420,7 @@ export function ContentPage() {
             </select>
           </div>
           <div className="field">
-            <label>پیج</label>
+            <label>{t('common.page')}</label>
             <select
               value={form.projectId}
               onChange={(e) => {
@@ -437,7 +438,7 @@ export function ContentPage() {
             </select>
           </div>
           <div className="field">
-            <label>کمپین</label>
+            <label>{t('content.campaign')}</label>
             <select value={form.campaignId} onChange={(e) => patchForm({ campaignId: e.target.value })}>
               <option value="">—</option>
               {campaigns.map((c) => (
@@ -448,21 +449,21 @@ export function ContentPage() {
             </select>
           </div>
           <div className="field">
-            <label>مناسبت</label>
+            <label>{t('content.occasion')}</label>
             <select value={form.occasionId} onChange={(e) => applyOccasion(e.target.value)}>
-              <option value="">— بدون مناسبت</option>
+              <option value="">{t('content.noOccasion')}</option>
               {occasionOptions.map((o) => (
                 <option key={o.id} value={o.id}>
-                  {o.dateInYear} — {o.nameFa}
+                  {o.dateInYear} — {occasionLabel(o, lang)}
                 </option>
               ))}
             </select>
           </div>
           <div className="field">
-            <label>تاریخ انتشار</label>
+            <label>{t('content.publishDate')}</label>
             <input type="date" value={form.publishDate} onChange={(e) => applyDate(e.target.value)} />
             {form.publishDate && (
-              <span className="field-hint">شمسی: {formatJalaliFromIso(form.publishDate)}</span>
+              <span className="field-hint">{t('content.jalali', { date: formatJalaliFromIso(form.publishDate) })}</span>
             )}
             {dateOccasions.length > 0 && (
               <div className="chip-row" style={{ marginTop: '0.4rem' }}>
@@ -473,7 +474,7 @@ export function ContentPage() {
                     className={`chip ${form.occasionId === o.id ? 'active' : ''}`}
                     onClick={() => applyOccasion(o.id)}
                   >
-                    {o.nameFa}
+                    {occasionLabel(o, lang)}
                   </button>
                 ))}
               </div>
@@ -481,7 +482,7 @@ export function ContentPage() {
           </div>
           <div className="ops-filters" style={{ gridTemplateColumns: '1fr 1fr' }}>
             <div className="field" style={{ margin: 0 }}>
-              <label>از ساعت</label>
+              <label>{t('common.fromHour')}</label>
               <input
                 type="time"
                 value={form.windowStart}
@@ -489,23 +490,23 @@ export function ContentPage() {
               />
             </div>
             <div className="field" style={{ margin: 0 }}>
-              <label>تا ساعت</label>
+              <label>{t('common.toHour')}</label>
               <input type="time" value={form.windowEnd} onChange={(e) => patchForm({ windowEnd: e.target.value })} />
             </div>
           </div>
           <div className="field">
-            <label>کپشن</label>
+            <label>{t('content.caption')}</label>
             <textarea
               value={form.caption}
               onChange={(e) => patchForm({ caption: e.target.value })}
-              placeholder="متن آماده انتشار..."
+              placeholder={t('content.captionPh')}
             />
             <span className={`field-hint ${captionLen > IG_CAPTION_LIMIT ? 'warn' : ''}`}>
-              {captionLen} / {IG_CAPTION_LIMIT} کاراکتر
+              {t('content.captionCount', { n: captionLen, max: IG_CAPTION_LIMIT })}
             </span>
           </div>
           <div className="field">
-            <label>هشتگ‌ها (کپشن)</label>
+            <label>{t('content.hashtags')}</label>
             <input
               value={form.hashtagText}
               onChange={(e) => patchForm({ hashtagText: e.target.value })}
@@ -513,26 +514,26 @@ export function ContentPage() {
               dir="ltr"
             />
             <span className={`field-hint ${tagCount > IG_HASHTAG_LIMIT ? 'warn' : ''}`}>
-              {tagCount} / {IG_HASHTAG_LIMIT} هشتگ — بقیه را در کامنت اول بگذار
+              {t('content.hashtagHint', { n: tagCount, max: IG_HASHTAG_LIMIT })}
             </span>
           </div>
           <div className="field">
-            <label>کامنت اول (هشتگ اضافه)</label>
+            <label>{t('content.firstComment')}</label>
             <textarea
               value={form.firstComment}
               onChange={(e) => patchForm({ firstComment: e.target.value })}
               placeholder="#more #tags"
             />
             <span className={`field-hint ${firstLen > IG_FIRST_COMMENT_LIMIT ? 'warn' : ''}`}>
-              {firstLen} / {IG_FIRST_COMMENT_LIMIT} — جدا کپی می‌شود
+              {t('content.firstHint', { n: firstLen, max: IG_FIRST_COMMENT_LIMIT })}
             </span>
           </div>
           <div className="field">
-            <label>یادداشت داخلی</label>
+            <label>{t('content.notes')}</label>
             <textarea
               value={form.notes}
               onChange={(e) => patchForm({ notes: e.target.value })}
-              placeholder="ایده بصری، لوکیشن، نکات تولید..."
+              placeholder={t('content.notesPh')}
             />
           </div>
           <InstagramPreview
@@ -542,27 +543,25 @@ export function ContentPage() {
             firstComment={form.firstComment}
             contentType={form.contentType}
           />
-          <p className="section-sub">
-            اگر تا پایان این بازه وضعیت «منتشر شده» نشود، پیام «اوستا اینو نذاشتی» به تلگرام می‌رود.
-          </p>
+          <p className="section-sub">{t('content.remindHint')}</p>
           <div className="form-actions">
             <button type="submit" className="btn btn-solid" disabled={busy}>
-              {busy ? 'در حال ذخیره...' : editingId ? 'به‌روزرسانی' : 'ذخیره محتوا'}
+              {busy ? t('common.saving') : editingId ? t('content.update') : t('content.save')}
             </button>
             {editingId && (
               <button type="button" className="btn btn-outline" disabled={busy} onClick={resetForm}>
-                انصراف
+                {t('common.cancel')}
               </button>
             )}
           </div>
         </form>
 
         <section className="panel panel-pad">
-          <h2 className="section-title">لیست محتوا</h2>
+          <h2 className="section-title">{t('content.listTitle')}</h2>
           <div className="ops-filters" style={{ gridTemplateColumns: '1fr 1fr', marginBottom: '0.65rem' }}>
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="جستجوی عنوان یا کپشن..." />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('content.searchPh')} />
             <select value={filterType} onChange={(e) => setFilterType(e.target.value)}>
-              <option value="">همه انواع</option>
+              <option value="">{t('content.allTypes')}</option>
               {IG_CONTENT_TYPES.map((typeId) => (
                 <option key={typeId} value={typeId}>
                   {t(`type.${typeId}`)}
@@ -572,7 +571,7 @@ export function ContentPage() {
           </div>
           <div className="ops-filters" style={{ gridTemplateColumns: '1fr 1fr', marginBottom: '0.85rem' }}>
             <select value={filterProject} onChange={(e) => setFilterProject(e.target.value)}>
-              <option value="">همه پیج‌ها</option>
+              <option value="">{t('cal.allPages')}</option>
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
@@ -580,7 +579,7 @@ export function ContentPage() {
               ))}
             </select>
             <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-              <option value="">همه وضعیت‌ها</option>
+              <option value="">{t('content.allStatuses')}</option>
               {CONTENT_STATUS_FLOW.map((s) => (
                 <option key={s} value={s}>
                   {t(`status.${s}`)}
@@ -589,7 +588,7 @@ export function ContentPage() {
             </select>
           </div>
           <div className="page-list">
-            {filtered.length === 0 && <p className="section-sub">موردی نیست</p>}
+            {filtered.length === 0 && <p className="section-sub">{t('common.none')}</p>}
             {filtered.map((item) => {
               const copyCaption = [item.caption, formatHashtags(item.hashtags)].filter(Boolean).join('\n\n')
               return (
@@ -602,31 +601,38 @@ export function ContentPage() {
                   </div>
                   <p>
                     {t(`type.${item.contentType as ContentType}`)}
-                    {item.projectId ? ` · ${projects.find((p) => p.id === item.projectId)?.name || 'پیج'}` : ''}
+                    {item.projectId ? ` · ${projects.find((p) => p.id === item.projectId)?.name || t('common.page')}` : ''}
                     {item.occasionId
-                      ? ` · ${occasions.find((o) => o.id === item.occasionId)?.nameFa || 'مناسبت'}`
+                      ? ` · ${(() => {
+                          const o = occasions.find((x) => x.id === item.occasionId)
+                          return o ? occasionLabel(o, lang) : t('content.occasion')
+                        })()}`
                       : ''}
                     {item.publishDate
-                      ? ` · ${item.publishDate} (${formatJalaliFromIso(item.publishDate)})`
+                      ? lang === 'fa'
+                        ? ` · ${item.publishDate} (${formatJalaliFromIso(item.publishDate)})`
+                        : ` · ${item.publishDate}`
                       : ''}
                     {item.windowStart || item.windowEnd
-                      ? ` · ${item.windowStart || '—'} تا ${item.windowEnd || '—'}`
+                      ? ` · ${item.windowStart || '—'} ${t('common.until')} ${item.windowEnd || '—'}`
                       : item.publishTime
                         ? ` · ${item.publishTime}`
                         : ''}
-                    {item.remindedAt ? ' · یادآوری ارسال شد' : ''}
+                    {item.remindedAt ? ` · ${t('content.reminded')}` : ''}
                   </p>
                   {item.caption && <p className="pre" style={{ marginTop: '0.35rem' }}>{item.caption}</p>}
                   {item.hashtags?.length > 0 && (
                     <div className="chip-row">
-                      {item.hashtags.map((t) => (
-                        <span className="tag" key={t}>
-                          {t}
+                      {item.hashtags.map((tag) => (
+                        <span className="tag" key={tag}>
+                          {tag}
                         </span>
                       ))}
                     </div>
                   )}
-                  {item.firstComment && <p className="section-sub">کامنت اول: {item.firstComment}</p>}
+                  {item.firstComment && (
+                    <p className="section-sub">{t('content.firstCommentLine', { text: item.firstComment })}</p>
+                  )}
                   <div className="chip-row">
                     {(attached[item.id] || []).map((a) => (
                       <button
@@ -634,7 +640,7 @@ export function ContentPage() {
                         className="tag tag-btn"
                         key={a.linkId}
                         onClick={() => void detach(item.id, a.linkId)}
-                        title="جدا کردن فایل"
+                        title={t('content.detach')}
                       >
                         {a.type}: {a.filename} ×
                       </button>
@@ -657,41 +663,41 @@ export function ContentPage() {
                         className="btn btn-solid btn-sm"
                         onClick={() => void moveStatus(item, 'published')}
                       >
-                        منتشر شد
+                        {t('dash.markPublished')}
                       </button>
                     )}
                   </div>
                   <div className="form-actions">
                     <button type="button" className="btn btn-outline btn-sm" onClick={() => startEdit(item)}>
-                      ویرایش
+                      {t('common.edit')}
                     </button>
                     <button
                       type="button"
                       className="btn btn-outline btn-sm"
                       onClick={() => void duplicateItem(item)}
                     >
-                      کپی برای روز دیگر
+                      {t('content.duplicate')}
                     </button>
-                    {copyCaption && <CopyButton text={copyCaption} label="کپی کپشن" />}
-                    {item.firstComment && <CopyButton text={item.firstComment} label="کپی کامنت اول" />}
+                    {copyCaption && <CopyButton text={copyCaption} label={t('content.copyCaption')} />}
+                    {item.firstComment && <CopyButton text={item.firstComment} label={t('content.copyFirst')} />}
                     <button
                       type="button"
                       className="btn btn-outline btn-sm"
                       onClick={() => setAttachFor(attachFor === item.id ? null : item.id)}
                     >
-                      + فایل
+                      {t('content.addFile')}
                     </button>
                     <button
                       type="button"
                       className="btn btn-outline btn-sm"
                       onClick={() => void removeItem(item.id)}
                     >
-                      حذف
+                      {t('common.delete')}
                     </button>
                   </div>
                   {attachFor === item.id && (
                     <div className="attach-panel">
-                      {assets.length === 0 && <p className="section-sub">فایلی برای اتصال نیست</p>}
+                      {assets.length === 0 && <p className="section-sub">{t('content.noFiles')}</p>}
                       {assets
                         .filter((asset) => !(attached[item.id] || []).some((a) => a.id === asset.id))
                         .map((asset) => (

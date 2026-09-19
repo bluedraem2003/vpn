@@ -7,12 +7,13 @@ import {
   type ContentType,
 } from '../domain/types'
 import { toJalali } from '../lib/jalaali'
+import { occasionLabel } from '../lib/occasionLabel'
 import { useI18n } from '../prefs/PrefsProvider'
 
 type CalView = 'month' | 'week' | 'day' | 'list'
 
 export function CalendarPage() {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const { workspaceId } = useAuth()
   const navigate = useNavigate()
   const [view, setView] = useState<CalView>('month')
@@ -126,11 +127,11 @@ export function CalendarPage() {
       <div className="panel panel-pad">
         <div className="result-head" style={{ marginBottom: '1rem' }}>
           <h2 className="section-title" style={{ margin: 0 }}>
-            {cursor.toLocaleDateString('fa-IR', { month: 'long', year: 'numeric' })}
+            {cursor.toLocaleDateString(lang === 'fa' ? 'fa-IR' : 'en-US', { month: 'long', year: 'numeric' })}
           </h2>
           <div className="form-actions">
             <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
-              <option value="">همه پیج‌ها</option>
+              <option value="">{t('cal.allPages')}</option>
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
@@ -138,13 +139,13 @@ export function CalendarPage() {
               ))}
             </select>
             <button type="button" className="btn btn-outline btn-sm" onClick={() => shift(-1)}>
-              قبلی
+              {t('cal.prev')}
             </button>
             <button type="button" className="btn btn-outline btn-sm" onClick={() => setCursor(new Date())}>
-              امروز
+              {t('cal.today')}
             </button>
             <button type="button" className="btn btn-outline btn-sm" onClick={() => shift(1)}>
-              بعدی
+              {t('cal.next')}
             </button>
           </div>
         </div>
@@ -152,7 +153,7 @@ export function CalendarPage() {
         {view === 'list' && (
           <ul className="ops-list">
             {dated.length === 0 && occasions.length === 0 && (
-              <li className="section-sub">محتوا یا مناسبتی در این بازه نیست</li>
+              <li className="section-sub">{t('cal.emptyRange')}</li>
             )}
             {dated.map((item) => (
               <li key={item.id}>
@@ -174,10 +175,10 @@ export function CalendarPage() {
                   className="btn btn-outline btn-sm"
                   onClick={() => o.dateInYear && openDay(o.dateInYear, o.id)}
                 >
-                  🎉 {o.nameFa}
+                  🎉 {occasionLabel(o, lang)}
                 </button>
                 <span>
-                  {o.dateInYear} · {o.region === 'ir' ? 'ایرانی' : o.region === 'custom' ? 'اختصاصی' : 'جهانی'}
+                  {o.dateInYear} · {t(`occ.${o.region === 'ir' ? 'ir' : o.region === 'custom' ? 'custom' : 'global'}`)}
                 </span>
               </li>
             ))}
@@ -186,9 +187,9 @@ export function CalendarPage() {
 
         {view === 'month' && (
           <div className="cal-month">
-            {['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'].map((d) => (
+            {(['dowSat', 'dowSun', 'dowMon', 'dowTue', 'dowWed', 'dowThu', 'dowFri'] as const).map((d) => (
               <div key={d} className="cal-dow">
-                {d}
+                {t(`cal.${d}`)}
               </div>
             ))}
             {monthCells.map((cell, idx) => {
@@ -217,7 +218,7 @@ export function CalendarPage() {
                       title={o.nameEn || o.nameFa}
                       onClick={(e) => openOccasion(key, o.id, e)}
                     >
-                      {o.nameFa}
+                      {occasionLabel(o, lang)}
                     </div>
                   ))}
                   {dayItems.slice(0, 3).map((i) => (
@@ -230,7 +231,7 @@ export function CalendarPage() {
                       {i.title}
                     </div>
                   ))}
-                  {dayItems.length > 3 && <div className="cal-more">+{dayItems.length - 3} مورد دیگر</div>}
+                  {dayItems.length > 3 && <div className="cal-more">{t('cal.more', { n: dayItems.length - 3 })}</div>}
                 </button>
               )
             })}
@@ -243,6 +244,7 @@ export function CalendarPage() {
             view={view}
             items={dated}
             occasions={occByDate}
+            lang={lang}
             onDay={openDay}
             onItem={openItem}
           />
@@ -257,6 +259,7 @@ function WeekDayView({
   view,
   items,
   occasions,
+  lang,
   onDay,
   onItem,
 }: {
@@ -264,9 +267,11 @@ function WeekDayView({
   view: 'week' | 'day'
   items: ContentDto[]
   occasions: Map<string, OccasionDto[]>
+  lang: 'fa' | 'en'
   onDay: (date: string, occasionId?: string) => void
   onItem: (id: string, e: MouseEvent) => void
 }) {
+  const { t } = useI18n()
   const days =
     view === 'day'
       ? [cursor]
@@ -290,7 +295,7 @@ function WeekDayView({
             className="cal-daycol panel-pad interactive"
             onClick={() => onDay(key)}
           >
-            <strong>{d.toLocaleDateString('fa-IR', { weekday: 'short', day: 'numeric' })}</strong>
+            <strong>{d.toLocaleDateString(lang === 'fa' ? 'fa-IR' : 'en-US', { weekday: 'short', day: 'numeric' })}</strong>
             {dayOcc.map((o) => (
               <div
                 key={o.id}
@@ -300,10 +305,10 @@ function WeekDayView({
                   onDay(key, o.id)
                 }}
               >
-                {o.nameFa}
+                {occasionLabel(o, lang)}
               </div>
             ))}
-            {dayItems.length === 0 && dayOcc.length === 0 && <p className="section-sub">خالی — کلیک برای افزودن</p>}
+            {dayItems.length === 0 && dayOcc.length === 0 && <p className="section-sub">{t('cal.emptyDay')}</p>}
             {dayItems.map((i) => (
               <div key={i.id} className="cal-pill" onClick={(e) => onItem(i.id, e)}>
                 {i.windowStart || i.publishTime ? `${i.windowStart || i.publishTime} · ` : ''}

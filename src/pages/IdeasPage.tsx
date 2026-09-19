@@ -34,7 +34,7 @@ export function IdeasPage() {
   async function create() {
     if (!workspaceId) return
     if (!title.trim()) {
-      setError('عنوان ایده را بنویس')
+      setError(t('ideas.needTitle'))
       return
     }
     setBusy(true)
@@ -52,7 +52,7 @@ export function IdeasPage() {
       setItems((prev) => [res.item, ...prev.filter((i) => i.id !== res.item.id)])
       setTitle('')
       setDescription('')
-      setMsg('ایده ذخیره شد')
+      setMsg(t('ideas.saved'))
       await reload()
     } catch (e) {
       setError((e as Error).message)
@@ -73,7 +73,7 @@ export function IdeasPage() {
   }
 
   async function remove(id: string) {
-    if (!window.confirm('این ایده حذف شود؟')) return
+    if (!window.confirm(t('ideas.confirmDelete'))) return
     try {
       await api.deleteIdea(id)
       setItems((prev) => prev.filter((i) => i.id !== id))
@@ -100,17 +100,17 @@ export function IdeasPage() {
             void create()
           }}
         >
-          <h2 className="section-title">ایده جدید</h2>
+          <h2 className="section-title">{t('ideas.newTitle')}</h2>
           <div className="field">
-            <label>عنوان</label>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="عنوان ایده" />
+            <label>{t('ideas.title')}</label>
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t('ideas.titlePh')} />
           </div>
           <div className="field">
-            <label>توضیح</label>
+            <label>{t('ideas.desc')}</label>
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
           <div className="field">
-            <label>نوع پیشنهادی</label>
+            <label>{t('ideas.suggestedType')}</label>
             <select value={contentType} onChange={(e) => setContentType(e.target.value as ContentType)}>
               {(['reel', 'post', 'carousel', 'story'] as ContentType[]).map((typeId) => (
                   <option key={typeId} value={typeId}>
@@ -120,7 +120,7 @@ export function IdeasPage() {
             </select>
           </div>
           <div className="field">
-            <label>پیج</label>
+            <label>{t('ideas.page')}</label>
             <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
               <option value="">—</option>
               {projects.map((p) => (
@@ -131,13 +131,13 @@ export function IdeasPage() {
             </select>
           </div>
           <button type="submit" className="btn btn-solid" disabled={busy}>
-            {busy ? 'در حال ذخیره...' : 'ذخیره ایده'}
+            {busy ? t('common.saving') : t('ideas.save')}
           </button>
         </form>
         <section className="panel panel-pad">
-          <h2 className="section-title">لیست</h2>
+          <h2 className="section-title">{t('ideas.listTitle')}</h2>
           <div className="page-list">
-            {items.length === 0 && <p className="section-sub">ایده‌ای نیست</p>}
+            {items.length === 0 && <p className="section-sub">{t('ideas.empty')}</p>}
             {items.map((idea) => (
               <article key={idea.id} className="list-item">
                 <div className="list-meta">
@@ -152,15 +152,15 @@ export function IdeasPage() {
                       className="btn btn-outline btn-sm"
                       onClick={() => navigate(`/content?edit=${idea.convertedContentId}`)}
                     >
-                      باز کردن محتوا
+                      {t('ideas.openContent')}
                     </button>
                   ) : (
                     <button type="button" className="btn btn-solid btn-sm" onClick={() => void convert(idea.id)}>
-                      تبدیل به محتوا
+                      {t('ideas.convert')}
                     </button>
                   )}
                   <button type="button" className="btn btn-outline btn-sm" onClick={() => void remove(idea.id)}>
-                    حذف
+                    {t('common.delete')}
                   </button>
                 </div>
               </article>

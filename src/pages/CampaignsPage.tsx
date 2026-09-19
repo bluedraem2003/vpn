@@ -33,7 +33,7 @@ export function CampaignsPage() {
   async function create() {
     if (!workspaceId) return
     if (!name.trim()) {
-      setError('نام کمپین را بنویس')
+      setError(t('campaigns.needName'))
       return
     }
     setBusy(true)
@@ -52,7 +52,7 @@ export function CampaignsPage() {
       setItems((prev) => [res.item, ...prev.filter((i) => i.id !== res.item.id)])
       setName('')
       setGoal('')
-      setMsg('کمپین ذخیره شد')
+      setMsg(t('campaigns.saved'))
       await reload()
     } catch (e) {
       setError((e as Error).message)
@@ -62,7 +62,7 @@ export function CampaignsPage() {
   }
 
   async function remove(id: string) {
-    if (!window.confirm('این کمپین حذف شود؟')) return
+    if (!window.confirm(t('campaigns.confirmDelete'))) return
     try {
       await api.deleteCampaign(id)
       setItems((prev) => prev.filter((i) => i.id !== id))
@@ -89,17 +89,17 @@ export function CampaignsPage() {
             void create()
           }}
         >
-          <h2 className="section-title">کمپین جدید</h2>
+          <h2 className="section-title">{t('campaigns.newTitle')}</h2>
           <div className="field">
-            <label>نام</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="نام کمپین" />
+            <label>{t('campaigns.name')}</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('campaigns.namePh')} />
           </div>
           <div className="field">
-            <label>هدف</label>
-            <input value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="مثلاً افزایش فروش" />
+            <label>{t('campaigns.goal')}</label>
+            <input value={goal} onChange={(e) => setGoal(e.target.value)} placeholder={t('campaigns.goalPh')} />
           </div>
           <div className="field">
-            <label>پیج</label>
+            <label>{t('campaigns.page')}</label>
             <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
               <option value="">—</option>
               {projects.map((p) => (
@@ -110,21 +110,21 @@ export function CampaignsPage() {
             </select>
           </div>
           <div className="field">
-            <label>شروع</label>
+            <label>{t('campaigns.start')}</label>
             <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
           </div>
           <div className="field">
-            <label>پایان</label>
+            <label>{t('campaigns.end')}</label>
             <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
           </div>
           <button type="submit" className="btn btn-solid" disabled={busy}>
-            {busy ? 'در حال ذخیره...' : 'ذخیره'}
+            {busy ? t('common.saving') : t('common.save')}
           </button>
         </form>
         <section className="panel panel-pad">
-          <h2 className="section-title">لیست کمپین‌ها</h2>
+          <h2 className="section-title">{t('campaigns.listTitle')}</h2>
           <div className="page-list">
-            {items.length === 0 && <p className="section-sub">کمپینی نیست</p>}
+            {items.length === 0 && <p className="section-sub">{t('campaigns.empty')}</p>}
             {items.map((c) => (
               <article key={c.id} className="list-item">
                 <div className="list-meta">
@@ -133,7 +133,7 @@ export function CampaignsPage() {
                 </div>
                 {c.goal && <p>{c.goal}</p>}
                 <p>
-                  {c.startDate || '—'} تا {c.endDate || '—'}
+                  {t('campaigns.range', { start: c.startDate || '—', end: c.endDate || '—' })}
                   {c.projectId ? ` · ${projects.find((p) => p.id === c.projectId)?.name || ''}` : ''}
                 </p>
                 <div className="form-actions">
@@ -141,10 +141,10 @@ export function CampaignsPage() {
                     className="btn btn-outline btn-sm"
                     to={`/content?campaignId=${c.id}${c.projectId ? `&projectId=${c.projectId}` : ''}`}
                   >
-                    برنامه‌ریزی محتوا
+                    {t('campaigns.planContent')}
                   </Link>
                   <button type="button" className="btn btn-outline btn-sm" onClick={() => void remove(c.id)}>
-                    حذف
+                    {t('common.delete')}
                   </button>
                 </div>
               </article>
