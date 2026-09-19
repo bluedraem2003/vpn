@@ -264,28 +264,3 @@ export function generateContent(
 
   return result
 }
-
-export const weeklyIdeas = [
-  { day: 'شنبه', title: 'معرفی ارزش اصلی برند', format: 'feed' as ContentFormat },
-  { day: 'یکشنبه', title: 'پشت‌صحنه کار یا تیم', format: 'story' as ContentFormat },
-  { day: 'دوشنبه', title: 'آموزش کوتاه یک‌نکته‌ای', format: 'reel' as ContentFormat },
-  { day: 'سه‌شنبه', title: 'سوال از مخاطب + نظرسنجی', format: 'story' as ContentFormat },
-  { day: 'چهارشنبه', title: 'کاروسل چک‌لیست کاربردی', format: 'carousel' as ContentFormat },
-  { day: 'پنجشنبه', title: 'داستان مشتری یا نتیجه', format: 'reel' as ContentFormat },
-  { day: 'جمعه', title: 'جمع‌بندی هفته + CTA نرم', format: 'feed' as ContentFormat },
-]
-
-export const formatLabels: Record<ContentFormat, string> = {
-  feed: 'پست فید',
-  reel: 'ریلز',
-  story: 'استوری',
-  carousel: 'کاروسل',
-}
-
-export const toneLabels: Record<Tone, string> = {
-  friendly: 'صمیمی',
-  pro: 'حرفه‌ای',
-  witty: 'شوخ',
-  inspiring: 'الهام‌بخش',
-  luxury: 'لوکس',
-}

@@ -1,6 +1,5 @@
-import type { GeneratedContent, InstagramPage } from '../types'
+import type { GeneratedContent } from '../types'
 
-const PAGES_KEY = 'postyar_pages'
 const HISTORY_KEY = 'postyar_history'
 const ACTIVE_PAGE_KEY = 'postyar_active_page'
 
@@ -16,14 +15,6 @@ function read<T>(key: string, fallback: T): T {
 
 function write<T>(key: string, value: T) {
   localStorage.setItem(key, JSON.stringify(value))
-}
-
-export function loadPages(): InstagramPage[] {
-  return read<InstagramPage[]>(PAGES_KEY, [])
-}
-
-export function savePages(pages: InstagramPage[]) {
-  write(PAGES_KEY, pages)
 }
 
 export function loadActivePageId(): string | null {

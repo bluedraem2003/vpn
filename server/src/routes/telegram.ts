@@ -1,10 +1,12 @@
 import { Hono } from 'hono'
 import { db, uid } from '../db/index.js'
 import { notifyAssetIndexed } from '../jobs/reminders.js'
+import { requireAuth } from '../middleware/auth.js'
+import { safeEqual } from '../lib/secrets.js'
 
 export const telegramRoutes = new Hono()
 
-telegramRoutes.get('/status', (c) => {
+telegramRoutes.get('/status', requireAuth, (c) => {
   const configured = Boolean(process.env.TELEGRAM_BOT_TOKEN)
   const chatId = process.env.TELEGRAM_CHAT_ID || null
   const count = (
@@ -13,6 +15,7 @@ telegramRoutes.get('/status', (c) => {
   return c.json({
     configured,
     chatIdConfigured: Boolean(chatId),
+    webhookSecretConfigured: Boolean(process.env.TELEGRAM_WEBHOOK_SECRET),
     indexedFiles: count,
     limits: {
       botApiMaxDownloadMb: 20,
@@ -24,21 +27,28 @@ telegramRoutes.get('/status', (c) => {
 telegramRoutes.post('/webhook', async (c) => {
   console.log('[Telegram] Webhook received')
 
-  const secret = process.env.TELEGRAM_WEBHOOK_SECRET
-  if (secret) {
-    const header = c.req.header('X-Telegram-Bot-Api-Secret-Token')
-    if (header !== secret) {
-      return c.json({ error: 'unauthorized' }, 401)
-    }
+  // Refuse to index anything unless the webhook is authenticated.
+  const secret = (process.env.TELEGRAM_WEBHOOK_SECRET || '').trim()
+  if (!secret) {
+    console.warn('[Telegram] webhook rejected — TELEGRAM_WEBHOOK_SECRET not set')
+    return c.json({ error: 'webhook secret not configured' }, 503)
+  }
+  const header = c.req.header('X-Telegram-Bot-Api-Secret-Token') || ''
+  if (!safeEqual(header, secret)) {
+    return c.json({ error: 'unauthorized' }, 401)
   }
 
-  const allowedChat = process.env.TELEGRAM_CHAT_ID
-  const update = await c.req.json()
+  const allowedChat = (process.env.TELEGRAM_CHAT_ID || '').trim()
+  if (!allowedChat) {
+    console.warn('[Telegram] webhook rejected — TELEGRAM_CHAT_ID not set')
+    return c.json({ error: 'chat allowlist not configured' }, 503)
+  }
+  const update = (await c.req.json().catch(() => ({}))) as Record<string, unknown>
   const message = update.channel_post || update.message
   if (!message) return c.json({ ok: true, ignored: true })
 
   const chatId = String(message.chat?.id ?? '')
-  if (allowedChat && chatId !== String(allowedChat)) {
+  if (chatId !== allowedChat) {
     console.log('[Telegram] Unauthorized chat', chatId)
     return c.json({ error: 'chat not allowed' }, 403)
   }
@@ -72,6 +82,7 @@ telegramRoutes.post('/webhook', async (c) => {
   const assetId = uid('asset')
   const sourceId = uid('tgs')
 
+  const insertAll = db.transaction(() => {
   db.prepare(
     `INSERT INTO assets (
       id, workspace_id, type, status, virtual_folder, filename, mime_type, file_size,
@@ -115,6 +126,8 @@ telegramRoutes.post('/webhook', async (c) => {
     now,
     now,
   )
+  })
+  insertAll()
 
   console.log('[Telegram] Asset indexed', assetId)
 
@@ -128,17 +141,6 @@ telegramRoutes.post('/webhook', async (c) => {
   }).catch((err) => console.error('[Telegram] notify asset', (err as Error).message))
 
   return c.json({ ok: true, assetId })
-})
-
-telegramRoutes.post('/sync', async (c) => {
-  // Honest limitation: Bot API cannot list historical channel media.
-  // This endpoint is a placeholder for Local Bot API / manual re-forward workflows.
-  return c.json({
-    ok: false,
-    error:
-      'همگام‌سازی کامل تاریخچه کانال با Bot API معمولی ممکن نیست. فایل‌های جدید از طریق Webhook ایندکس می‌شوند؛ برای فایل‌های قدیمی آن‌ها را دوباره به کانال فوروارد کنید یا Local Bot API Server راه‌اندازی کنید.',
-    suggestion: 're-forward files to the allowed channel, or configure TELEGRAM_API_BASE for Local Bot API',
-  }, 501)
 })
 
 function extractTelegramFile(message: Record<string, unknown>) {

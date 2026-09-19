@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { safeJson } from '../lib/secrets.js'
 import { db, uid } from '../db/index.js'
 import { assertWorkspaceAccess, requireAuth } from '../middleware/auth.js'
 
@@ -15,7 +16,7 @@ ideaRoutes.get('/', (c) => {
 })
 
 ideaRoutes.post('/', async (c) => {
-  const body = await c.req.json()
+  const body = await c.req.json().catch(() => ({}))
   const workspaceId = body.workspaceId || c.get('workspaceId')
   assertWorkspaceAccess(c, workspaceId)
   if (!body.title?.trim()) return c.json({ error: 'عنوان ایده الزامی است' }, 400)
@@ -118,10 +119,10 @@ function mapIdea(row: unknown) {
     title: r.title,
     description: r.description,
     reference: r.reference,
-    platforms: JSON.parse(String(r.platforms || '[]')),
+    platforms: safeJson<string[]>(r.platforms, []),
     contentType: r.content_type,
     priority: r.priority,
-    tags: JSON.parse(String(r.tags || '[]')),
+    tags: safeJson<string[]>(r.tags, []),
     notes: r.notes,
     convertedContentId: r.converted_content_id,
     createdAt: r.created_at,

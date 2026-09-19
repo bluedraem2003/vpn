@@ -1,18 +1,16 @@
 import { useEffect, useState } from 'react'
+import { localToday } from '../lib/dates'
 import { AnimatePresence, motion } from 'framer-motion'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import type { GenerateInput, GeneratedContent, InstagramPage, ViewId } from '../types'
 import { generateContent } from '../lib/generator'
 import { loadActivePageId, loadHistory, saveActivePageId, saveHistory } from '../lib/storage'
 import { Hero } from '../components/Hero'
 import { GeneratorForm } from '../components/GeneratorForm'
 import { ResultPanel } from '../components/ResultPanel'
-import { PagesView, type PageFormInput } from '../components/PagesView'
 import { HistoryView } from '../components/HistoryView'
-import { IdeasView } from '../components/IdeasView'
 import { api, type ProjectDto } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
-import { normalizeHandle } from '../lib/handle'
 import { parseHashtags } from '../lib/hashtags'
 import { useI18n } from '../prefs/PrefsProvider'
 
@@ -43,8 +41,6 @@ const defaultInput: GenerateInput = {
 
 const nav: { id: ViewId; key: string }[] = [
   { id: 'studio', key: 'studio.navStudio' },
-  { id: 'pages', key: 'studio.navPages' },
-  { id: 'ideas', key: 'studio.navIdeas' },
   { id: 'history', key: 'studio.navHistory' },
 ]
 
@@ -58,7 +54,6 @@ export function StudioPage() {
   const [input, setInput] = useState<GenerateInput>(defaultInput)
   const [result, setResult] = useState<GeneratedContent | null>(null)
   const [busy, setBusy] = useState(false)
-  const [pagesBusy, setPagesBusy] = useState(false)
   const [pagesError, setPagesError] = useState<string | null>(null)
   const [pages, setPages] = useState<InstagramPage[]>([])
   const [activePageId, setActivePageId] = useState<string | null>(null)
@@ -66,7 +61,7 @@ export function StudioPage() {
   const [toast, setToast] = useState<string | null>(null)
   const [calBusy, setCalBusy] = useState(false)
   const [calMsg, setCalMsg] = useState<string | null>(null)
-  const [scheduleDate, setScheduleDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [scheduleDate, setScheduleDate] = useState(() => localToday())
 
   async function reloadPages(id: string) {
     const res = await api.listProjects(id)
@@ -97,74 +92,27 @@ export function StudioPage() {
     saveActivePageId(id)
   }
 
-  async function createPage(form: PageFormInput) {
-    if (!workspaceId) {
-      setPagesError(t('projects.notSignedIn'))
-      throw new Error(t('projects.notSignedIn'))
-    }
-    setPagesBusy(true)
-    setPagesError(null)
-    try {
-      const handle = normalizeHandle(form.handle)
-      const res = await api.createProject({
-        workspaceId,
-        name: form.name,
-        handle: handle || undefined,
-        clientName: handle || undefined,
-        niche: form.niche || undefined,
-        audience: form.audience || undefined,
-        voice: form.voice || undefined,
-      })
-      const page = mapProject(res.item)
-      setPages((prev) => [page, ...prev.filter((p) => p.id !== page.id)])
-      selectPage(page.id)
-      notify(t('projects.saved'))
-      void reloadPages(workspaceId).catch(() => null)
-    } catch (e) {
-      setPagesError((e as Error).message)
-      throw e
-    } finally {
-      setPagesBusy(false)
-    }
-  }
-
-  async function removePage(id: string) {
-    if (!workspaceId) return
-    setPagesBusy(true)
-    setPagesError(null)
-    try {
-      await api.deleteProject(id)
-      setPages((prev) => prev.filter((p) => p.id !== id))
-      notify(t('projects.deleted'))
-      await reloadPages(workspaceId)
-    } catch (e) {
-      setPagesError((e as Error).message)
-    } finally {
-      setPagesBusy(false)
-    }
-  }
-
   function handleGenerate() {
     if (!input.topic.trim()) {
       notify(t('studio.needTopic'))
       return
     }
     setBusy(true)
-    window.setTimeout(() => {
-      const page = pages.find((p) => p.id === activePageId)
-      const generated = generateContent(input, {
-        pageName: page?.name,
-        niche: page?.niche || input.topic,
-        voice: page?.voice,
-      })
-      setResult(generated)
-      const nextHistory = [generated, ...history].slice(0, 40)
-      setHistory(nextHistory)
+    const page = pages.find((p) => p.id === activePageId)
+    const generated = generateContent(input, {
+      pageName: page?.name,
+      niche: page?.niche || input.topic,
+      voice: page?.voice,
+    })
+    setResult(generated)
+    setHistory((prev) => {
+      const nextHistory = [generated, ...prev].slice(0, 40)
       saveHistory(nextHistory)
-      setBusy(false)
-      setShowHero(false)
-      notify(t('studio.ready'))
-    }, 420)
+      return nextHistory
+    })
+    setBusy(false)
+    setShowHero(false)
+    notify(t('studio.ready'))
   }
 
   async function saveToCalendar() {
@@ -218,9 +166,14 @@ export function StudioPage() {
             {t('studio.sub')}
           </p>
         </div>
-        <button type="button" className="btn btn-outline btn-sm" onClick={() => navigate('/calendar')}>
-          {t('studio.toCalendar')}
-        </button>
+        <div className="form-actions" style={{ margin: 0 }}>
+          <Link to="/projects" className="btn btn-outline btn-sm">
+            {t('nav.projects')}
+          </Link>
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => navigate('/calendar')}>
+            {t('studio.toCalendar')}
+          </button>
+        </div>
       </div>
 
       <nav className="nav-pills" aria-label={t('studio.navAria')} style={{ marginBottom: '1rem', width: 'fit-content' }}>
@@ -239,13 +192,12 @@ export function StudioPage() {
         ))}
       </nav>
 
+      {pagesError && <div className="form-banner error">{pagesError}</div>}
+
       {view === 'studio' && showHero && (
         <Hero
           onStart={() => setShowHero(false)}
-          onIdeas={() => {
-            setShowHero(false)
-            setView('ideas')
-          }}
+          onIdeas={() => navigate('/ideas')}
         />
       )}
 
@@ -259,6 +211,7 @@ export function StudioPage() {
           <GeneratorForm
             pages={pages}
             activePageId={activePageId}
+            onSelectPage={selectPage}
             value={input}
             busy={busy}
             onChange={setInput}
@@ -275,18 +228,6 @@ export function StudioPage() {
         </motion.div>
       )}
 
-      {view === 'pages' && (
-        <PagesView
-          pages={pages}
-          activePageId={activePageId}
-          busy={pagesBusy}
-          error={pagesError}
-          onCreate={createPage}
-          onRemove={removePage}
-          onSelect={selectPage}
-        />
-      )}
-
       {view === 'history' && (
         <HistoryView
           items={history}
@@ -299,17 +240,6 @@ export function StudioPage() {
             setResult(item)
             setView('studio')
             setShowHero(false)
-          }}
-        />
-      )}
-
-      {view === 'ideas' && (
-        <IdeasView
-          onUseIdea={(topic, format) => {
-            setInput({ ...input, topic, format })
-            setView('studio')
-            setShowHero(false)
-            notify(t('studio.ideaMoved'))
           }}
         />
       )}

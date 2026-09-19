@@ -23,6 +23,7 @@ import { instagramRoutes } from './routes/instagram.js'
 import { notificationRoutes } from './routes/notifications.js'
 import { runMissedScheduleReminders } from './jobs/reminders.js'
 import { pageSyncIntervalMs, syncDueConnectedPages } from './lib/pageSync.js'
+import { denyViewerWrites } from './middleware/auth.js'
 
 migrate()
 seedIfEmpty()
@@ -87,10 +88,11 @@ app.get('/api/health', (c) =>
     ok: true,
     service: 'postyar-api',
     version: '1.0.0',
-    telegramConfigured: Boolean(process.env.TELEGRAM_BOT_TOKEN),
     mode: isProd ? 'production' : 'development',
   }),
 )
+
+app.use('/api/*', denyViewerWrites)
 
 app.route('/api/auth', authRoutes)
 app.route('/api/workspaces', workspaceRoutes)

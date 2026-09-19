@@ -1,7 +1,9 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
+import { instanceSecret } from './secrets.js'
 
 function secret() {
-  return process.env.MEDIA_PROXY_SECRET || process.env.TELEGRAM_WEBHOOK_SECRET || 'postyar-local-media'
+  const env = (process.env.MEDIA_PROXY_SECRET || '').trim()
+  return env || instanceSecret()
 }
 
 export function isAllowedIgMediaHost(hostname: string) {

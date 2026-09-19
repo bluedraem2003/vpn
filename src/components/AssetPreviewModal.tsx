@@ -30,6 +30,15 @@ export function AssetPreviewModal({
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [tagInput, setTagInput] = useState((asset.tags || []).join(', '))
+  const [tagMsg, setTagMsg] = useState<string | null>(null)
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
 
   useEffect(() => {
     let revoked: string | null = null
@@ -80,9 +89,15 @@ export function AssetPreviewModal({
   async function saveTags() {
     const tags = tagInput
       .split(',')
-      .map((t) => t.trim())
+      .map((tag) => tag.trim())
       .filter(Boolean)
-    await api.updateAsset(asset.id, { tags })
+    setTagMsg(null)
+    try {
+      await api.updateAsset(asset.id, { tags })
+      setTagMsg(t('preview.tagsSaved'))
+    } catch (e) {
+      setError((e as Error).message)
+    }
   }
 
   async function download() {
@@ -106,8 +121,14 @@ export function AssetPreviewModal({
   }
 
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={onClose}>
-      <div className="panel panel-pad modal-card" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-backdrop" role="presentation" onClick={onClose}>
+      <div
+        className="panel panel-pad modal-card"
+        role="dialog"
+        aria-modal="true"
+        aria-label={asset.filename}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="result-head">
           <div>
             <h2 className="section-title" style={{ marginBottom: 4 }}>
@@ -141,8 +162,8 @@ export function AssetPreviewModal({
         </div>
 
         <div className="field" style={{ marginTop: '0.85rem' }}>
-          <label>{t('preview.tags')}</label>
-          <input value={tagInput} onChange={(e) => setTagInput(e.target.value)} placeholder="Reel, Final, Cover" />
+          <label htmlFor="asset-tags">{t('preview.tags')}</label>
+          <input id="asset-tags" value={tagInput} onChange={(e) => setTagInput(e.target.value)} placeholder="Reel, Final, Cover" />
         </div>
         <div className="form-actions">
           <button type="button" className="btn btn-solid btn-sm" onClick={() => void saveTags()}>
@@ -151,6 +172,11 @@ export function AssetPreviewModal({
           <button type="button" className="btn btn-outline btn-sm" onClick={() => void download()}>
             {t('common.download')}
           </button>
+          {tagMsg && (
+            <span className="section-sub" role="status">
+              {tagMsg}
+            </span>
+          )}
         </div>
       </div>
     </div>

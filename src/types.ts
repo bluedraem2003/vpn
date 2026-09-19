@@ -41,4 +41,4 @@ export interface GeneratedContent {
   altCaptions: string[]
 }
 
-export type ViewId = 'studio' | 'pages' | 'history' | 'ideas'
+export type ViewId = 'studio' | 'history'

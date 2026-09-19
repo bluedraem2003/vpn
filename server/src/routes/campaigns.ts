@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { safeJson } from '../lib/secrets.js'
 import { db, uid } from '../db/index.js'
 import { assertWorkspaceAccess, requireAuth } from '../middleware/auth.js'
 import { resolveProjectId } from '../lib/refs.js'
@@ -16,7 +17,7 @@ campaignRoutes.get('/', (c) => {
 })
 
 campaignRoutes.post('/', async (c) => {
-  const body = await c.req.json()
+  const body = await c.req.json().catch(() => ({}))
   const workspaceId = body.workspaceId || c.get('workspaceId')
   assertWorkspaceAccess(c, workspaceId)
   if (!body.name?.trim()) return c.json({ error: 'نام کمپین الزامی است' }, 400)
@@ -53,7 +54,7 @@ campaignRoutes.patch('/:id', async (c) => {
   const existing = db.prepare(`SELECT * FROM campaigns WHERE id = ?`).get(id) as Record<string, unknown> | undefined
   if (!existing) return c.json({ error: 'کمپین پیدا نشد' }, 404)
   assertWorkspaceAccess(c, String(existing.workspace_id))
-  const body = await c.req.json()
+  const body = await c.req.json().catch(() => ({}))
   const project =
     body.projectId !== undefined
       ? resolveProjectId(String(existing.workspace_id), body.projectId)
@@ -66,7 +67,7 @@ campaignRoutes.patch('/:id', async (c) => {
     body.name ?? existing.name,
     body.goal ?? existing.goal,
     body.status ?? existing.status,
-    JSON.stringify(body.platforms ?? JSON.parse(String(existing.platforms || '[]'))),
+    JSON.stringify(body.platforms ?? safeJson<string[]>(existing.platforms, [])),
     project.id,
     body.startDate ?? existing.start_date,
     body.endDate ?? existing.end_date,
@@ -93,7 +94,7 @@ function mapCampaign(row: unknown) {
     name: r.name,
     goal: r.goal,
     status: r.status,
-    platforms: JSON.parse(String(r.platforms || '[]')),
+    platforms: safeJson<string[]>(r.platforms, []),
     startDate: r.start_date,
     endDate: r.end_date,
     createdAt: r.created_at,

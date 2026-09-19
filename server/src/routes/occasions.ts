@@ -46,6 +46,11 @@ occasionRoutes.get('/calendar', (c) => {
 
   let rows: unknown[]
   if (projectId) {
+    const owner = db.prepare(`SELECT workspace_id FROM projects WHERE id = ?`).get(projectId) as
+      | { workspace_id: string }
+      | undefined
+    if (!owner) return c.json({ error: 'پیج پیدا نشد', code: 'not_found' }, 404)
+    assertWorkspaceAccess(c, owner.workspace_id)
     rows = db
       .prepare(
         `SELECT o.* FROM occasions o
@@ -70,7 +75,7 @@ occasionRoutes.get('/calendar', (c) => {
 })
 
 occasionRoutes.post('/project-link', async (c) => {
-  const body = await c.req.json()
+  const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>
   const projectId = String(body.projectId || '')
   const occasionId = String(body.occasionId || '')
   if (!projectId || !occasionId) return c.json({ error: 'projectId و occasionId الزامی است' }, 400)

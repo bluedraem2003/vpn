@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { safeJson } from '../lib/secrets.js'
 import { db, uid } from '../db/index.js'
 import { TelegramStorageProvider } from '../services/storage/telegram.js'
 import { assertWorkspaceAccess, requireAuth } from '../middleware/auth.js'
@@ -69,7 +70,7 @@ assetRoutes.get('/:id', (c) => {
 
 assetRoutes.post('/:id/attach', async (c) => {
   const assetId = c.req.param('id')
-  const body = await c.req.json()
+  const body = await c.req.json().catch(() => ({}))
   if (!body.contentId) return c.json({ error: 'contentId الزامی است' }, 400)
 
   const asset = db.prepare(`SELECT * FROM assets WHERE id = ?`).get(assetId) as Record<string, unknown> | undefined
@@ -219,7 +220,7 @@ assetRoutes.patch('/:id', async (c) => {
   const row = db.prepare(`SELECT * FROM assets WHERE id = ?`).get(id) as Record<string, unknown> | undefined
   if (!row) return c.json({ error: 'فایل پیدا نشد' }, 404)
   assertWorkspaceAccess(c, String(row.workspace_id))
-  const body = await c.req.json()
+  const body = await c.req.json().catch(() => ({}))
   const tags = body.tags ? JSON.stringify(body.tags) : row.tags
   const status = body.status ?? row.status
   const virtualFolder = body.virtualFolder ?? row.virtual_folder
@@ -300,7 +301,7 @@ function mapAsset(row: unknown) {
     height: r.height,
     duration: r.duration,
     storageProvider: r.storage_provider,
-    tags: JSON.parse(String(r.tags || '[]')),
+    tags: safeJson<string[]>(r.tags, []),
     telegramFileUniqueId: r.telegram_file_unique_id,
     telegramCaption: r.telegram_caption,
     thumbnailFileId: r.thumbnail_file_id,

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { localToday } from '../lib/dates'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api, type AssetDto, type CampaignDto, type ContentDto, type OccasionDto, type ProjectDto } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
@@ -155,7 +156,7 @@ export function ContentPage() {
   }, [items, filterProject, filterStatus, filterType, query])
 
   const occasionOptions = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10)
+    const today = localToday()
     return [...occasions]
       .filter((o) => o.dateInYear)
       .sort((a, b) => String(a.dateInYear).localeCompare(String(b.dateInYear)))

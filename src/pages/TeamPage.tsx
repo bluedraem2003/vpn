@@ -1,18 +1,26 @@
 import { useEffect, useState } from 'react'
+import { Link2, ShieldCheck, Trash2 } from 'lucide-react'
 import { api } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { CopyButton } from '../components/CopyButton'
+import { relativeTime } from '../components/ConnectedPageCard'
 import { useI18n } from '../prefs/PrefsProvider'
 
+const ROLES = ['admin', 'manager', 'editor', 'designer', 'copywriter', 'viewer'] as const
+type Member = { id: string; email: string; name: string; role: string; lastLoginAt?: string | null }
+
 export function TeamPage() {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const { session } = useAuth()
-  const [items, setItems] = useState<Array<{ id: string; email: string; name: string; role: string }>>([])
+  const [items, setItems] = useState<Member[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [msg, setMsg] = useState<string | null>(null)
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
   const [role, setRole] = useState('editor')
-  const [inviteLink, setInviteLink] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
+  const [inviteLink, setInviteLink] = useState<{ email: string; url: string; expiresAt: string } | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [linkBusy, setLinkBusy] = useState<string | null>(null)
 
   async function reload() {
     const res = await api.team()
@@ -23,104 +31,205 @@ export function TeamPage() {
     void reload().catch((e) => setError((e as Error).message))
   }, [])
 
+  const isAdmin = session?.role === 'admin'
+  const canInvite = isAdmin || session?.role === 'manager'
+  const grantable = isAdmin ? [...ROLES] : ROLES.filter((r) => r !== 'admin')
+
   async function invite() {
     setError(null)
+    setMsg(null)
     setInviteLink(null)
-    setCopied(false)
+    setBusy(true)
     try {
-      const res = await api.inviteMember({ email, name, role })
-      const link = res.invite.inviteUrl || res.invite.devMagicUrl
-      setInviteLink(link)
+      const res = await api.inviteMember({ email: email.trim(), name: name.trim() || undefined, role })
+      if (res.invite.inviteUrl) {
+        setInviteLink({ email: res.member.email, url: res.invite.inviteUrl, expiresAt: res.invite.expiresAt })
+      } else {
+        setMsg(t('team.invitedNoLink', { email: res.member.email }))
+      }
       setEmail('')
       setName('')
       await reload()
     } catch (e) {
       setError((e as Error).message)
+    } finally {
+      setBusy(false)
     }
   }
 
-  async function copyInvite() {
-    if (!inviteLink) return
-    await navigator.clipboard.writeText(inviteLink)
-    setCopied(true)
+  async function mintLink(member: Member) {
+    setError(null)
+    setMsg(null)
+    setLinkBusy(member.id)
+    try {
+      const res = await api.mintLoginLink(member.id)
+      if (res.inviteUrl) setInviteLink({ email: member.email, url: res.inviteUrl, expiresAt: res.expiresAt })
+      else setMsg(t('team.invitedNoLink', { email: member.email }))
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setLinkBusy(null)
+    }
   }
 
-  const canInvite = session?.role === 'admin' || session?.role === 'manager'
+  async function changeRole(member: Member, next: string) {
+    setError(null)
+    try {
+      await api.updateMemberRole(member.id, next)
+      setItems((prev) => prev.map((m) => (m.id === member.id ? { ...m, role: next } : m)))
+      setMsg(t('team.roleChanged', { name: member.name }))
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+  async function remove(member: Member) {
+    if (!window.confirm(t('team.confirmRemove', { name: member.name }))) return
+    setError(null)
+    try {
+      await api.removeMember(member.id)
+      setItems((prev) => prev.filter((m) => m.id !== member.id))
+      setMsg(t('team.removed', { name: member.name }))
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
 
   return (
     <div className="ops-page">
       <header className="ops-page-head">
         <div>
-          <p className="ops-kicker">{t('nav.team')}</p>
+          <p className="ops-kicker">{t('nav.groupManage')}</p>
           <h1>{t('pages.teamTitle')}</h1>
           <p>{t('pages.teamSub')}</p>
         </div>
       </header>
 
+      {error && <div className="form-banner error">{error}</div>}
+      {msg && <div className="form-banner ok">{msg}</div>}
+      {inviteLink && (
+        <div className="panel panel-pad invite-box" style={{ marginBottom: '1rem' }}>
+          <p className="section-sub" style={{ marginBottom: '0.45rem' }}>
+            {t('team.linkReadyFor', { email: inviteLink.email })}
+          </p>
+          <code className="invite-code" dir="ltr">
+            {inviteLink.url}
+          </code>
+          <div className="form-actions" style={{ marginTop: '0.65rem' }}>
+            <CopyButton text={inviteLink.url} label={t('team.copyInvite')} />
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => setInviteLink(null)}>
+              {t('common.close')}
+            </button>
+          </div>
+          <p className="section-sub" style={{ marginTop: '0.5rem' }}>
+            {t('team.linkSecurity')}
+          </p>
+        </div>
+      )}
+
       <div className="ops-split">
         {canInvite && (
-          <section className="panel panel-pad">
+          <form
+            className="panel panel-pad"
+            onSubmit={(e) => {
+              e.preventDefault()
+              void invite()
+            }}
+          >
             <h2 className="section-title">{t('team.inviteTitle')}</h2>
             <p className="section-sub">{t('team.inviteHint')}</p>
             <div className="field">
-              <label>{t('team.email')}</label>
+              <label htmlFor="team-email">{t('team.email')}</label>
               <input
+                id="team-email"
+                type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="colleague@example.com"
-                autoComplete="email"
+                autoComplete="off"
+                dir="ltr"
+                required
               />
             </div>
             <div className="field">
-              <label>{t('team.name')}</label>
-              <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('team.namePh')} />
+              <label htmlFor="team-name">{t('team.name')}</label>
+              <input id="team-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t('team.namePh')} />
             </div>
             <div className="field">
-              <label>{t('team.role')}</label>
-              <select value={role} onChange={(e) => setRole(e.target.value)}>
-                {['admin', 'manager', 'editor', 'designer', 'copywriter', 'viewer'].map((r) => (
+              <label htmlFor="team-role">{t('team.role')}</label>
+              <select id="team-role" value={role} onChange={(e) => setRole(e.target.value)}>
+                {grantable.map((r) => (
                   <option key={r} value={r}>
-                    {r}
+                    {t(`roles.${r}`)}
                   </option>
                 ))}
               </select>
+              <span className="field-hint">{t(`roleHints.${role}`)}</span>
             </div>
-            {error && <p className="section-sub">{error}</p>}
-            {inviteLink && (
-              <div className="invite-box">
-                <p className="section-sub" style={{ marginBottom: '0.45rem' }}>
-                  {t('team.linkReady')}
-                </p>
-                <code className="invite-code">{inviteLink}</code>
-                <div className="form-actions" style={{ marginTop: '0.65rem' }}>
-                  <button type="button" className="btn btn-solid btn-sm" onClick={() => void copyInvite()}>
-                    {copied ? t('common.copied') : t('team.copyInvite')}
-                  </button>
-                  <a className="btn btn-outline btn-sm" href={inviteLink} target="_blank" rel="noreferrer">
-                    {t('team.open')}
-                  </a>
-                </div>
-              </div>
-            )}
-            <button type="button" className="btn btn-solid" onClick={() => void invite()} style={{ marginTop: '0.75rem' }}>
-              {t('team.createInvite')}
+            <button type="submit" className="btn btn-solid" disabled={busy || !email.trim()}>
+              {busy ? t('common.saving') : t('team.createInvite')}
             </button>
-          </section>
+          </form>
         )}
 
         <section className="panel panel-pad">
           <h2 className="section-title">{t('team.members')}</h2>
-          {!canInvite && error && <p className="section-sub">{error}</p>}
           <div className="page-list">
-            {items.map((m) => (
-              <article key={m.id} className="list-item">
-                <div className="list-meta">
-                  <h3>{m.name}</h3>
-                  <span className="meta-badge">{m.role}</span>
-                </div>
-                <p>{m.email}</p>
-              </article>
-            ))}
+            {items.map((m) => {
+              const isSelf = m.id === session?.user.id
+              return (
+                <article key={m.id} className="list-item">
+                  <div className="list-meta">
+                    <h3>
+                      {m.name}
+                      {isSelf ? <span className="section-sub"> · {t('team.you')}</span> : null}
+                    </h3>
+                    <span className="meta-badge">{t(`roles.${m.role}`)}</span>
+                  </div>
+                  <p dir="ltr" style={{ textAlign: lang === 'fa' ? 'right' : 'left' }}>
+                    {m.email}
+                  </p>
+                  <p>
+                    {m.lastLoginAt
+                      ? t('team.lastLogin', { when: relativeTime(m.lastLoginAt, lang) })
+                      : t('team.neverLoggedIn')}
+                  </p>
+                  {canInvite && (
+                    <div className="form-actions">
+                      {!(m.role === 'admin' && !isAdmin) && (
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-sm"
+                          disabled={linkBusy === m.id}
+                          onClick={() => void mintLink(m)}
+                        >
+                          <Link2 size={13} aria-hidden />
+                          {linkBusy === m.id ? t('common.loading') : t('team.loginLink')}
+                        </button>
+                      )}
+                      {isAdmin && !isSelf && (
+                        <label className="inline-select">
+                          <ShieldCheck size={13} aria-hidden />
+                          <select value={m.role} onChange={(e) => void changeRole(m, e.target.value)}>
+                            {ROLES.map((r) => (
+                              <option key={r} value={r}>
+                                {t(`roles.${r}`)}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      )}
+                      {isAdmin && !isSelf && (
+                        <button type="button" className="btn btn-outline btn-sm" onClick={() => void remove(m)}>
+                          <Trash2 size={13} aria-hidden />
+                          {t('common.delete')}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </article>
+              )
+            })}
           </div>
         </section>
       </div>

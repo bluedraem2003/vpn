@@ -21,6 +21,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, { ...init, headers, cache: 'no-store' })
   const ct = res.headers.get('content-type') || ''
   const data = ct.includes('application/json') ? await res.json().catch(() => ({})) : {}
+  if (res.status === 401 && authToken && !path.startsWith('/api/auth/')) {
+    // Session died server-side: drop it everywhere and let AuthProvider show the login gate.
+    authToken = null
+    try {
+      localStorage.removeItem('postyar_session_token')
+    } catch {
+      /* ignore */
+    }
+    window.dispatchEvent(new CustomEvent('postyar:unauthorized'))
+  }
   if (!res.ok) {
     const payload = data as { error?: string; code?: string }
     const err = new Error(
@@ -71,17 +81,25 @@ export const api = {
       defaultEmail: string
       magicLinkEnabled?: boolean
       allowDevLogin?: boolean
+      ownerKeyEnabled?: boolean
       shareInviteLinks?: boolean
       publicUrl?: string | null
     }>('/api/auth/bootstrap'),
+  ownerKeyLogin: (email: string, key: string) =>
+    request<{
+      token: string
+      expiresAt: string
+      user: { id: string; email: string; name: string }
+      workspaceId: string
+      role: string
+    }>('/api/auth/owner-key', { method: 'POST', body: JSON.stringify({ email, key }) }),
   requestMagicLink: (email: string) =>
     request<{
       ok: boolean
       message: string
-      inviteUrl?: string
+      code?: string
       devMagicUrl?: string
-      magicToken?: string
-      expiresAt: string
+      expiresAt?: string
     }>('/api/auth/magic-link', { method: 'POST', body: JSON.stringify({ email }) }),
   consumeMagicLink: (token: string) =>
     request<{
@@ -105,8 +123,15 @@ export const api = {
     request<{
       ok: boolean
       member: { id: string; email: string; name: string; role: string }
-      invite: { expiresAt: string; inviteUrl: string; devMagicUrl: string }
+      invite: { expiresAt: string; inviteUrl?: string }
     }>('/api/team/invite', { method: 'POST', body: JSON.stringify(body) }),
+  mintLoginLink: (userId: string) =>
+    request<{ ok: boolean; expiresAt: string; inviteUrl?: string }>(`/api/team/${userId}/login-link`, {
+      method: 'POST',
+    }),
+  updateMemberRole: (userId: string, role: string) =>
+    request<{ ok: boolean; role: string }>(`/api/team/${userId}`, { method: 'PATCH', body: JSON.stringify({ role }) }),
+  removeMember: (userId: string) => request<{ ok: boolean }>(`/api/team/${userId}`, { method: 'DELETE' }),
   workspaces: () =>
     request<{ items: Array<{ id: string; name: string; slug: string; role?: string }> }>('/api/workspaces'),
   dashboard: (workspaceId: string) => request<Record<string, unknown>>(`/api/workspaces/${workspaceId}/dashboard`),
@@ -142,9 +167,13 @@ export const api = {
       body: JSON.stringify({ contentId, role }),
     }),
   telegramStatus: () =>
-    request<{ configured: boolean; chatIdConfigured: boolean; indexedFiles: number; limits: Record<string, unknown> }>(
-      '/api/telegram/status',
-    ),
+    request<{
+      configured: boolean
+      chatIdConfigured: boolean
+      webhookSecretConfigured?: boolean
+      indexedFiles: number
+      limits: Record<string, unknown>
+    }>('/api/telegram/status'),
   listProjects: (workspaceId: string) =>
     request<{ items: ProjectDto[] }>(`/api/projects?workspaceId=${workspaceId}`),
   searchInstagramPages: (q: string) =>
@@ -227,7 +256,9 @@ export const api = {
     }),
   deleteIdea: (id: string) => request<{ ok: boolean }>(`/api/ideas/${id}`, { method: 'DELETE' }),
   team: () =>
-    request<{ items: Array<{ id: string; email: string; name: string; role: string }> }>('/api/team'),
+    request<{ items: Array<{ id: string; email: string; name: string; role: string; lastLoginAt?: string | null }> }>(
+      '/api/team',
+    ),
   search: (workspaceId: string, q: string) =>
     request<Record<string, unknown[]>>(`/api/search?workspaceId=${workspaceId}&q=${encodeURIComponent(q)}`),
   listOccasions: (workspaceId: string, params?: { region?: string; projectId?: string; year?: number }) => {

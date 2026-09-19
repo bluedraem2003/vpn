@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { safeJson } from '../lib/secrets.js'
 import { db, uid } from '../db/index.js'
 import { assertWorkspaceAccess, requireAuth } from '../middleware/auth.js'
 import { notifyContentPublished } from '../jobs/reminders.js'
@@ -108,7 +109,7 @@ contentRoutes.get('/:id/assets', (c) => {
 })
 
 contentRoutes.post('/', async (c) => {
-  const body = await c.req.json()
+  const body = await c.req.json().catch(() => ({}))
   const now = new Date().toISOString()
   const id = uid('cnt')
   const workspaceId = body.workspaceId || c.get('workspaceId')
@@ -186,7 +187,7 @@ contentRoutes.patch('/:id', async (c) => {
   if (!existing) return c.json({ error: 'محتوا پیدا نشد' }, 404)
   assertWorkspaceAccess(c, String(existing.workspace_id))
 
-  const body = await c.req.json()
+  const body = await c.req.json().catch(() => ({}))
   const now = new Date().toISOString()
   const nextStatus = body.status ?? existing.status
 
@@ -220,7 +221,7 @@ contentRoutes.patch('/:id', async (c) => {
     ).run(
       body.title ?? existing.title,
       body.description ?? existing.description,
-      JSON.stringify(body.platforms ?? JSON.parse(String(existing.platforms || '[]'))),
+      JSON.stringify(body.platforms ?? safeJson<string[]>(existing.platforms, [])),
       body.contentType ?? existing.content_type,
       nextStatus,
       body.publishDate !== undefined ? body.publishDate || null : existing.publish_date,
@@ -350,7 +351,7 @@ function mapContent(row: unknown) {
     assigneeId: r.assignee_id,
     title: r.title,
     description: r.description,
-    platforms: JSON.parse(String(r.platforms || '[]')),
+    platforms: safeJson<string[]>(r.platforms, []),
     contentType: r.content_type,
     status: r.status,
     publishDate: r.publish_date,
@@ -363,7 +364,7 @@ function mapContent(row: unknown) {
     firstComment: r.first_comment,
     hashtags: parseHashtags(r.hashtags),
     notes: r.notes,
-    aiMeta: JSON.parse(String(r.ai_meta || '{}')),
+    aiMeta: safeJson<Record<string, unknown>>(r.ai_meta, {}),
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   }

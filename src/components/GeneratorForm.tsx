@@ -1,10 +1,12 @@
 import type { ContentFormat, GenerateInput, InstagramPage, Language, Tone } from '../types'
 import { Sparkles } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { useI18n } from '../prefs/PrefsProvider'
 
 interface GeneratorFormProps {
   pages: InstagramPage[]
   activePageId: string | null
+  onSelectPage?: (id: string) => void
   value: GenerateInput
   busy: boolean
   onChange: (next: GenerateInput) => void
@@ -18,6 +20,7 @@ const languages: Language[] = ['fa', 'en', 'bilingual']
 export function GeneratorForm({
   pages,
   activePageId,
+  onSelectPage,
   value,
   busy,
   onChange,
@@ -29,9 +32,30 @@ export function GeneratorForm({
   return (
     <div className="panel panel-pad">
       <h2 className="section-title">{t('studio.formTitle')}</h2>
-      <p className="section-sub">
-        {t('studio.formSub')} {active ? t('studio.activePage', { name: active.name }) : t('studio.noPage')}
-      </p>
+      <p className="section-sub">{t('studio.formSub')}</p>
+
+      <div className="field">
+        <label htmlFor="studio-page">{t('studio.pageLabel')}</label>
+        {pages.length === 0 ? (
+          <p className="section-sub" style={{ margin: 0 }}>
+            <Link to="/projects">{t('studio.noPageLink')}</Link>
+          </p>
+        ) : (
+          <select
+            id="studio-page"
+            value={activePageId || ''}
+            onChange={(e) => onSelectPage?.(e.target.value)}
+          >
+            {pages.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+                {p.handle ? ` · @${p.handle}` : ''}
+              </option>
+            ))}
+          </select>
+        )}
+        {active?.voice && <span className="field-hint">{t('studio.voiceHint', { v: active.voice })}</span>}
+      </div>
 
       <div className="field">
         <label htmlFor="topic">{t('studio.topic')}</label>

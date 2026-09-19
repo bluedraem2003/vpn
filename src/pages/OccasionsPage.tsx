@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { localToday } from '../lib/dates'
 import { Link } from 'react-router-dom'
 import { api, type OccasionDto, type ProjectDto } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
@@ -44,7 +45,7 @@ export function OccasionsPage() {
   }, [workspaceId, region, year, projectId])
 
   const upcoming = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10)
+    const today = localToday()
     return items
       .filter((o) => o.dateInYear && o.dateInYear >= today)
       .sort((a, b) => String(a.dateInYear).localeCompare(String(b.dateInYear)))

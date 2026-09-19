@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { safeJson } from '../lib/secrets.js'
 import { db } from '../db/index.js'
 import { assertWorkspaceAccess, requireAuth } from '../middleware/auth.js'
 import { hitRateLimit } from '../middleware/rateLimit.js'
@@ -90,7 +91,7 @@ analyticsRoutes.get('/', (c) => {
 
   const platformCounts: Record<string, number> = {}
   for (const row of contents) {
-    const platforms = JSON.parse(row.platforms || '[]') as string[]
+    const platforms = safeJson<string[]>(row.platforms, [])
     for (const p of platforms) platformCounts[p] = (platformCounts[p] || 0) + 1
   }
 
@@ -173,7 +174,7 @@ analyticsRoutes.get('/', (c) => {
         title: row.title,
         contentType: row.content_type,
         publishDate: row.publish_date,
-        platforms: JSON.parse(String(row.platforms || '[]')),
+        platforms: safeJson<string[]>(row.platforms, []),
         updatedAt: row.updated_at,
       }
     }),

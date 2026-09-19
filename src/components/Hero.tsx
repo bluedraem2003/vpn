@@ -27,11 +27,11 @@ export function Hero({ onStart, onIdeas }: HeroProps) {
         <h2>{t('studio.heroTitle')}</h2>
         <p>{t('studio.heroSub')}</p>
         <div className="cta-row">
-          <button type="button" className="btn btn-primary" onClick={onStart}>
+          <button type="button" className="btn btn-solid" onClick={onStart}>
             <Sparkles size={18} />
             {t('studio.start')}
           </button>
-          <button type="button" className="btn btn-ghost" onClick={onIdeas}>
+          <button type="button" className="btn btn-outline" onClick={onIdeas}>
             {t('studio.weekly')}
             {lang === 'fa' ? <ArrowLeft size={16} /> : <ArrowRight size={16} />}
           </button>

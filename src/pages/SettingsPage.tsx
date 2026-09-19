@@ -10,6 +10,8 @@ export function SettingsPage() {
   const { session, logout, workspaceId } = useAuth()
   const [q, setQ] = useState('')
   const [results, setResults] = useState<Record<string, unknown[]> | null>(null)
+  const [searchBusy, setSearchBusy] = useState(false)
+  const [searchError, setSearchError] = useState<string | null>(null)
   const [tg, setTg] = useState<Record<string, unknown> | null>(null)
   const [connectors, setConnectors] = useState<AnalyticsConnector[]>([])
 
@@ -20,7 +22,27 @@ export function SettingsPage() {
 
   async function runSearch() {
     if (!workspaceId || !q.trim()) return
-    setResults(await api.search(workspaceId, q.trim()))
+    setSearchBusy(true)
+    setSearchError(null)
+    try {
+      setResults(await api.search(workspaceId, q.trim()))
+    } catch (e) {
+      setSearchError((e as Error).message)
+    } finally {
+      setSearchBusy(false)
+    }
+  }
+
+  const groupLabel = (key: string) => {
+    const map: Record<string, string> = {
+      contents: 'nav.content',
+      content: 'nav.content',
+      assets: 'nav.assets',
+      ideas: 'nav.ideas',
+      projects: 'nav.projects',
+      campaigns: 'nav.campaigns',
+    }
+    return map[key] ? t(map[key]) : key
   }
 
   return (
@@ -116,22 +138,34 @@ export function SettingsPage() {
 
       <section className="panel panel-pad" style={{ marginTop: '1rem' }}>
         <h2 className="section-title">{t('settings.searchTitle')}</h2>
-        <div className="ops-filters" style={{ gridTemplateColumns: '1fr auto' }}>
+        <form
+          className="ops-filters"
+          style={{ gridTemplateColumns: '1fr auto' }}
+          onSubmit={(e) => {
+            e.preventDefault()
+            void runSearch()
+          }}
+        >
           <input
+            aria-label={t('settings.searchTitle')}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder={t('settings.searchPh')}
           />
-          <button type="button" className="btn btn-solid btn-sm" onClick={() => void runSearch()}>
-            {t('common.search')}
+          <button type="submit" className="btn btn-solid btn-sm" disabled={searchBusy || !q.trim()}>
+            {searchBusy ? t('common.loading') : t('common.search')}
           </button>
-        </div>
+        </form>
+        {searchError && <div className="form-banner error" style={{ marginTop: '0.75rem' }}>{searchError}</div>}
+        {results && Object.values(results).every((list) => list.length === 0) && (
+          <p className="empty quiet">{t('common.none')}</p>
+        )}
         {results && (
           <div className="ops-split" style={{ marginTop: '1rem' }}>
-            {Object.entries(results).map(([key, list]) => (
+            {Object.entries(results).filter(([, list]) => list.length > 0).map(([key, list]) => (
               <div key={key}>
                 <h3 className="section-title" style={{ fontSize: '1rem' }}>
-                  {key} ({list.length})
+                  {groupLabel(key)} ({list.length})
                 </h3>
                 <ul className="ops-list">
                   {list.slice(0, 5).map((item, idx) => {

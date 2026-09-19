@@ -11,7 +11,8 @@ Copy `.env.example` to `.env` and fill values.
 | `AUTH_PUBLIC_URL` | Public https base for magic/invite links |
 | `CORS_ORIGINS` | Extra allowed origins (comma-separated) |
 | `SHARE_INVITE_LINKS` | `1` = return invite URLs in API (needed without SMTP) |
-| `ALLOW_DEV_LOGIN` | `1` = enable passwordless `/api/auth/login` |
+| `ALLOW_DEV_LOGIN` | `1` = enable passwordless `/api/auth/login` (development only) |
+| `AUTH_OWNER_KEY` | Shared secret that lets workspace **admins** sign in with email + key (`POST /api/auth/owner-key`). Use when there is no SMTP; rotate by changing the value |
 | `TELEGRAM_BOT_TOKEN` | Bot token — server only |
 | `TELEGRAM_CHAT_ID` | Allowed channel/group id |
 | `TELEGRAM_WEBHOOK_SECRET` | Webhook header secret |
@@ -30,5 +31,8 @@ Never put secrets in the frontend bundle or git.
 
 ## Auth notes
 
-- Magic / invite links work without SMTP when `SHARE_INVITE_LINKS=1` (default): copy the URL from Team page.
-- Disable open `/api/auth/login` in production with `ALLOW_DEV_LOGIN=0`.
+- Sessions last 30 days and use 256-bit random tokens. Every API request that comes back `401` signs the browser out.
+- Teammates sign in with one-time login links. An admin/manager creates them from the **Team** page (invite, or “Login link” for an existing member). The public “request a login link” form never reveals the link — it only records the request.
+- Admins can always get back in with `AUTH_OWNER_KEY` (email + key on the login page).
+- Keep `ALLOW_DEV_LOGIN=0` in any shared deployment. Viewers are read-only; managers cannot create admins.
+- Telegram webhook requires both `TELEGRAM_WEBHOOK_SECRET` and `TELEGRAM_CHAT_ID`; otherwise it refuses updates.

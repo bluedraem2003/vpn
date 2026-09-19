@@ -7,11 +7,11 @@ export function TelegramPage() {
   const [status, setStatus] = useState<{
     configured: boolean
     chatIdConfigured: boolean
+    webhookSecretConfigured?: boolean
     indexedFiles: number
     limits: Record<string, unknown>
   } | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [syncMsg, setSyncMsg] = useState<string | null>(null)
 
   useEffect(() => {
     api
@@ -19,17 +19,6 @@ export function TelegramPage() {
       .then(setStatus)
       .catch((e) => setError((e as Error).message))
   }, [])
-
-  async function trySync() {
-    setSyncMsg(null)
-    try {
-      const res = await fetch('/api/telegram/sync', { method: 'POST' })
-      const data = await res.json()
-      setSyncMsg(data.error || data.suggestion || JSON.stringify(data))
-    } catch (e) {
-      setSyncMsg((e as Error).message)
-    }
-  }
 
   return (
     <div className="ops-page">
@@ -39,9 +28,6 @@ export function TelegramPage() {
           <h1>{t('pages.telegramTitle')}</h1>
           <p>{t('pages.telegramSub')}</p>
         </div>
-        <button type="button" className="btn btn-outline btn-sm" onClick={trySync}>
-          Sync
-        </button>
       </header>
 
       {error && (
@@ -66,6 +52,10 @@ export function TelegramPage() {
                 <span>{status.chatIdConfigured ? t('telegram.set') : t('telegram.unset')}</span>
               </li>
               <li>
+                <strong>{t('telegram.webhookSecret')}</strong>
+                <span>{status.webhookSecretConfigured ? t('telegram.set') : t('telegram.unset')}</span>
+              </li>
+              <li>
                 <strong>{t('telegram.indexed')}</strong>
                 <span>{status.indexedFiles}</span>
               </li>
@@ -75,7 +65,6 @@ export function TelegramPage() {
               </li>
             </ul>
           )}
-          {syncMsg && <p className="section-sub" style={{ marginTop: '1rem' }}>{syncMsg}</p>}
         </section>
 
         <section className="panel panel-pad">

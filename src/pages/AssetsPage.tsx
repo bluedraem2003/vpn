@@ -22,6 +22,7 @@ export function AssetsPage() {
   const { workspaceId, session } = useAuth()
   const [items, setItems] = useState<AssetDto[]>([])
   const [q, setQ] = useState('')
+  const [query, setQuery] = useState('')
   const [type, setType] = useState('all')
   const [sort, setSort] = useState('newest')
   const [error, setError] = useState<string | null>(null)
@@ -29,16 +30,21 @@ export function AssetsPage() {
 
   async function reload() {
     if (!workspaceId) return
-    const res = await api.listAssets(workspaceId, { type, q, sort })
+    const res = await api.listAssets(workspaceId, { type, q: query, sort })
     setItems(res.items)
   }
+
+  useEffect(() => {
+    const id = window.setTimeout(() => setQuery(q.trim()), 300)
+    return () => window.clearTimeout(id)
+  }, [q])
 
   useEffect(() => {
     if (!workspaceId) return
     let cancelled = false
     ;(async () => {
       try {
-        const res = await api.listAssets(workspaceId, { type, q, sort })
+        const res = await api.listAssets(workspaceId, { type, q: query, sort })
         if (!cancelled) setItems(res.items)
       } catch (e) {
         if (!cancelled) setError((e as Error).message)
@@ -47,7 +53,7 @@ export function AssetsPage() {
     return () => {
       cancelled = true
     }
-  }, [workspaceId, type, q, sort])
+  }, [workspaceId, type, query, sort])
 
   async function downloadAsset(asset: AssetDto) {
     const res = await fetch(`/api/assets/${asset.id}/download`, {
@@ -81,6 +87,7 @@ export function AssetsPage() {
       <div className="panel panel-pad" style={{ marginBottom: '1rem' }}>
         <div className="ops-filters">
           <input
+            aria-label={t('common.search')}
             placeholder={t('assets.searchPh')}
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -155,7 +162,7 @@ export function AssetsPage() {
                 <button type="button" className="btn btn-outline btn-sm" onClick={() => void downloadAsset(asset)}>
                   {t('common.download')}
                 </button>
-                <span className="meta-badge">{asset.status}</span>
+                <span className="meta-badge">{t(`assetStatus.${asset.status}`)}</span>
               </div>
             </div>
           </article>

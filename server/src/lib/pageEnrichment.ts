@@ -168,7 +168,7 @@ async function fetchWebsiteMeta(raw: string): Promise<WebsiteMeta | null> {
       url,
       timeout: { request: 6000 },
       throwHttpErrors: false,
-      followRedirect: true,
+      followRedirect: false,
       maxRedirects: 3,
       headers: { accept: 'text/html,application/xhtml+xml' },
     })
