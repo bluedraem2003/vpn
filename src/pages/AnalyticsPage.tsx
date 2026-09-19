@@ -5,10 +5,13 @@ import {
   Clapperboard,
   Clock,
   Eye,
+  FileJson,
   Globe,
+  Handshake,
   Hash,
   Heart,
   Images,
+  ImageDown,
   Link2,
   Mail,
   MapPin,
@@ -18,12 +21,14 @@ import {
   PlugZap,
   RefreshCw,
   Send,
+  Trash2,
   TrendingUp,
   Users,
 } from 'lucide-react'
 import {
   api,
   type AnalyticsConnector,
+  type CollabDto,
   type CountStat,
   type PageAnalyticsResponse,
   type PageEnrichment,
@@ -34,6 +39,8 @@ import {
   type RelatedProfile,
   type TypeStats,
 } from '../api/client'
+import { downloadPageReportJson, downloadPageReportPng } from '../lib/analyticsExport'
+import { collabSnapshotFromPage, type CollabSnapshot } from '../lib/collabSnapshot'
 import { useAuth } from '../auth/AuthContext'
 import { InstagramPageSearch } from '../components/InstagramPageSearch'
 import { normalizeHandle } from '../lib/handle'
@@ -68,8 +75,8 @@ type AnalyticsData = {
 }
 
 export function AnalyticsPage() {
-  const { workspaceId } = useAuth()
-  const { t } = useI18n()
+  const { workspaceId, session } = useAuth()
+  const { t, n, d, weekday, lang } = useI18n()
   const [params] = useSearchParams()
   const deepHandle = normalizeHandle(params.get('handle') || '')
   const [data, setData] = useState<AnalyticsData | null>(null)
@@ -83,6 +90,12 @@ export function AnalyticsPage() {
   const [pageError, setPageError] = useState<string | null>(null)
   const [report, setReport] = useState<PageAnalyticsResponse | null>(null)
   const [pages, setPages] = useState<ProjectDto[]>([])
+  const [collabs, setCollabs] = useState<CollabDto[]>([])
+  const [collabBusy, setCollabBusy] = useState(false)
+  const [exportBusy, setExportBusy] = useState(false)
+  const [actionMsg, setActionMsg] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const canWrite = session?.role !== 'viewer'
 
   useEffect(() => {
     if (!workspaceId) return
@@ -105,6 +118,10 @@ export function AnalyticsPage() {
         })
       })
       .catch(() => setPages([]))
+    api
+      .listCollaborations(workspaceId)
+      .then((res) => setCollabs(res.items || []))
+      .catch(() => setCollabs([]))
   }, [workspaceId])
 
   useEffect(() => {
@@ -176,6 +193,71 @@ export function AnalyticsPage() {
 
   const page = report?.page
   const connectors = report?.connectors
+  const activeCollab = useMemo(() => {
+    const h = handle.toLowerCase()
+    if (!h) return null
+    return collabs.find((c) => c.handle.toLowerCase() === h) || null
+  }, [collabs, handle])
+
+  async function saveCollab() {
+    if (!workspaceId || !page || !canWrite) return
+    setCollabBusy(true)
+    setActionError(null)
+    setActionMsg(null)
+    try {
+      const res = await api.saveCollaboration({
+        workspaceId,
+        handle: page.handle,
+        name: page.name,
+        snapshot: collabSnapshotFromPage(page),
+      })
+      setCollabs((prev) => {
+        const rest = prev.filter((c) => c.id !== res.item.id && c.handle.toLowerCase() !== res.item.handle.toLowerCase())
+        return [res.item, ...rest]
+      })
+      setActionMsg(res.created ? t('analytics.collabSaved') : t('analytics.collabUpdated'))
+    } catch (e) {
+      setActionError((e as Error).message)
+    } finally {
+      setCollabBusy(false)
+    }
+  }
+
+  async function removeCollab(id?: string) {
+    const target = id || activeCollab?.id
+    if (!target || !canWrite) return
+    if (!window.confirm(t('analytics.confirmRemoveCollab'))) return
+    setCollabBusy(true)
+    setActionError(null)
+    setActionMsg(null)
+    try {
+      await api.deleteCollaboration(target)
+      setCollabs((prev) => prev.filter((c) => c.id !== target))
+      setActionMsg(t('analytics.collabRemoved'))
+    } catch (e) {
+      setActionError((e as Error).message)
+    } finally {
+      setCollabBusy(false)
+    }
+  }
+
+  async function exportPng() {
+    if (!page) return
+    setExportBusy(true)
+    setActionError(null)
+    try {
+      await downloadPageReportPng(page, { t, n, d, weekday, lang, brand: t('brand') })
+    } catch {
+      setActionError(t('analytics.exportFail'))
+    } finally {
+      setExportBusy(false)
+    }
+  }
+
+  function exportJson() {
+    if (!report) return
+    downloadPageReportJson(report)
+  }
 
   return (
     <div className="ops-page">
@@ -212,7 +294,7 @@ export function AnalyticsPage() {
           </div>
         </div>
 
-        <div className="ig-chip-row" role="list">
+        <div className="ig-chip-row" role="list" aria-label={t('analytics.myPages')}>
           {savedHandles.map((p) => (
             <button
               key={p.handle}
@@ -224,11 +306,37 @@ export function AnalyticsPage() {
             </button>
           ))}
         </div>
+        {collabs.length > 0 && (
+          <div className="ig-chip-row collab" role="list" aria-label={t('analytics.collabTitle')}>
+            {collabs.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                className={`ig-chip collab ${handle.toLowerCase() === c.handle.toLowerCase() ? 'active' : ''}`}
+                onClick={() => runAnalysis(c.handle, false)}
+              >
+                <Handshake size={13} aria-hidden />
+                {c.name} · @{c.handle}
+                <em>{t('analytics.collabChip')}</em>
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="ig-insight-status">
           {pageError && (
             <div className="form-banner error" role="alert">
               {pageError}
+            </div>
+          )}
+          {actionError && (
+            <div className="form-banner error" role="alert">
+              {actionError}
+            </div>
+          )}
+          {actionMsg && !actionError && (
+            <div className="form-banner ok" role="status">
+              {actionMsg}
             </div>
           )}
           {!pageError && report?.cached && (
@@ -243,6 +351,63 @@ export function AnalyticsPage() {
             </div>
           )}
         </div>
+      </section>
+
+      <section className="panel panel-pad ig-collab-board">
+        <header className="ig-collab-head">
+          <div>
+            <h2 className="section-title">
+              <Handshake size={16} aria-hidden /> {t('analytics.collabTitle')}
+            </h2>
+            <p className="section-sub">{t('analytics.collabSub')}</p>
+          </div>
+        </header>
+        {collabs.length === 0 ? (
+          <div className="empty quiet">
+            <strong>{t('analytics.collabTitle')}</strong>
+            {t('analytics.collabEmpty')}
+          </div>
+        ) : (
+          <div className="ig-collab-grid">
+            {collabs.map((c) => {
+              const snap = c.snapshot as Partial<CollabSnapshot>
+              return (
+                <article key={c.id} className={`ig-collab-card ${handle.toLowerCase() === c.handle.toLowerCase() ? 'active' : ''}`}>
+                  <button type="button" className="ig-collab-open" onClick={() => runAnalysis(c.handle, false)}>
+                    <CollabAvatar src={snap.avatarUrl} name={c.name || c.handle} />
+                    <span>
+                      <strong>{c.name}</strong>
+                      <em dir="ltr">@{c.handle}</em>
+                      <small>
+                        {t('analytics.collabStats', {
+                          followers: n(Number(snap.followers || 0)),
+                          er: n(Number(snap.engagementRate || 0), 2),
+                          health: n(Number(snap.healthScore || 0)),
+                        })}
+                      </small>
+                    </span>
+                  </button>
+                  <div className="ig-collab-card-actions">
+                    <button type="button" className="btn btn-outline btn-sm" onClick={() => runAnalysis(c.handle, false)}>
+                      {t('analytics.collabOpen')}
+                    </button>
+                    {canWrite && (
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        disabled={collabBusy}
+                        onClick={() => void removeCollab(c.id)}
+                      >
+                        <Trash2 size={13} aria-hidden />
+                        {t('analytics.removeCollab')}
+                      </button>
+                    )}
+                  </div>
+                </article>
+              )
+            })}
+          </div>
+        )}
       </section>
 
       <ConnectorCards items={connectors} supermetrics={report?.supermetrics} meta={report?.meta} />
@@ -261,6 +426,14 @@ export function AnalyticsPage() {
           growth={report?.growth}
           enrichment={report?.enrichment}
           onOpenRelated={(username) => runAnalysis(username, false)}
+          isCollab={Boolean(activeCollab)}
+          canWrite={canWrite}
+          savingCollab={collabBusy}
+          exportBusy={exportBusy}
+          onSaveCollab={() => void saveCollab()}
+          onRemoveCollab={() => void removeCollab()}
+          onExportPng={() => void exportPng()}
+          onExportJson={exportJson}
         />
       )}
 
@@ -271,6 +444,12 @@ export function AnalyticsPage() {
       <WorkspaceAnalytics data={data} error={error} />
     </div>
   )
+}
+
+function CollabAvatar({ src, name }: { src?: string; name: string }) {
+  const [broken, setBroken] = useState(false)
+  if (!src || broken) return <span className="ig-collab-letter">{name.slice(0, 1)}</span>
+  return <img src={src} alt="" referrerPolicy="no-referrer" onError={() => setBroken(true)} />
 }
 
 function ConnectorCards({
@@ -355,11 +534,27 @@ function PageReport({
   growth,
   enrichment,
   onOpenRelated,
+  isCollab,
+  canWrite,
+  savingCollab,
+  exportBusy,
+  onSaveCollab,
+  onRemoveCollab,
+  onExportPng,
+  onExportJson,
 }: {
   page: PageInsights
   growth?: PageGrowth
   enrichment?: PageEnrichment
   onOpenRelated: (username: string) => void
+  isCollab: boolean
+  canWrite: boolean
+  savingCollab: boolean
+  exportBusy: boolean
+  onSaveCollab: () => void
+  onRemoveCollab: () => void
+  onExportPng: () => void
+  onExportJson: () => void
 }) {
   const { t, n, d, weekday } = useI18n()
   const mixTotal = Math.max(1, page.mix.reel + page.mix.carousel + page.mix.post)
@@ -421,6 +616,7 @@ function PageReport({
             {page.hasClips ? <span>{t('analytics.clips')}</span> : null}
             {page.highlightCount > 0 ? <span>{t('analytics.highlights', { n: n(page.highlightCount) })}</span> : null}
             {page.isJoinedRecently ? <span>{t('analytics.newbie')}</span> : null}
+            {isCollab ? <span>{t('analytics.collabChip')}</span> : null}
             <span>{t('analytics.sourcePublic')}</span>
           </div>
         </div>
@@ -428,6 +624,35 @@ function PageReport({
           <strong>{n(page.health.score)}</strong>
           <span>{t('analytics.health')}</span>
         </div>
+        <div className="ig-profile-actions">
+            {canWrite ? (
+              isCollab ? (
+                <>
+                  <button type="button" className="btn btn-solid btn-sm" disabled={savingCollab} onClick={onSaveCollab}>
+                    <Handshake size={15} aria-hidden />
+                    {savingCollab ? t('common.saving') : t('analytics.updateCollab')}
+                  </button>
+                  <button type="button" className="btn btn-outline btn-sm" disabled={savingCollab} onClick={onRemoveCollab}>
+                    <Trash2 size={15} aria-hidden />
+                    {t('analytics.removeCollab')}
+                  </button>
+                </>
+              ) : (
+                <button type="button" className="btn btn-solid btn-sm" disabled={savingCollab} onClick={onSaveCollab}>
+                  <Handshake size={15} aria-hidden />
+                  {savingCollab ? t('common.saving') : t('analytics.saveCollab')}
+                </button>
+              )
+            ) : null}
+            <button type="button" className="btn btn-outline btn-sm" disabled={exportBusy} onClick={onExportPng}>
+              {exportBusy ? <RefreshCw size={15} className="spin" aria-hidden /> : <ImageDown size={15} aria-hidden />}
+              {exportBusy ? t('analytics.exporting') : t('analytics.exportPng')}
+            </button>
+            <button type="button" className="btn btn-outline btn-sm" disabled={exportBusy} onClick={onExportJson}>
+              <FileJson size={15} aria-hidden />
+              {t('analytics.exportJson')}
+            </button>
+          </div>
       </section>
 
       <div className="ops-stat-grid ig-insight-stats">

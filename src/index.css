@@ -1575,6 +1575,141 @@ html[data-theme='dark'] .field-hint.warn {
   border-color: rgba(27, 107, 99, 0.35);
 }
 
+.ig-chip.collab {
+  border-style: dashed;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.ig-chip.collab em {
+  font-style: normal;
+  font-size: 0.68rem;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  padding: 0.08rem 0.45rem;
+}
+
+.ig-profile-actions {
+  flex: 1 0 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 0.85rem;
+}
+
+.ig-profile-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.ig-collab-board {
+  margin-bottom: 1rem;
+}
+
+.ig-collab-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.ig-collab-head .section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.3rem;
+}
+
+.ig-collab-head .section-sub {
+  margin: 0;
+}
+
+.ig-collab-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 0.75rem;
+}
+
+.ig-collab-card {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 18px;
+  padding: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.ig-collab-card.active {
+  box-shadow: inset 0 0 0 1px rgba(27, 107, 99, 0.35);
+  background: var(--accent-soft);
+}
+
+.ig-collab-open {
+  display: flex;
+  gap: 0.7rem;
+  align-items: center;
+  text-align: start;
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  width: 100%;
+}
+
+.ig-collab-open img,
+.ig-collab-letter {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: 0 0 auto;
+  background: linear-gradient(135deg, #f58529, #dd2a7b, #8134af);
+}
+
+.ig-collab-letter {
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-weight: 800;
+}
+
+.ig-collab-open span {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 0;
+}
+
+.ig-collab-open strong {
+  font-size: 0.95rem;
+}
+
+.ig-collab-open em,
+.ig-collab-open small {
+  font-style: normal;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.ig-collab-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.ig-collab-card-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
 .connector-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
@@ -1633,6 +1768,7 @@ html[data-theme='dark'] .field-hint.warn {
 
 .ig-profile-card {
   display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
   align-items: flex-start;
   margin-bottom: 1rem;
@@ -1717,6 +1853,7 @@ html[data-theme='dark'] .field-hint.warn {
 .ig-health {
   margin-inline-start: auto;
   min-width: 92px;
+  flex: 0 0 auto;
   text-align: center;
   background: var(--accent-soft);
   border-radius: 18px;
@@ -2187,6 +2324,12 @@ html[data-theme='dark'] .cal-pill-occasion {
 
   .ig-insight-actions .btn {
     width: 100%;
+  }
+
+  .ig-profile-actions .btn,
+  .ig-collab-card-actions .btn {
+    width: 100%;
+    justify-content: center;
   }
 
   .cal-month {

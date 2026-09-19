@@ -117,6 +117,25 @@ export const api = {
     if (fresh) sp.set('fresh', '1')
     return request<PageAnalyticsResponse>(`/api/analytics/page?${sp}`)
   },
+  listCollaborations: (workspaceId: string) =>
+    request<{ items: CollabDto[] }>(`/api/collaborations?workspaceId=${workspaceId}`),
+  saveCollaboration: (body: {
+    workspaceId: string
+    handle: string
+    name?: string
+    notes?: string
+    snapshot?: Record<string, unknown>
+  }) =>
+    request<{ item: CollabDto; created: boolean }>('/api/collaborations', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  updateCollaboration: (id: string, body: { name?: string; notes?: string }) =>
+    request<{ item: CollabDto }>(`/api/collaborations/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  deleteCollaboration: (id: string) => request<{ ok: boolean }>(`/api/collaborations/${id}`, { method: 'DELETE' }),
   updateAsset: (id: string, body: { tags?: string[]; status?: string; virtualFolder?: string }) =>
     request<{ item: AssetDto }>(`/api/assets/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   inviteMember: (body: { email: string; name?: string; role?: string }) =>
@@ -491,6 +510,17 @@ export type PageEnrichment = {
   domain?: { host: string; createdAt?: string; registrar?: string }
   place?: { name: string; displayName: string; lat: string; lon: string }
   researchLinks: Array<{ id?: string; label: string; url: string; hint: string }>
+}
+
+export interface CollabDto {
+  id: string
+  workspaceId: string
+  handle: string
+  name: string
+  notes: string
+  snapshot: Record<string, unknown>
+  createdAt: string
+  updatedAt: string
 }
 
 export type PageAnalyticsResponse = {
