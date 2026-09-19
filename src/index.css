@@ -1240,8 +1240,6 @@ a {
 .ig-search-meta span {
   font-size: 0.75rem;
   color: var(--muted);
-  direction: ltr;
-  text-align: left;
 }
 
 .ig-search-pick {

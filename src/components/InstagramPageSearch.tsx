@@ -184,7 +184,7 @@ export function InstagramPageSearch({ id, value, disabled, onChange, onPick }: P
                     {item.verified ? ' ✓' : ''}
                   </strong>
                   <span>
-                    @{item.username}
+                    <bdi>@{item.username}</bdi>
                     {item.source ? ` · ${sourceLabel[item.source] || ''}` : ''}
                     {followersLabel(item.followers)}
                   </span>
