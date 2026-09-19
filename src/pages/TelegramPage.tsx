@@ -35,6 +35,7 @@ export function TelegramPage() {
     <div className="ops-page">
       <header className="ops-page-head">
         <div>
+          <p className="ops-kicker">{t('nav.telegram')}</p>
           <h1>{t('pages.telegramTitle')}</h1>
           <p>{t('pages.telegramSub')}</p>
         </div>

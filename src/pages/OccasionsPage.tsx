@@ -120,6 +120,7 @@ export function OccasionsPage() {
     <div className="ops-page">
       <header className="ops-page-head">
         <div>
+          <p className="ops-kicker">{t('nav.occasions')}</p>
           <h1>{t('pages.occasionsTitle')}</h1>
           <p>{t('pages.occasionsSub')}</p>
         </div>

@@ -86,6 +86,7 @@ export function IdeasPage() {
     <div className="ops-page">
       <header className="ops-page-head">
         <div>
+          <p className="ops-kicker">{t('nav.ideas')}</p>
           <h1>{t('pages.ideasTitle')}</h1>
           <p>{t('pages.ideasSub')}</p>
         </div>
@@ -137,7 +138,11 @@ export function IdeasPage() {
         <section className="panel panel-pad">
           <h2 className="section-title">{t('ideas.listTitle')}</h2>
           <div className="page-list">
-            {items.length === 0 && <p className="section-sub">{t('ideas.empty')}</p>}
+            {items.length === 0 && (
+              <div className="empty quiet">
+                <strong>{t('ideas.empty')}</strong>
+              </div>
+            )}
             {items.map((idea) => (
               <article key={idea.id} className="list-item">
                 <div className="list-meta">

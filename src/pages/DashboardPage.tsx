@@ -83,6 +83,7 @@ export function DashboardPage() {
     <div className="ops-page">
       <header className="ops-page-head">
         <div>
+          <p className="ops-kicker">{t('brand')}</p>
           <h1>{t('pages.dashboardTitle')}</h1>
           <p>
             {t('pages.dashboardToday', {
@@ -141,9 +142,9 @@ export function DashboardPage() {
         <section className="panel panel-pad">
           <h2 className="section-title">{t('dash.occasions')}</h2>
           {upcomingOccasions.length === 0 ? (
-            <p className="section-sub">{t('dash.noOccasions')}</p>
+            <p className="empty quiet">{t('dash.noOccasions')}</p>
           ) : (
-            <ul className="ops-list">
+            <ul className="ops-list scrollable">
               {upcomingOccasions.map((o) => (
                 <li key={String(o.id)}>
                   <Link to={`/content?date=${String(o.dateInYear)}&occasionId=${String(o.id)}`}>
@@ -171,7 +172,7 @@ export function DashboardPage() {
       <section className="panel panel-pad" style={{ marginTop: '1rem' }}>
         <h2 className="section-title">{t('dash.recentFiles')}</h2>
         {recentAssets.length === 0 ? (
-          <p className="section-sub">{t('dash.noFiles')}</p>
+          <p className="empty quiet">{t('dash.noFiles')}</p>
         ) : (
           <ul className="ops-list">
             {recentAssets.map((a) => (
@@ -192,7 +193,7 @@ export function DashboardPage() {
               {t(`status.${status as ContentStatus}`)}: {count}
             </span>
           ))}
-          {Object.keys(byStatus).length === 0 && <p className="section-sub">{t('dash.noContent')}</p>}
+          {Object.keys(byStatus).length === 0 && <p className="empty quiet">{t('dash.noContent')}</p>}
         </div>
       </section>
     </div>
@@ -209,7 +210,7 @@ function ItemList({
   onPublished?: (id: string) => void
 }) {
   const { t, lang } = useI18n()
-  if (!items.length) return <p className="section-sub">{empty}</p>
+  if (!items.length) return <p className="empty quiet">{empty}</p>
   return (
     <ul className="ops-list">
       {items.map((item) => (

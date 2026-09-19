@@ -49,25 +49,36 @@ export function LoginGate({ children }: { children: React.ReactNode }) {
     return (
       <div className="login-gate">
         <div className="panel panel-pad login-card">
-          <div className="brand-mark" aria-hidden style={{ marginBottom: '1rem' }}>
+          <div className="brand-mark" aria-hidden>
             {lang === 'fa' ? 'پ' : 'P'}
           </div>
+          <p className="ops-kicker">{t('brand')}</p>
           <h1 className="section-title">{t('login.title')}</h1>
           <p className="section-sub">{t('login.sub')}</p>
           <AppearanceControls />
 
           <div className="field">
-            <label>{t('login.email')}</label>
+            <label htmlFor="login-email">{t('login.email')}</label>
             <input
+              id="login-email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@company.com"
               autoComplete="email"
+              dir="ltr"
             />
           </div>
 
-          {(error || localError) && <p className="section-sub">{error || localError}</p>}
-          {magicMsg && <p className="section-sub">{magicMsg}</p>}
+          {(error || localError) && (
+            <div className="form-banner error" role="alert">
+              {error || localError}
+            </div>
+          )}
+          {magicMsg && (
+            <div className="form-banner ok" role="status">
+              {magicMsg}
+            </div>
+          )}
           {magicUrl && (
             <div className="invite-box">
               <p className="section-sub" style={{ marginBottom: '0.5rem' }}>
@@ -93,10 +104,25 @@ export function LoginGate({ children }: { children: React.ReactNode }) {
             </div>
           )}
 
-          <div className="form-actions" style={{ justifyContent: 'center' }}>
+          <div className="form-actions login-actions">
+            {allowDevLogin && (
+              <button
+                type="button"
+                className="btn btn-solid"
+                disabled={busy}
+                onClick={() => {
+                  setBusy(true)
+                  void login(email)
+                    .catch((e) => setLocalError((e as Error).message))
+                    .finally(() => setBusy(false))
+                }}
+              >
+                {t('login.devLogin')}
+              </button>
+            )}
             <button
               type="button"
-              className="btn btn-solid"
+              className={allowDevLogin ? 'btn btn-outline' : 'btn btn-solid'}
               disabled={busy}
               onClick={() => {
                 setBusy(true)
@@ -112,22 +138,8 @@ export function LoginGate({ children }: { children: React.ReactNode }) {
             >
               {t('login.getLink')}
             </button>
-            {allowDevLogin && (
-              <button
-                type="button"
-                className="btn btn-outline"
-                disabled={busy}
-                onClick={() => {
-                  setBusy(true)
-                  void login(email)
-                    .catch((e) => setLocalError((e as Error).message))
-                    .finally(() => setBusy(false))
-                }}
-              >
-                {t('login.devLogin')}
-              </button>
-            )}
           </div>
+          {allowDevLogin && <p className="field-hint login-hint">{t('login.devHint')}</p>}
           <p className="section-sub" style={{ marginTop: '0.85rem' }}>
             {t('login.notMember')}
           </p>

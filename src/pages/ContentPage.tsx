@@ -365,6 +365,7 @@ export function ContentPage() {
     <div className="ops-page">
       <header className="ops-page-head">
         <div>
+          <p className="ops-kicker">{t('nav.content')}</p>
           <h1>{t('pages.contentTitle')}</h1>
           <p>{t('pages.contentSub')}</p>
         </div>
@@ -588,7 +589,11 @@ export function ContentPage() {
             </select>
           </div>
           <div className="page-list">
-            {filtered.length === 0 && <p className="section-sub">{t('common.none')}</p>}
+            {filtered.length === 0 && (
+              <div className="empty quiet">
+                <strong>{t('common.none')}</strong>
+              </div>
+            )}
             {filtered.map((item) => {
               const copyCaption = [item.caption, formatHashtags(item.hashtags)].filter(Boolean).join('\n\n')
               return (

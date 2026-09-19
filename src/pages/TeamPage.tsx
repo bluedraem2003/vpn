@@ -51,6 +51,7 @@ export function TeamPage() {
     <div className="ops-page">
       <header className="ops-page-head">
         <div>
+          <p className="ops-kicker">{t('nav.team')}</p>
           <h1>{t('pages.teamTitle')}</h1>
           <p>{t('pages.teamSub')}</p>
         </div>

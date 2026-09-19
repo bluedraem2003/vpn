@@ -99,6 +99,7 @@ export function CalendarPage() {
     <div className="ops-page">
       <header className="ops-page-head">
         <div>
+          <p className="ops-kicker">{t('nav.calendar')}</p>
           <h1>{t('pages.calendarTitle')}</h1>
           <p>{t('pages.calendarSub')}</p>
         </div>
@@ -186,6 +187,7 @@ export function CalendarPage() {
         )}
 
         {view === 'month' && (
+          <div className="cal-scroll">
           <div className="cal-month">
             {(['dowSat', 'dowSun', 'dowMon', 'dowTue', 'dowWed', 'dowThu', 'dowFri'] as const).map((d) => (
               <div key={d} className="cal-dow">
@@ -235,6 +237,7 @@ export function CalendarPage() {
                 </button>
               )
             })}
+          </div>
           </div>
         )}
 

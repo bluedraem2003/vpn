@@ -75,6 +75,7 @@ export function CampaignsPage() {
     <div className="ops-page">
       <header className="ops-page-head">
         <div>
+          <p className="ops-kicker">{t('nav.campaigns')}</p>
           <h1>{t('pages.campaignsTitle')}</h1>
           <p>{t('pages.campaignsSub')}</p>
         </div>
