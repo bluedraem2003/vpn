@@ -105,6 +105,7 @@ workspaceRoutes.get('/:id/dashboard', (c) => {
       return {
         id: r.id,
         nameFa: r.name_fa,
+        nameEn: r.name_en,
         region: r.region,
         dateInYear,
       }
