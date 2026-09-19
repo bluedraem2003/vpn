@@ -266,6 +266,19 @@ export function migrate() {
     );
     CREATE INDEX IF NOT EXISTS idx_notifications_ws ON notifications(workspace_id, created_at);
     CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications(workspace_id, read_at);
+
+    CREATE TABLE IF NOT EXISTS collaborations (
+      id TEXT PRIMARY KEY,
+      workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+      handle TEXT NOT NULL,
+      name TEXT NOT NULL,
+      notes TEXT,
+      snapshot TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_collab_ws_handle ON collaborations(workspace_id, handle);
+    CREATE INDEX IF NOT EXISTS idx_collab_ws ON collaborations(workspace_id, updated_at);
   `)
 
   ensureColumn('projects', 'ig_connected_at', 'TEXT')

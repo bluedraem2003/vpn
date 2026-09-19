@@ -21,6 +21,7 @@ import { analyticsRoutes } from './routes/analytics.js'
 import { occasionRoutes } from './routes/occasions.js'
 import { instagramRoutes } from './routes/instagram.js'
 import { notificationRoutes } from './routes/notifications.js'
+import { collaborationRoutes } from './routes/collaborations.js'
 import { runMissedScheduleReminders } from './jobs/reminders.js'
 import { pageSyncIntervalMs, syncDueConnectedPages } from './lib/pageSync.js'
 import { denyViewerWrites } from './middleware/auth.js'
@@ -108,6 +109,7 @@ app.route('/api/analytics', analyticsRoutes)
 app.route('/api/occasions', occasionRoutes)
 app.route('/api/instagram', instagramRoutes)
 app.route('/api/notifications', notificationRoutes)
+app.route('/api/collaborations', collaborationRoutes)
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const distCandidates = [
