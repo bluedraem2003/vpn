@@ -59,12 +59,10 @@ export function TeamPage() {
       <div className="ops-split">
         {canInvite && (
           <section className="panel panel-pad">
-            <h2 className="section-title">دعوت هم‌تیمی</h2>
-            <p className="section-sub">
-              بعد از دعوت، لینک یک‌بارمصرف را کپی کنید و در واتساپ/تلگرام برای همکارتان بفرستید.
-            </p>
+            <h2 className="section-title">{t('team.inviteTitle')}</h2>
+            <p className="section-sub">{t('team.inviteHint')}</p>
             <div className="field">
-              <label>ایمیل</label>
+              <label>{t('team.email')}</label>
               <input
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -73,11 +71,11 @@ export function TeamPage() {
               />
             </div>
             <div className="field">
-              <label>نام</label>
-              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="نام همکار" />
+              <label>{t('team.name')}</label>
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder={t('team.namePh')} />
             </div>
             <div className="field">
-              <label>نقش</label>
+              <label>{t('team.role')}</label>
               <select value={role} onChange={(e) => setRole(e.target.value)}>
                 {['admin', 'manager', 'editor', 'designer', 'copywriter', 'viewer'].map((r) => (
                   <option key={r} value={r}>
@@ -90,27 +88,27 @@ export function TeamPage() {
             {inviteLink && (
               <div className="invite-box">
                 <p className="section-sub" style={{ marginBottom: '0.45rem' }}>
-                  لینک دعوت آماده است (۲۴ ساعت معتبر):
+                  {t('team.linkReady')}
                 </p>
                 <code className="invite-code">{inviteLink}</code>
                 <div className="form-actions" style={{ marginTop: '0.65rem' }}>
                   <button type="button" className="btn btn-solid btn-sm" onClick={() => void copyInvite()}>
-                    {copied ? 'کپی شد ✓' : 'کپی لینک دعوت'}
+                    {copied ? t('common.copied') : t('team.copyInvite')}
                   </button>
                   <a className="btn btn-outline btn-sm" href={inviteLink} target="_blank" rel="noreferrer">
-                    باز کردن
+                    {t('team.open')}
                   </a>
                 </div>
               </div>
             )}
             <button type="button" className="btn btn-solid" onClick={() => void invite()} style={{ marginTop: '0.75rem' }}>
-              ساخت دعوت
+              {t('team.createInvite')}
             </button>
           </section>
         )}
 
         <section className="panel panel-pad">
-          <h2 className="section-title">اعضا</h2>
+          <h2 className="section-title">{t('team.members')}</h2>
           {!canInvite && error && <p className="section-sub">{error}</p>}
           <div className="page-list">
             {items.map((m) => (

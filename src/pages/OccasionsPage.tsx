@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, type OccasionDto, type ProjectDto } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
+import { occasionLabel } from '../lib/occasionLabel'
 import { useI18n } from '../prefs/PrefsProvider'
 
 export function OccasionsPage() {
-  const { t } = useI18n()
+  const { t, lang } = useI18n()
   const { workspaceId } = useAuth()
   const [items, setItems] = useState<OccasionDto[]>([])
   const [projects, setProjects] = useState<ProjectDto[]>([])
@@ -52,7 +53,7 @@ export function OccasionsPage() {
 
   async function toggleLink(occasionId: string) {
     if (!projectId) {
-      setError('اول یک پروژه/پیج انتخاب کنید')
+      setError(t('occ.pickFirst'))
       return
     }
     setError(null)
@@ -65,11 +66,11 @@ export function OccasionsPage() {
           next.delete(occasionId)
           return next
         })
-        setMsg('از پیج حذف شد')
+        setMsg(t('occ.unlinked'))
       } else {
         await api.linkOccasionToProject(projectId, occasionId)
         setLinkedIds((prev) => new Set(prev).add(occasionId))
-        setMsg('به پیج وصل شد')
+        setMsg(t('occ.linked'))
       }
       await reload()
     } catch (e) {
@@ -80,7 +81,7 @@ export function OccasionsPage() {
   async function addCustom() {
     if (!workspaceId) return
     if (!customName.trim()) {
-      setError('نام مناسبت را بنویس')
+      setError(t('occ.needName'))
       return
     }
     setBusy(true)
@@ -96,7 +97,7 @@ export function OccasionsPage() {
         projectId: projectId || undefined,
       })
       setCustomName('')
-      setMsg('مناسبت اختصاصی ذخیره شد')
+      setMsg(t('occ.saved'))
       await reload()
     } catch (e) {
       setError((e as Error).message)
@@ -106,7 +107,7 @@ export function OccasionsPage() {
   }
 
   async function removeCustom(id: string) {
-    if (!window.confirm('این مناسبت اختصاصی حذف شود؟')) return
+    if (!window.confirm(t('occ.confirmDelete'))) return
     try {
       await api.deleteOccasion(id)
       await reload()
@@ -127,20 +128,20 @@ export function OccasionsPage() {
       <div className="panel panel-pad" style={{ marginBottom: '1rem' }}>
         <div className="ops-filters">
           <select value={region} onChange={(e) => setRegion(e.target.value as typeof region)}>
-            <option value="all">همه مناطق</option>
-            <option value="ir">ایرانی</option>
-            <option value="global">جهانی</option>
-            <option value="custom">اختصاصی پیج</option>
+            <option value="all">{t('occ.allRegions')}</option>
+            <option value="ir">{t('occ.ir')}</option>
+            <option value="global">{t('occ.global')}</option>
+            <option value="custom">{t('occ.custom')}</option>
           </select>
           <select value={year} onChange={(e) => setYear(Number(e.target.value))}>
             {[year - 1, year, year + 1].map((y) => (
               <option key={y} value={y}>
-                سال {y}
+                {t('common.year', { y })}
               </option>
             ))}
           </select>
           <select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
-            <option value="">انتخاب پروژه/پیج…</option>
+            <option value="">{t('occ.pickPage')}</option>
             {projects.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
@@ -152,7 +153,7 @@ export function OccasionsPage() {
         {msg && <p className="form-banner ok">{msg}</p>}
         {!projectId && (
           <p className="section-sub" style={{ marginTop: '0.65rem' }}>
-            برای اتصال مناسبت به یک پیج، پروژه را از لیست بالا انتخاب کنید.
+            {t('occ.pickToLink')}
           </p>
         )}
       </div>
@@ -165,17 +166,17 @@ export function OccasionsPage() {
           void addCustom()
         }}
       >
-        <h2 className="section-title">مناسبت اختصاصی</h2>
-        <p className="section-sub">تولد برند، سالگرد فروشگاه، کمپین داخلی...</p>
+        <h2 className="section-title">{t('occ.customTitle')}</h2>
+        <p className="section-sub">{t('occ.customSub')}</p>
         <div className="ops-filters" style={{ gridTemplateColumns: '1.4fr 0.8fr 0.5fr 0.5fr auto' }}>
           <input
             value={customName}
             onChange={(e) => setCustomName(e.target.value)}
-            placeholder="نام مناسبت"
+            placeholder={t('occ.namePh')}
           />
           <select value={customCal} onChange={(e) => setCustomCal(e.target.value as 'jalali' | 'gregorian')}>
-            <option value="jalali">شمسی</option>
-            <option value="gregorian">میلادی</option>
+            <option value="jalali">{t('occ.jalali')}</option>
+            <option value="gregorian">{t('occ.gregorian')}</option>
           </select>
           <input
             type="number"
@@ -183,7 +184,7 @@ export function OccasionsPage() {
             max={12}
             value={customMonth}
             onChange={(e) => setCustomMonth(e.target.value)}
-            placeholder="ماه"
+            placeholder={t('occ.month')}
           />
           <input
             type="number"
@@ -191,18 +192,18 @@ export function OccasionsPage() {
             max={31}
             value={customDay}
             onChange={(e) => setCustomDay(e.target.value)}
-            placeholder="روز"
+            placeholder={t('occ.day')}
           />
           <button type="submit" className="btn btn-solid btn-sm" disabled={busy}>
-            افزودن
+            {t('common.add')}
           </button>
         </div>
       </form>
 
       <section className="panel panel-pad" style={{ marginBottom: '1rem' }}>
-        <h2 className="section-title">نزدیک‌ترین‌ها</h2>
+        <h2 className="section-title">{t('occ.upcoming')}</h2>
         <div className="chip-row" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
-          {upcoming.length === 0 && <p className="section-sub">موردی در ادامه سال نیست</p>}
+          {upcoming.length === 0 && <p className="section-sub">{t('occ.noneUpcoming')}</p>}
           {upcoming.map((o) => (
             <Link
               key={o.id}
@@ -210,7 +211,7 @@ export function OccasionsPage() {
               title={o.nameEn}
               to={`/content?date=${o.dateInYear}&occasionId=${o.id}${projectId ? `&projectId=${projectId}` : ''}`}
             >
-              {o.dateInYear} — {o.nameFa}
+              {o.dateInYear} — {occasionLabel(o, lang)}
             </Link>
           ))}
         </div>
@@ -222,14 +223,14 @@ export function OccasionsPage() {
           return (
             <article key={o.id} className="panel panel-pad">
               <div className="list-meta">
-                <h3 style={{ margin: 0 }}>{o.nameFa}</h3>
+                <h3 style={{ margin: 0 }}>{occasionLabel(o, lang)}</h3>
                 <span className="meta-badge">
-                  {o.region === 'ir' ? 'ایرانی' : o.region === 'custom' ? 'اختصاصی' : 'جهانی'}
+                  {t(`occ.${o.region === 'ir' ? 'ir' : o.region === 'custom' ? 'custom' : 'global'}`)}
                 </span>
               </div>
               <p className="section-sub" style={{ margin: '0.45rem 0' }}>
                 {o.dateInYear || `${o.month}/${o.day}`} · {o.nameEn} · {o.kind}
-                {o.calendar === 'jalali' ? ` · ${o.month}/${o.day} شمسی` : ''}
+                {o.calendar === 'jalali' ? ` · ${t('occ.jalaliDate', { date: `${o.month}/${o.day}` })}` : ''}
               </p>
               {projectId && (
                 <button
@@ -237,7 +238,7 @@ export function OccasionsPage() {
                   className={`btn btn-sm ${linked ? 'btn-solid' : 'btn-outline'}`}
                   onClick={() => void toggleLink(o.id)}
                 >
-                  {linked ? 'وصل است — حذف' : 'وصل به پیج'}
+                  {linked ? t('occ.linkedBtn') : t('occ.linkBtn')}
                 </button>
               )}
               {o.dateInYear && (
@@ -245,7 +246,7 @@ export function OccasionsPage() {
                   className="btn btn-outline btn-sm"
                   to={`/content?date=${o.dateInYear}&occasionId=${o.id}${projectId ? `&projectId=${projectId}` : ''}`}
                 >
-                  برنامه‌ریزی محتوا
+                  {t('occ.planContent')}
                 </Link>
               )}
               {o.custom && (
@@ -254,7 +255,7 @@ export function OccasionsPage() {
                   className="btn btn-outline btn-sm"
                   onClick={() => void removeCustom(o.id)}
                 >
-                  حذف مناسبت
+                  {t('occ.deleteCustom')}
                 </button>
               )}
             </article>

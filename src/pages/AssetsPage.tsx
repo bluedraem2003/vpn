@@ -54,7 +54,7 @@ export function AssetsPage() {
       headers: api.authHeaders(),
     })
     if (!res.ok) {
-      setError('دانلود ناموفق بود')
+      setError(t('assets.downloadFail'))
       return
     }
     const raw = await res.arrayBuffer()
@@ -80,25 +80,25 @@ export function AssetsPage() {
       <div className="panel panel-pad" style={{ marginBottom: '1rem' }}>
         <div className="ops-filters">
           <input
-            placeholder="جستجو نام فایل / کپشن..."
+            placeholder={t('assets.searchPh')}
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
           <select value={type} onChange={(e) => setType(e.target.value)}>
-            <option value="all">همه</option>
-            <option value="image">تصویر</option>
-            <option value="video">ویدیو</option>
-            <option value="audio">صوت</option>
-            <option value="document">سند</option>
+            <option value="all">{t('common.all')}</option>
+            <option value="image">{t('assets.image')}</option>
+            <option value="video">{t('assets.video')}</option>
+            <option value="audio">{t('assets.audio')}</option>
+            <option value="document">{t('assets.document')}</option>
             <option value="pdf">PDF</option>
-            <option value="archive">آرشیو</option>
+            <option value="archive">{t('assets.archive')}</option>
           </select>
           <select value={sort} onChange={(e) => setSort(e.target.value)}>
-            <option value="newest">جدیدترین</option>
-            <option value="oldest">قدیمی‌ترین</option>
-            <option value="largest">بزرگ‌ترین</option>
-            <option value="smallest">کوچک‌ترین</option>
-            <option value="name">نام</option>
+            <option value="newest">{t('assets.newest')}</option>
+            <option value="oldest">{t('assets.oldest')}</option>
+            <option value="largest">{t('assets.largest')}</option>
+            <option value="smallest">{t('assets.smallest')}</option>
+            <option value="name">{t('assets.byName')}</option>
           </select>
         </div>
       </div>
@@ -112,8 +112,8 @@ export function AssetsPage() {
       <div className="asset-grid">
         {items.length === 0 && !error && (
           <div className="panel panel-pad empty">
-            <strong>فایلی نیست</strong>
-            از صفحه تلگرام Webhook را وصل کنید یا فایلی به کانال بفرستید.
+            <strong>{t('assets.emptyTitle')}</strong>
+            {t('assets.emptySub')}
           </div>
         )}
         {items.map((asset) => (
@@ -141,18 +141,18 @@ export function AssetsPage() {
                 {asset.width && asset.height ? ` · ${asset.width}×${asset.height}` : ''}
               </p>
               <div className="chip-row">
-                {asset.tags.map((t) => (
-                  <span className="tag" key={t}>
-                    #{t}
+                {asset.tags.map((tag) => (
+                  <span className="tag" key={tag}>
+                    #{tag}
                   </span>
                 ))}
               </div>
               <div className="form-actions" onClick={(e) => e.stopPropagation()}>
                 <button type="button" className="btn btn-solid btn-sm" onClick={() => setPreview(asset)}>
-                  باز کردن
+                  {t('common.open')}
                 </button>
                 <button type="button" className="btn btn-outline btn-sm" onClick={() => void downloadAsset(asset)}>
-                  دانلود
+                  {t('common.download')}
                 </button>
                 <span className="meta-badge">{asset.status}</span>
               </div>
