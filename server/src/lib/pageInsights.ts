@@ -596,8 +596,8 @@ export async function fetchSupermetricsInsights(pageHandle?: string): Promise<{
 }> {
   const apiKey = (process.env.SUPERMETRICS_API_KEY || '').trim()
   const account = (process.env.SUPERMETRICS_IG_ACCOUNT || pageHandle || '').trim()
-  if (!apiKey) return { ok: false, error: 'SUPERMETRICS_API_KEY تنظیم نشده' }
-  if (!account) return { ok: false, error: 'SUPERMETRICS_IG_ACCOUNT تنظیم نشده' }
+  if (!apiKey) return { ok: false, error: 'not_configured' }
+  if (!account) return { ok: false, error: 'not_configured' }
   const start = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)
   try {
     const res = await fetch('https://api.supermetrics.com/enterprise/v2/query/data/json', {
@@ -632,7 +632,7 @@ export async function fetchSupermetricsInsights(pageHandle?: string): Promise<{
 export async function fetchMetaInsights(): Promise<{ ok: boolean; error?: string; data?: unknown }> {
   const token = (process.env.META_IG_ACCESS_TOKEN || '').trim()
   const userId = (process.env.META_IG_USER_ID || '').trim()
-  if (!token || !userId) return { ok: false, error: 'توکن Meta تنظیم نشده' }
+  if (!token || !userId) return { ok: false, error: 'not_configured' }
   const url =
     `https://graph.facebook.com/v21.0/${encodeURIComponent(userId)}/insights` +
     `?metric=reach,follower_count,profile_views&period=day&access_token=${encodeURIComponent(token)}`

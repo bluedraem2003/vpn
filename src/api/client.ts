@@ -22,10 +22,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const ct = res.headers.get('content-type') || ''
   const data = ct.includes('application/json') ? await res.json().catch(() => ({})) : {}
   if (!res.ok) {
-    throw new Error(
-      (data as { error?: string }).error ||
-        (uiLang() === 'en' ? `API error (${res.status})` : `خطای API (${res.status})`),
-    )
+    const payload = data as { error?: string; code?: string }
+    const err = new Error(
+      payload.error || (uiLang() === 'en' ? `API error (${res.status})` : `خطای API (${res.status})`),
+    ) as Error & { code?: string }
+    err.code = payload.code
+    throw err
   }
   if (ct && !ct.includes('application/json')) {
     throw new Error(

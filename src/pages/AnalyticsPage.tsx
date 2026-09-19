@@ -114,7 +114,20 @@ export function AnalyticsPage() {
       .catch((e) => {
         if (!cancelled) {
           setReport(null)
-          setPageError((e as Error).message)
+          const code = (e as { code?: string }).code
+          const mapped =
+            code === 'busy'
+              ? t('analytics.errBusy')
+              : code === 'ig_busy'
+                ? t('analytics.errIgBusy')
+                : code === 'ig_unavailable'
+                  ? t('analytics.errUnavailable')
+                  : code === 'not_found'
+                    ? t('analytics.errNotFound')
+                    : code === 'need_handle'
+                      ? t('analytics.needHandle')
+                      : (e as Error).message
+          setPageError(mapped)
         }
       })
       .finally(() => {
@@ -247,8 +260,16 @@ function ConnectorCards({
   const ids: AnalyticsConnector['id'][] = ['instagram_public', 'website', 'ads_library', 'supermetrics', 'meta']
   const byId = new Map((items || []).map((c) => [c.id, c]))
   const extra: Record<string, string | undefined> = {
-    supermetrics: supermetrics?.ok ? t('analytics.smOk') : supermetrics?.error,
-    meta: meta?.ok ? t('analytics.metaOk') : meta?.error,
+    supermetrics: supermetrics?.ok
+      ? t('analytics.smOk')
+      : !supermetrics?.error || supermetrics.error === 'not_configured'
+        ? t('analytics.smUnset')
+        : supermetrics.error,
+    meta: meta?.ok
+      ? t('analytics.metaOk')
+      : !meta?.error || meta.error === 'not_configured'
+        ? t('analytics.metaUnset')
+        : meta.error,
   }
 
   return (

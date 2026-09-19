@@ -19,23 +19,23 @@ analyticsRoutes.get('/connectors', (c) => c.json({ items: analyticsConnectors() 
 
 analyticsRoutes.get('/page', async (c) => {
   if (hitRateLimit(`iginsights:${c.get('userId')}`, 20, 60_000)) {
-    return c.json({ error: 'کمی صبر کن و دوباره تحلیل را بگیر' }, 429)
+    return c.json({ error: 'کمی صبر کن و دوباره تحلیل را بگیر', code: 'busy' }, 429)
   }
   const workspaceId = c.req.query('workspaceId') || c.get('workspaceId')
   assertWorkspaceAccess(c, workspaceId)
   const handle = normalizeHandle(c.req.query('handle') || '')
-  if (!handle) return c.json({ error: 'آیدی پیج را بنویس' }, 400)
+  if (!handle) return c.json({ error: 'آیدی پیج را بنویس', code: 'need_handle' }, 400)
 
   const analyzed = await analyzeInstagramPage(handle, { fresh: c.req.query('fresh') === '1' })
   if (!analyzed.ok) {
     const code = analyzed.error.code
     if (code === 'rate_limit') {
-      return c.json({ error: 'اینستاگرام موقتاً محدود کرده؛ حدود یک دقیقه بعد دوباره تحلیل بگیر' }, 429)
+      return c.json({ error: 'اینستاگرام موقتاً محدود کرده؛ حدود یک دقیقه بعد دوباره تحلیل بگیر', code: 'ig_busy' }, 429)
     }
     if (code === 'unavailable') {
-      return c.json({ error: 'الان اینستاگرام پاسخ نداد. چند ثانیه بعد دوباره تلاش کن' }, 503)
+      return c.json({ error: 'الان اینستاگرام پاسخ نداد. چند ثانیه بعد دوباره تلاش کن', code: 'ig_unavailable' }, 503)
     }
-    return c.json({ error: 'این پیج در اینستاگرام پیدا نشد یا خصوصی است' }, 404)
+    return c.json({ error: 'این پیج در اینستاگرام پیدا نشد یا خصوصی است', code: 'not_found' }, 404)
   }
   const page = analyzed.data
 
