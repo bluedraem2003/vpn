@@ -1129,6 +1129,128 @@ a {
   background: rgba(27, 107, 99, 0.22);
 }
 
+.ig-search-wrap {
+  position: relative;
+}
+
+.ig-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.ig-search-icon {
+  position: absolute;
+  right: 0.85rem;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.ig-search-icon.spin {
+  animation: ig-spin 0.7s linear infinite;
+}
+
+@keyframes ig-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ig-at {
+  position: absolute;
+  left: 0.85rem;
+  color: var(--muted);
+  font-weight: 700;
+  direction: ltr;
+}
+
+.ig-search input {
+  padding-right: 2.4rem;
+  padding-left: 1.85rem;
+}
+
+.ig-search-list {
+  position: absolute;
+  inset-inline: 0;
+  top: calc(100% + 4px);
+  z-index: 40;
+  margin: 0;
+  background: var(--panel-solid);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  max-height: 280px;
+  overflow: auto;
+}
+
+.ig-search-empty {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.ig-search-item {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0.65rem 0.8rem;
+  text-align: right;
+  color: inherit;
+  font: inherit;
+}
+
+.ig-search-item:hover,
+.ig-search-item.active {
+  background: var(--accent-soft);
+}
+
+.ig-search-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: 0 0 auto;
+  background: linear-gradient(135deg, #f58529, #dd2a7b, #8134af);
+}
+
+.ig-search-avatar.letter {
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.ig-search-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.ig-search-meta strong {
+  font-size: 0.88rem;
+}
+
+.ig-search-meta span {
+  font-size: 0.75rem;
+  color: var(--muted);
+  direction: ltr;
+  text-align: left;
+}
+
+.ig-search-pick {
+  font-size: 0.75rem;
+  color: var(--accent);
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+
 @media (max-width: 980px) {
   .studio-schedule {
     grid-template-columns: 1fr;

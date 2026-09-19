@@ -19,6 +19,7 @@ import { searchRoutes } from './routes/search.js'
 import { teamRoutes } from './routes/team.js'
 import { analyticsRoutes } from './routes/analytics.js'
 import { occasionRoutes } from './routes/occasions.js'
+import { instagramRoutes } from './routes/instagram.js'
 import { runMissedScheduleReminders } from './jobs/reminders.js'
 
 migrate()
@@ -101,6 +102,7 @@ app.route('/api/search', searchRoutes)
 app.route('/api/team', teamRoutes)
 app.route('/api/analytics', analyticsRoutes)
 app.route('/api/occasions', occasionRoutes)
+app.route('/api/instagram', instagramRoutes)
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const distCandidates = [

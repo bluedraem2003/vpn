@@ -124,6 +124,8 @@ export const api = {
     ),
   listProjects: (workspaceId: string) =>
     request<{ items: ProjectDto[] }>(`/api/projects?workspaceId=${workspaceId}`),
+  searchInstagramPages: (q: string) =>
+    request<{ items: IgPageHit[] }>(`/api/instagram/search?q=${encodeURIComponent(q)}`),
   createProject: (body: {
     workspaceId: string
     name: string
@@ -276,6 +278,15 @@ export interface AssetDto {
   height?: number
   tags: string[]
   createdAt: string
+}
+
+export interface IgPageHit {
+  username: string
+  name: string
+  biography?: string
+  avatarUrl?: string
+  verified?: boolean
+  source?: 'instagram' | 'workspace' | 'typed' | 'wikidata'
 }
 
 export interface ProjectDto {

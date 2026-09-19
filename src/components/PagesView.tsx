@@ -1,6 +1,8 @@
 import type { InstagramPage } from '../types'
 import { Trash2, Check } from 'lucide-react'
 import { useState } from 'react'
+import { InstagramPageSearch } from './InstagramPageSearch'
+import type { IgPageHit } from '../api/client'
 
 export type PageFormInput = {
   name: string
@@ -36,15 +38,17 @@ export function PagesView({
 
   async function addPage() {
     if (busy) return
-    if (!form.name.trim()) {
-      setLocalError('نام پیج را بنویس')
+    const handle = form.handle.trim().replace(/^@/, '')
+    const name = form.name.trim() || handle
+    if (!name) {
+      setLocalError('پیج را از لیست انتخاب کن یا نام را بنویس')
       return
     }
     setLocalError(null)
     try {
       await onCreate({
-        name: form.name.trim(),
-        handle: form.handle.trim(),
+        name,
+        handle,
         niche: form.niche.trim(),
         audience: form.audience.trim(),
         voice: form.voice.trim(),
@@ -65,7 +69,7 @@ export function PagesView({
         }}
       >
         <h2 className="section-title">افزودن پیج</h2>
-        <p className="section-sub">هویت هر پیج روی سرور ذخیره می‌شود و در محتوا/مناسبت‌ها هم قابل انتخاب است.</p>
+        <p className="section-sub">پیج اینستاگرام را جستجو کن و همان‌جا انتخاب کن — روی سرور ذخیره می‌شود.</p>
 
         {(error || localError) && <p className="form-banner error">{error || localError}</p>}
 
@@ -75,21 +79,24 @@ export function PagesView({
             id="page-name"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="نام پیج اینستاگرام"
+            placeholder="اگر از لیست انتخاب کنی، خودش پر می‌شود"
             disabled={busy}
           />
         </div>
-        <div className="field">
-          <label htmlFor="page-handle">آیدی اینستاگرام (@)</label>
-          <input
-            id="page-handle"
-            value={form.handle}
-            onChange={(e) => setForm({ ...form, handle: e.target.value })}
-            placeholder="instagram_handle"
-            disabled={busy}
-            dir="ltr"
-          />
-        </div>
+        <InstagramPageSearch
+          id="page-handle"
+          value={form.handle}
+          disabled={busy}
+          onChange={(handle) => setForm((f) => ({ ...f, handle }))}
+          onPick={(hit: IgPageHit) =>
+            setForm((f) => ({
+              ...f,
+              handle: hit.username,
+              name: f.name.trim() && f.name !== f.handle ? f.name : hit.name || hit.username,
+              niche: f.niche.trim() ? f.niche : hit.biography || f.niche,
+            }))
+          }
+        />
         <div className="field">
           <label htmlFor="page-niche">حوزه / نیچ</label>
           <input

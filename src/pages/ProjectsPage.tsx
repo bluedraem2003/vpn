@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { api, type ProjectDto } from '../api/client'
+import { api, type IgPageHit, type ProjectDto } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import { normalizeHandle } from '../lib/handle'
 import { formatHashtags, parseHashtags } from '../lib/hashtags'
+import { InstagramPageSearch } from '../components/InstagramPageSearch'
 
 const emptyForm = {
   name: '',
@@ -46,16 +47,17 @@ export function ProjectsPage() {
       setError('وارد حساب نشده‌اید')
       return
     }
-    if (!form.name.trim()) {
-      setError('نام پیج را بنویس')
+    const handle = normalizeHandle(form.handle) || undefined
+    const name = form.name.trim() || handle || ''
+    if (!name) {
+      setError('پیج را از لیست انتخاب کن یا نام را بنویس')
       return
     }
     setBusy(true)
     setError(null)
     setMsg(null)
-    const handle = normalizeHandle(form.handle) || undefined
     const body = {
-      name: form.name.trim(),
+      name,
       handle,
       clientName: handle,
       niche: form.niche.trim() || undefined,
@@ -135,27 +137,31 @@ export function ProjectsPage() {
           }}
         >
           <h2 className="section-title">{editingId ? 'ویرایش پیج' : 'افزودن پیج'}</h2>
+          <p className="section-sub">پیج اینستاگرام را جستجو کن و از لیست انتخاب کن</p>
           <div className="field">
             <label htmlFor="prj-name">نام پیج</label>
             <input
               id="prj-name"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="نام پیج اینستاگرام"
+              placeholder="اگر از لیست انتخاب کنی، خودش پر می‌شود"
               disabled={busy}
             />
           </div>
-          <div className="field">
-            <label htmlFor="prj-handle">آیدی اینستاگرام (@)</label>
-            <input
-              id="prj-handle"
-              value={form.handle}
-              onChange={(e) => setForm({ ...form, handle: e.target.value })}
-              placeholder="instagram_handle"
-              disabled={busy}
-              dir="ltr"
-            />
-          </div>
+          <InstagramPageSearch
+            id="prj-handle"
+            value={form.handle}
+            disabled={busy}
+            onChange={(handle) => setForm((f) => ({ ...f, handle }))}
+            onPick={(hit: IgPageHit) =>
+              setForm((f) => ({
+                ...f,
+                handle: hit.username,
+                name: f.name.trim() && f.name !== f.handle ? f.name : hit.name || hit.username,
+                niche: f.niche.trim() ? f.niche : hit.biography || f.niche,
+              }))
+            }
+          />
           <div className="field">
             <label htmlFor="prj-niche">حوزه / نیچ</label>
             <input
