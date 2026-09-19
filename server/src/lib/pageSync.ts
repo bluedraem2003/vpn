@@ -1,7 +1,7 @@
 import { db, uid } from '../db/index.js'
 import { analyzeInstagramPage, type PageInsights, type PagePostInsight } from './pageInsights.js'
 import { recordPageSnapshot } from './pageSnapshots.js'
-import { isInstagramCoolingDown, instagramCooldownRemainingMs, normalizeHandle } from './instagramSearch.js'
+import { instagramCooldownRemainingMs, normalizeHandle } from './instagramSearch.js'
 import { notifyAndLog } from '../services/telegram/notify.js'
 
 export type IgSyncStatus = 'live' | 'cooldown' | 'error' | 'pending'
@@ -275,32 +275,19 @@ async function syncProjectUncached(row: ProjectRow, opts?: { reason?: 'connect' 
     return { ok: false, status: 'error', code: 'no_handle' }
   }
 
-  if (isInstagramCoolingDown()) {
-    persistProjectState(projectId, { status: 'cooldown', error: 'rate_limit' })
-    return {
-      ok: false,
-      status: 'cooldown',
-      code: 'rate_limit',
-      retryInSec: Math.ceil(instagramCooldownRemainingMs() / 1000),
-    }
-  }
-
   const result = await analyzeInstagramPage(handle, { fresh: true })
   if (!result.ok) {
     const code = result.error.code
-    const status: IgSyncStatus = code === 'rate_limit' ? 'cooldown' : 'error'
+    const status: IgSyncStatus = code === 'not_found' ? 'error' : 'cooldown'
     persistProjectState(projectId, { status, error: code })
-    if (opts?.reason !== 'schedule' || code !== 'rate_limit') {
-      // Surface hard failures (not routine cooldowns) once per attempt
-      if (code !== 'rate_limit') {
-        insertNotification({ workspaceId, projectId, handle, event: { kind: 'sync_error', meta: { code } } })
-      }
+    if (opts?.reason !== 'schedule' && code === 'not_found') {
+      insertNotification({ workspaceId, projectId, handle, event: { kind: 'sync_error', meta: { code } } })
     }
     return {
       ok: false,
       status,
       code,
-      retryInSec: code === 'rate_limit' ? Math.ceil(instagramCooldownRemainingMs() / 1000) : undefined,
+      retryInSec: code === 'not_found' ? undefined : Math.max(60, Math.ceil(instagramCooldownRemainingMs() / 1000) || 90),
     }
   }
 
@@ -338,11 +325,10 @@ async function syncProjectUncached(row: ProjectRow, opts?: { reason?: 'connect' 
 }
 
 /**
- * Scheduler tick: sync at most ONE due page per tick, so Instagram sees a
- * slow trickle rather than a burst. Skips entirely while cooling down.
+ * Scheduler tick: sync at most ONE due page per tick.
+ * Instagram cooldown only skips the IG probe; SocialBlade fallback still runs.
  */
 export async function syncDueConnectedPages(): Promise<{ synced: number; skipped: string }> {
-  if (isInstagramCoolingDown()) return { synced: 0, skipped: 'cooldown' }
   const cutoff = new Date(Date.now() - pageSyncIntervalMs()).toISOString()
   const attemptCutoff = new Date(Date.now() - 5 * 60_000).toISOString()
   const row = db

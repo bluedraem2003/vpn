@@ -289,7 +289,7 @@ async function analyzeInstagramPageUncached(
   if (!opts?.fresh && hit && Date.now() - hit.at < CACHE_MS) return { ok: true, data: hit.data }
   if (opts?.fresh && hit && Date.now() - hit.at < FRESH_MIN_MS) return { ok: true, data: hit.data }
 
-  if (!allowNetwork || isInstagramCoolingDown()) {
+  if (!allowNetwork) {
     const stale = staleFromStores(handle, 'rate_limit')
     if (stale) return stale
     return { ok: false, error: { code: 'rate_limit' } }
@@ -364,12 +364,17 @@ async function analyzeInstagramPageUncached(
     }
   })
 
-  const avgLikes = recentPosts.length ? Math.round(avg(recentPosts.map((p) => p.likes))) : 0
-  const avgComments = recentPosts.length ? Math.round(avg(recentPosts.map((p) => p.comments))) : 0
+  const avgLikes = recentPosts.length
+    ? Math.round(avg(recentPosts.map((p) => p.likes)))
+    : Math.round(fetched.extras?.averageLikes || 0)
+  const avgComments = recentPosts.length
+    ? Math.round(avg(recentPosts.map((p) => p.comments)))
+    : Math.round(fetched.extras?.averageComments || 0)
   const videoPosts = recentPosts.filter((p) => p.views != null)
   const avgViews = videoPosts.length ? Math.round(avg(videoPosts.map((p) => p.views || 0))) : 0
-  const engagementRate =
-    recentPosts.length ? Math.round(avg(recentPosts.map((p) => p.engagement)) * 100) / 100 : 0
+  const engagementRate = recentPosts.length
+    ? Math.round(avg(recentPosts.map((p) => p.engagement)) * 100) / 100
+    : Math.round((fetched.extras?.engagementRate || 0) * 100) / 100
 
   const times = recentPosts.map((p) => Date.parse(p.takenAt)).filter((t) => Number.isFinite(t)).sort((a, b) => b - a)
   let postCadenceDays: number | null = null

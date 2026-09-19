@@ -130,6 +130,7 @@ export function ProjectsPage() {
       const res = await api.syncProject(id)
       setItems((prev) => prev.map((p) => (p.id === id ? res.item : p)))
       if (res.sync?.ok) setMsg(res.sync.cached ? t('pagesLive.syncCached') : t('pagesLive.syncDone', { n: res.sync.events.length }))
+      else if (res.sync) setMsg(res.error || t('projects.savedError'))
     } catch (e) {
       const err = e as Error & { code?: string }
       setError(

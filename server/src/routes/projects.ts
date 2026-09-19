@@ -100,8 +100,13 @@ projectRoutes.post('/:id/sync', async (c) => {
   const item = mapProject(findProject(String(existing.id)))
   if (!sync.ok) {
     if (sync.retryInSec) c.header('Retry-After', String(sync.retryInSec))
-    const status = sync.code === 'rate_limit' ? 429 : sync.code === 'not_found' ? 404 : 503
-    return c.json({ item, sync: summarizeSync(sync), code: sync.code === 'rate_limit' ? 'ig_busy' : sync.code }, status)
+    const code = sync.code === 'rate_limit' ? 'ig_busy' : sync.code
+    return c.json({
+      item,
+      sync: summarizeSync(sync),
+      code,
+      error: syncMessage(sync.code),
+    })
   }
   return c.json({ item, sync: summarizeSync(sync) })
 })
@@ -166,6 +171,13 @@ projectRoutes.delete('/:id', (c) => {
   tx()
   return c.json({ ok: true })
 })
+
+function syncMessage(code: string) {
+  if (code === 'rate_limit') return 'اینستاگرام موقتاً محدود کرده؛ چند دقیقه بعد دوباره همگام‌سازی کن.'
+  if (code === 'not_found') return 'این آیدی در اینستاگرام پیدا نشد یا خصوصی است.'
+  if (code === 'no_handle') return 'این پیج آیدی اینستاگرام ندارد.'
+  return 'اینستاگرام الان در دسترس نبود. همگام‌سازی بعدی خودکار است.'
+}
 
 function summarizeSync(sync: Awaited<ReturnType<typeof syncProject>> | null) {
   if (!sync) return null

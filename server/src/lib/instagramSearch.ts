@@ -1,3 +1,5 @@
+import { fetchSocialBladeProfile, socialBladeUserAsGraph } from './socialbladeProfile.js'
+
 export type IgPageHit = {
   username: string
   name: string
@@ -165,11 +167,18 @@ export type IgFetchError = {
   status?: number
 }
 
+export type IgProfileExtras = {
+  averageLikes?: number
+  averageComments?: number
+  engagementRate?: number
+  via?: 'socialblade'
+}
+
 const profileCache = new Map<string, { at: number; user: Record<string, unknown> }>()
 const PROFILE_CACHE_MS = 15 * 60_000
 const profileInflight = new Map<
   string,
-  Promise<{ user: Record<string, unknown> | null; error?: IgFetchError }>
+  Promise<{ user: Record<string, unknown> | null; error?: IgFetchError; extras?: IgProfileExtras }>
 >()
 
 let igCooldownUntil = 0
@@ -347,47 +356,53 @@ function cachedProfile(handle: string) {
 async function fetchInstagramWebProfileUncached(handle: string): Promise<{
   user: Record<string, unknown> | null
   error?: IgFetchError
+  extras?: IgProfileExtras
 }> {
-  if (isInstagramCoolingDown()) {
-    const stale = cachedProfile(handle)
-    if (stale?.user) return { user: stale.user }
-    return { user: null, error: { code: 'rate_limit' } }
+  if (!isInstagramCoolingDown()) {
+    const appUrl = `https://i.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(handle)}`
+    const first = await igGetJson(appUrl, 5500, 'app')
+    const user = userFromPayload(first.data)
+    if (user?.username) {
+      profileCache.set(handle.toLowerCase(), { at: Date.now(), user })
+      return { user }
+    }
+
+    if (igShouldStopFollowup(first.status, first.data)) {
+      markInstagramRateLimit(first.retryAfterMs)
+      console.warn('[instagram] stopping after error — no HTML retry', handle, first.status)
+    } else if (instagramCookie() && igProbePolicy(first.status) !== 'not_found') {
+      // HTML only helps when we have a session; datacenter IPs get a login wall.
+      const html = await fetchProfileFromHtml(handle)
+      if (html.user?.username) {
+        profileCache.set(handle.toLowerCase(), { at: Date.now(), user: html.user })
+        return { user: html.user }
+      }
+      if (igShouldStopFollowup(html.status)) {
+        markInstagramRateLimit(html.retryAfterMs)
+      }
+    }
   }
 
-  const appUrl = `https://i.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(handle)}`
-  const first = await igGetJson(appUrl, 5500, 'app')
-  const user = userFromPayload(first.data)
-  if (user?.username) {
+  const stale = cachedProfile(handle)
+  if (stale?.user) return { user: stale.user }
+
+  const sb = await fetchSocialBladeProfile(handle)
+  if (sb) {
+    const user = socialBladeUserAsGraph(sb)
     profileCache.set(handle.toLowerCase(), { at: Date.now(), user })
-    return { user }
+    return {
+      user,
+      extras: {
+        averageLikes: Math.round(sb.averageLikes),
+        averageComments: Math.round(sb.averageComments),
+        engagementRate: sb.engagementRate,
+        via: 'socialblade',
+      },
+    }
   }
 
-  if (igShouldStopFollowup(first.status, first.data)) {
-    markInstagramRateLimit(first.retryAfterMs)
-    console.warn('[instagram] stopping after error — no HTML retry', handle, first.status)
-    const stale = cachedProfile(handle)
-    if (stale?.user) return { user: stale.user }
-    return { user: null, error: { code: 'rate_limit', status: first.status } }
-  }
-  if (igProbePolicy(first.status) === 'not_found') {
-    return { user: null, error: { code: 'not_found', status: first.status } }
-  }
-
-  const html = await fetchProfileFromHtml(handle)
-  if (html.user?.username) {
-    profileCache.set(handle.toLowerCase(), { at: Date.now(), user: html.user })
-    return { user: html.user }
-  }
-  if (igShouldStopFollowup(html.status)) {
-    markInstagramRateLimit(html.retryAfterMs)
-    const stale = cachedProfile(handle)
-    if (stale?.user) return { user: stale.user }
-    return { user: null, error: { code: 'rate_limit', status: html.status } }
-  }
-
-  const lastStatus = html.status || first.status
-  if (lastStatus === 404) return { user: null, error: { code: 'not_found', status: lastStatus } }
-  return { user: null, error: { code: 'unavailable', status: lastStatus || undefined } }
+  if (isInstagramCoolingDown()) return { user: null, error: { code: 'rate_limit' } }
+  return { user: null, error: { code: 'unavailable' } }
 }
 
 export async function fetchInstagramWebProfile(
@@ -396,6 +411,7 @@ export async function fetchInstagramWebProfile(
 ): Promise<{
   user: Record<string, unknown> | null
   error?: IgFetchError
+  extras?: IgProfileExtras
 }> {
   const handle = normalizeHandle(username)
   if (!handle) return { user: null, error: { code: 'not_found' } }
@@ -404,11 +420,6 @@ export async function fetchInstagramWebProfile(
   if (!opts?.skipCache) {
     const hit = profileCache.get(key)
     if (hit && Date.now() - hit.at < PROFILE_CACHE_MS) return { user: hit.user }
-  }
-  if (isInstagramCoolingDown()) {
-    const stale = cachedProfile(handle)
-    if (stale?.user) return { user: stale.user }
-    return { user: null, error: { code: 'rate_limit' } }
   }
 
   const existing = profileInflight.get(key)
