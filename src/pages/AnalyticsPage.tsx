@@ -136,7 +136,7 @@ export function AnalyticsPage() {
       const h = normalizeHandle(p.handle || p.clientName || '')
       if (!h) continue
       const key = h.toLowerCase()
-      if (seen.has(key)) continue
+      if (seen.has(key) || key === SAMPLE_HANDLE) continue
       seen.add(key)
       out.push({ handle: h, name: p.name || h })
     }

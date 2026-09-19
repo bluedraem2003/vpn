@@ -3,8 +3,49 @@ import { db } from '../db/index.js'
 import { requireAuth } from '../middleware/auth.js'
 import { hitRateLimit } from '../middleware/rateLimit.js'
 import { isLikelyIgHandle, normalizeHandle, searchInstagramPages, type IgPageHit } from '../lib/instagramSearch.js'
+import { isAllowedIgMediaHost, signInstagramMediaUrl, verifyInstagramMediaSig } from '../lib/igMedia.js'
 
 export const instagramRoutes = new Hono()
+
+instagramRoutes.get('/media', async (c) => {
+  if (hitRateLimit(`igmedia:${c.req.header('x-forwarded-for') || c.req.header('cf-connecting-ip') || 'x'}`, 80, 60_000)) {
+    return c.body(null, 429)
+  }
+  const url = c.req.query('url') || ''
+  const exp = c.req.query('exp') || ''
+  const sig = c.req.query('sig') || ''
+  if (!verifyInstagramMediaSig(url, exp, sig)) return c.body(null, 403)
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    return c.body(null, 400)
+  }
+  if (parsed.protocol !== 'https:' || !isAllowedIgMediaHost(parsed.hostname)) return c.body(null, 400)
+  try {
+    const { gotScraping } = await import('got-scraping')
+    const res = await gotScraping({
+      url: parsed.toString(),
+      responseType: 'buffer',
+      timeout: { request: 8000 },
+      throwHttpErrors: false,
+      headers: {
+        referer: 'https://www.instagram.com/',
+        accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+      },
+    })
+    if (res.statusCode < 200 || res.statusCode >= 300 || !res.body) return c.body(null, 502)
+    const ct = String(res.headers['content-type'] || 'image/jpeg').split(';')[0] || 'image/jpeg'
+    if (!ct.startsWith('image/')) return c.body(null, 502)
+    return c.body(res.body as Buffer, 200, {
+      'Content-Type': ct,
+      'Cache-Control': 'public, max-age=3600',
+    })
+  } catch {
+    return c.body(null, 502)
+  }
+})
+
 instagramRoutes.use('*', requireAuth)
 
 instagramRoutes.get('/search', async (c) => {
@@ -55,7 +96,10 @@ instagramRoutes.get('/search', async (c) => {
     ? [{ username: handle, name: handle, source: 'typed' }]
     : []
 
-  const items = dedupe([...remote, ...workspaceHits, ...typed]).slice(0, 12)
+  const items = dedupe([...remote, ...workspaceHits, ...typed]).slice(0, 12).map((item) => ({
+    ...item,
+    avatarUrl: item.avatarUrl ? signInstagramMediaUrl(item.avatarUrl) : undefined,
+  }))
   return c.json({ items, q })
 })
 

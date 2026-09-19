@@ -1,4 +1,5 @@
 import { fetchInstagramWebProfile, normalizeHandle } from './instagramSearch.js'
+import { signInstagramMediaUrl } from './igMedia.js'
 
 export type PagePostInsight = {
   shortcode: string
@@ -98,7 +99,9 @@ export async function analyzeInstagramPage(
       comments,
       views,
       takenAt: taken ? new Date(taken * 1000).toISOString() : '',
-      thumbUrl: node.thumbnail_src ? String(node.thumbnail_src) : node.display_url ? String(node.display_url) : undefined,
+      thumbUrl: signInstagramMediaUrl(
+        String(node.thumbnail_src || node.display_url || ''),
+      ),
       engagement: Math.round(engagement * 100) / 100,
     }
   })
@@ -140,7 +143,7 @@ export async function analyzeInstagramPage(
     handle: String(user.username || handle),
     name: String(user.full_name || user.username || handle),
     biography: String(user.biography || ''),
-    avatarUrl: user.profile_pic_url ? String(user.profile_pic_url) : undefined,
+    avatarUrl: signInstagramMediaUrl(String(user.profile_pic_url || '')),
     verified: Boolean(user.is_verified),
     isProfessional: Boolean(user.is_professional_account),
     isBusiness: Boolean(user.is_business_account),

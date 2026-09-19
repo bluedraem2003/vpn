@@ -1131,6 +1131,7 @@ a {
 
 .ig-search-wrap {
   position: relative;
+  z-index: 20;
 }
 
 .ig-search {
@@ -1173,7 +1174,7 @@ a {
   position: absolute;
   inset-inline: 0;
   top: calc(100% + 4px);
-  z-index: 40;
+  z-index: 80;
   margin: 0;
   background: var(--panel-solid);
   border: 1px solid var(--line);
@@ -1255,6 +1256,9 @@ a {
 
 .ig-insight-panel {
   margin-bottom: 1rem;
+  position: relative;
+  z-index: 8;
+  overflow: visible;
 }
 
 .ig-insight-toolbar {
