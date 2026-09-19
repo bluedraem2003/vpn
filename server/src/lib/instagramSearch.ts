@@ -11,6 +11,9 @@ export type IgPageHit = {
 const IG_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
 const IG_APP = '936619743392459'
+const IG_APP_ANDROID = '567067343352427'
+const IG_ANDROID_UA =
+  'Instagram 192.168.0.2.75 Android (33/13; 420dpi; 1080x2400; Google; Pixel 7; panther; panther; en_US; 458229258)'
 const WD_UA = { Accept: 'application/json', 'User-Agent': 'PostYar/1.0 (content studio)' }
 
 const PATH_SKIP = new Set([
@@ -241,24 +244,39 @@ function findUserObject(value: unknown, depth: number): Record<string, unknown> 
 async function igGetJson(
   url: string,
   ms = 5000,
+  mode: 'app' | 'web' = 'web',
 ): Promise<{ status: number; data: unknown | null }> {
   try {
     const gotScraping = await gotClient()
     const cookie = instagramCookie()
+    const headers: Record<string, string> =
+      mode === 'app'
+        ? {
+            'User-Agent': IG_ANDROID_UA,
+            'X-IG-App-ID': IG_APP_ANDROID,
+            'x-ig-app-id': IG_APP_ANDROID,
+            accept: 'application/json',
+          }
+        : {
+            ...igHeaders(cookie),
+            'x-ig-app-id': IG_APP,
+            accept: 'application/json',
+            referer: 'https://www.instagram.com/',
+          }
+    if (cookie && mode === 'app') {
+      headers.Cookie = cookie
+      const csrf = cookie.match(/csrftoken=([^;]+)/)?.[1]
+      if (csrf) headers['X-CSRFToken'] = csrf
+    }
     const res = await gotScraping({
       url,
-      headers: {
-        ...igHeaders(cookie),
-        'x-ig-app-id': IG_APP,
-        accept: 'application/json',
-        referer: 'https://www.instagram.com/',
-      },
+      headers,
       timeout: { request: ms },
       throwHttpErrors: false,
     })
     const status = res.statusCode
-    if (status === 404) return { status, data: null }
     const body = String(res.body || '')
+    if (status === 404) return { status, data: null }
     if (status < 200 || status >= 300) return { status, data: null }
     try {
       return { status, data: JSON.parse(body) }
@@ -315,40 +333,38 @@ export async function fetchInstagramWebProfile(username: string): Promise<{
   const urls = [
     `https://i.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(handle)}`,
     `https://www.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(handle)}`,
-    `https://www.instagram.com/${encodeURIComponent(handle)}/?__a=1&__d=dis`,
   ]
 
   let lastStatus = 0
-  const tryUrl = async (url: string, ms = 5000) => {
-    const { status, data } = await igGetJson(url, ms)
+  const tryUrl = async (url: string, mode: 'app' | 'web', ms = 5000) => {
+    const { status, data } = await igGetJson(url, ms, mode)
     lastStatus = status || lastStatus
     const user = userFromPayload(data)
     if (user?.username) return { user } as const
-    if (status === 404) return { error: { code: 'not_found' as const, status } }
     return null
   }
 
-  const first = await tryUrl(urls[0]!, 5000)
-  if (first && 'user' in first) return first
-  if (first && 'error' in first) return { user: null, error: first.error }
+  const first = await tryUrl(urls[0]!, 'app', 5000)
+  if (first) return first
 
   if (lastStatus === 429) {
     await sleep(350)
-    const retry = await tryUrl(urls[0]!, 5000)
-    if (retry && 'user' in retry) return retry
-    if (retry && 'error' in retry) return { user: null, error: retry.error }
+    const retry = await tryUrl(urls[0]!, 'app', 5000)
+    if (retry) return retry
   }
 
-  for (const url of urls.slice(1)) {
-    const hit = await tryUrl(url, 4500)
-    if (hit && 'user' in hit) return hit
-    if (hit && 'error' in hit) return { user: null, error: hit.error }
-  }
+  const second = await tryUrl(urls[1]!, 'app', 4500)
+  if (second) return second
+
+  const web = await tryUrl(urls[0]!, 'web', 4500)
+  if (web) return web
 
   const htmlUser = await fetchProfileFromHtml(handle)
   if (htmlUser?.username) return { user: htmlUser }
 
-  if (lastStatus === 429) return { user: null, error: { code: 'rate_limit', status: lastStatus } }
+  if (lastStatus === 429 || lastStatus === 401) {
+    return { user: null, error: { code: 'rate_limit', status: lastStatus } }
+  }
   if (lastStatus === 404) return { user: null, error: { code: 'not_found', status: lastStatus } }
   return { user: null, error: { code: 'unavailable', status: lastStatus || undefined } }
 }
