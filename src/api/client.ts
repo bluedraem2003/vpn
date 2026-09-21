@@ -1,4 +1,18 @@
-const API_BASE = import.meta.env.VITE_API_URL || ''
+function resolveApiBase() {
+  const configured = String(import.meta.env.VITE_API_URL || '').replace(/\/$/, '')
+  if (!configured || typeof window === 'undefined') return configured
+  const pageHost = window.location.hostname
+  if (pageHost === 'localhost' || pageHost === '127.0.0.1') return configured
+  try {
+    const apiHost = new URL(configured).hostname
+    if (apiHost === 'localhost' || apiHost === '127.0.0.1') return ''
+  } catch {
+    return ''
+  }
+  return configured
+}
+
+const API_BASE = resolveApiBase()
 
 let authToken: string | null =
   typeof localStorage !== 'undefined' ? localStorage.getItem('postyar_session_token') : null
