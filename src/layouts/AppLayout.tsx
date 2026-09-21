@@ -13,7 +13,6 @@ import {
   BarChart3,
   Settings,
   Sparkles,
-  LogOut,
   PartyPopper,
   Menu,
   X,
@@ -65,7 +64,7 @@ const groups: Array<{ key: string; links: NavLinkDef[] }> = [
 ]
 
 export function AppLayout() {
-  const { session, logout } = useAuth()
+  const { session } = useAuth()
   const { t, lang } = useI18n()
   const [menuOpen, setMenuOpen] = useState(false)
   const { unread } = useNotifications({ limit: 1 })
@@ -143,15 +142,6 @@ export function AppLayout() {
                 <strong>{session?.user.name}</strong>
                 <span>{session?.role}</span>
               </div>
-              <button
-                type="button"
-                className="btn btn-outline btn-sm ops-logout"
-                onClick={() => void logout()}
-                aria-label={t('common.logout')}
-              >
-                <LogOut size={14} aria-hidden />
-                <span>{t('common.logout')}</span>
-              </button>
             </div>
           </div>
         </div>
